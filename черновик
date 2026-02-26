@@ -1,0 +1,215 @@
+diff --git a/app.js b/app.js
+index c1c128eb778019af69a37dc7f9976e7dcaf07965..733328b2b1bb4ee2d77778965ded99603c5fcddd 100644
+--- a/app.js
++++ b/app.js
+@@ -41,58 +41,60 @@ const modal = document.getElementById('import-modal');
+ const openBtn = document.getElementById('open-import-btn');
+ const closeBtn = document.querySelector('.close-modal');
+ const importBtn = document.getElementById('import-btn');
+ const importArea = document.getElementById('import-area');
+ 
+ const resetLearnedBtn = document.getElementById('reset-learned-btn');
+ const exportBtn = document.getElementById('export-btn');
+ 
+ // Состояние
+ 
+ let mainQueue = [];      
+ let trainingHistory = []; 
+ let activePool = [];     
+ let currentWordIndex = 0;
+ let cardClickStage = 0; // 0 - лицо, 1 - перевод, 2 - пример
+ let isMuted = localStorage.getItem('isMuted') === 'true'; 
+ let isLoaded = false; 
+ const POOL_LIMIT = 50;   
+ 
+ let streakData = JSON.parse(localStorage.getItem('streakData')) || {
+     count: 0,
+     lastDate: null,
+     todayCount: 0
+ };
+ 
+-const INTERVALS = {
++const INTERVALS = {
+     0: 0,
+     1: 24 * 60 * 60 * 1000,
+     2: 3 * 24 * 60 * 60 * 1000,
+     3: 7 * 24 * 60 * 60 * 1000,
+     4: 14 * 24 * 60 * 60 * 1000,
+-    5: 30 * 24 * 60 * 60 * 1000
+-};
++    5: 30 * 24 * 60 * 60 * 1000
++};
++
++const TRAINING_TIME = 60 * 60;
+ 
+ // === 2. ОСНОВНЫЕ ФУНКЦИИ ===
+ 
+ async function loadWords() {
+     try {
+         const response = await fetch('http://localhost:3000/api/words');
+         if (!response.ok) throw new Error('Ошибка сети');
+         const data = await response.json();
+         
+         // Мапим данные, чтобы у каждого слова ТОЧНО были нужные поля
+         myWords = (Array.isArray(data) ? data : []).map(word => ({
+             ...word,
+             example: word.example || "",
+             exampleTranslate: word.exampleTranslate || ""
+         }));
+ 
+         isLoaded = true; 
+         render();
+     } catch (e) {
+         console.error("Ошибка загрузки сервера!", e);
+     }
+ }
+ // Используем функцию-безопасник, чтобы не ловить ошибки null
+ function safeSetClick(id, callback) {
+     const el = document.getElementById(id);
+@@ -264,54 +266,55 @@ async function loadTimerFromServer() {
+ async function saveTimerToServer() {
+     try {
+         await fetch('http://localhost:3000/api/timer', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ timeLeft: timeLeft })
+         });
+     } catch (e) {
+         console.warn("Не удалось синхронизировать время с сервером");
+     }
+ }
+ async function addExtraTime(minutes) {
+     timeLeft += minutes * 60;
+     
+     updateUI();
+     await saveTimerToServer(); // Сохраняем в БД сразу
+ 
+     const statusEl = document.getElementById('timer-status');
+     if (statusEl) {
+         statusEl.textContent = "Время добавлено";
+         statusEl.style.color = "#00ffcc";
+     }
+ }
+    
+ 
+-function fillPool() {
+-    while (activePool.length < POOL_LIMIT && mainQueue.length > 0) {
+-        activePool.push(mainQueue.shift());
+-    }
++function fillPool() {
++    while (activePool.length < POOL_LIMIT && mainQueue.length > 0) {
++        activePool.push(mainQueue.shift());
++    }
++}
+ 
+ // 2. Сброс таймера каждый новый день
+ function dailyReset() {
+     const lastVisit = localStorage.getItem('lastVisit');
+     const today = new Date().toLocaleDateString();
+ 
+     if (lastVisit !== today) {
+         timeLeft = TRAINING_TIME;
+         localStorage.setItem('timeLeft', timeLeft);
+         localStorage.setItem('lastVisit', today);
+     }
+ }
+ // 2. Умный запуск таймера
+ 
+ // 3. Форматирование времени
+ function updateUI() {
+     const displayEl = document.getElementById('timer-display');
+     if (!displayEl) return;
+     const mins = Math.floor(timeLeft / 60);
+     const secs = timeLeft % 60;
+     displayEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+ }
+ function updateFlashcard() {
+ 
+     if (activePool.length === 0) {
+@@ -917,71 +920,79 @@ function filterByLevel(level) {
+             card.style.display = 'none'; // Скрываем остальные
+         }
+     });
+ 
+     // Визуальный отклик: можно добавить уведомление или просто прокрутить к списку
+     console.log(`Фильтр: Уровень ${level}`);
+ }
+ function setTheme(color) {
+     // Устанавливаем основную переменную
+     document.documentElement.style.setProperty('--accent-color', color);
+     
+     // Создаем цвет для свечения (с прозрачностью)
+     const glowColor = color + '4D'; // Добавляем 4D (это ~30% прозрачности в HEX)
+     document.documentElement.style.setProperty('--accent-glow', glowColor);
+     
+     // Сохраняем выбор пользователя
+     localStorage.setItem('selectedTheme', color);
+     
+     // Перерисовываем статистику, так как там цвета прописаны в JS
+     updateLevelStats();
+ }
+ // Находим кнопку импорта по новому ID
+ const openImportBtn = document.getElementById('open-import-btn');
+ const importModal = document.getElementById('import-modal');
+ 
+-if (openImportBtn && importModal) {
+-    openImportBtn.onclick = () => {
+-        importModal.style.display = 'flex';
+-    };
+-}
++if (openImportBtn && importModal) {
++    openImportBtn.onclick = () => {
++        importModal.style.display = 'flex';
++    };
++}
++
++function openImportModal() {
++    if (!importModal) return;
++    importModal.style.display = 'flex';
++    if (importArea) {
++        setTimeout(() => importArea.focus(), 100);
++    }
++}
+ 
+ // Когда страница загрузилась
+ window.addEventListener('DOMContentLoaded', async () => {
+     // 1. ЗАГРУЗКА ДАННЫХ (оставляем как было)
+     await loadTimerFromServer(); 
+     await loadWords(); 
+ 
+     // 2. СБРОС СОСТОЯНИЙ (перенесли из шага 4)
+     localStorage.removeItem('isTrainingActive');
+     if (timerId) {
+         clearInterval(timerId);
+         timerId = null;
+     }
+ 
+     // 3. ОБРАБОТЧИКИ КНОПОК
+     safeSetClick('start-training-btn', startTraining);
+     safeSetClick('add-time-btn', () => addExtraTime(5));
+     safeSetClick('open-import-btn', openImportModal); // если есть такая функция
+ 
+     // 4. ВОЗВРАТ ИНТЕРФЕЙСА (перенесли из шага 4)
+     const trainSect = document.getElementById('training-section');
+     const mainUI = document.getElementById('main-ui');
+     if (trainSect) trainSect.style.display = 'none';
+     if (mainUI) mainUI.style.display = 'block';
+ 
+     const statusEl = document.getElementById('timer-status');
+     if (statusEl) statusEl.textContent = "В ожидании";
+ 
+     // 5. ИНИЦИАЛИЗАЦИЯ ВИЗУАЛА
+     updateStreak();
+     dailyReset();
+     updateUI(); // Показываем время на экране
+     
+     const savedTheme = localStorage.getItem('selectedTheme');
+     if (savedTheme) setTheme(savedTheme);
+ 
+     console.log("Приложение полностью готово к работе");
+ });
+ 
+-dailyReset();
+-updateUI();}
++dailyReset();
++updateUI();
