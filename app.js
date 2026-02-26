@@ -71,6 +71,11 @@ const INTERVALS = {
     4: 14 * 24 * 60 * 60 * 1000,
     5: 30 * 24 * 60 * 60 * 1000
 };
+const FORGET_STEPS = [
+    60 * 1000,
+    10 * 60 * 1000
+];
+
 const TRAINING_TIME = 60 * 60;
 
 // === 2. ОСНОВНЫЕ ФУНКЦИИ ===
@@ -82,10 +87,11 @@ async function loadWords() {
         const data = await response.json();
         
         // Мапим данные, чтобы у каждого слова ТОЧНО были нужные поля
-        myWords = (Array.isArray(data) ? data : []).map(word => ({
+                myWords = (Array.isArray(data) ? data : []).map(word => ({
             ...word,
             example: word.example || "",
-            exampleTranslate: word.exampleTranslate || ""
+            exampleTranslate: word.exampleTranslate || "",
+            forgetStep: Number(word.forgetStep) || 0
         }));
 
         isLoaded = true; 
@@ -467,8 +473,25 @@ function saveToHistory(wasRemoved = false) {
     trainingHistory.push({
         wordId: currentWord.id, indexInPool: currentWordIndex,
         oldLevel: currentWord.level, oldNextReview: currentWord.nextReview,
+        oldForgetStep: currentWord.forgetStep || 0,
         wasRemoved: wasRemoved
     });
+}
+
+function applyForgetSchedule(word) {
+    if (!word) return;
+
+    const step = Number(word.forgetStep) || 0;
+    const nextDelay = FORGET_STEPS[Math.min(step, FORGET_STEPS.length - 1)];
+
+    word.level = 0;
+    word.nextReview = Date.now() + nextDelay;
+
+    if (step < FORGET_STEPS.length - 1) {
+        word.forgetStep = step + 1;
+    } else {
+        word.forgetStep = 0;
+    }
 }
 
 document.getElementById('btn-know').onclick = async () => {
@@ -478,6 +501,7 @@ document.getElementById('btn-know').onclick = async () => {
     if (mainWord) {
         mainWord.level = Math.min((mainWord.level || 0) + 1, 5);
         mainWord.nextReview = Date.now() + INTERVALS[mainWord.level];
+        mainWord.forgetStep = 0;
         streakData.todayCount++;
         updateStreak();
         await save();
@@ -493,8 +517,7 @@ document.getElementById('btn-dont-know').onclick = () => {
     const word = activePool[currentWordIndex];
     const mainWord = myWords.find(w => w.id === word.id);
     if (mainWord) {
-        mainWord.level = 0;
-        mainWord.nextReview = Date.now();
+        applyForgetSchedule(mainWord);
         save();
     }
     currentWordIndex++;
@@ -509,6 +532,7 @@ document.getElementById('btn-back').onclick = () => {
     if (mainWord) {
         mainWord.level = lastState.oldLevel;
         mainWord.nextReview = lastState.oldNextReview;
+        mainWord.forgetStep = lastState.oldForgetStep || 0;
         save();
     }
     if (lastState.wasRemoved) activePool.splice(lastState.indexInPool, 0, mainWord);
@@ -527,6 +551,7 @@ if (resetLearnedBtn) {
             myWords.forEach(word => {
                 word.level = 0;
                 word.nextReview = Date.now();
+                word.forgetStep = 0;
             });
 
             // 2. Полностью обнуляем объект стрика
@@ -705,7 +730,7 @@ addBtn.onclick = async () => {
             original: en, translate: ru,
             example: inputEx.value.trim(),
             exampleTranslate: inputExRu.value.trim(),
-            level: 0, nextReview: Date.now()
+            level: 0, nextReview: Date.now(), forgetStep: 0
         });
         await save();
         render();
@@ -724,8 +749,7 @@ document.getElementById('btn-next').onclick = () => {
     // 2. Находим слово в основной базе и сбрасываем уровень
     const mainWord = myWords.find(w => w.id === word.id);
     if (mainWord) {
-        mainWord.level = 0;
-        mainWord.nextReview = Date.now();
+        applyForgetSchedule(mainWord);
         save(); // Отправляем на сервер
     }
 
@@ -741,13 +765,11 @@ function handleDontKnow() {
     const word = activePool[currentWordIndex];
     if (!word) return;
 
-    // Сбрасываем уровень прогресса слова (логика зависит от твоего приложения)
-    word.level = 0;
-    word.nextReview = Date.now() + 60000; // Повтор через минуту
+    applyForgetSchedule(word);
 
     // Перемещаем слово в конец очереди или просто идем дальше
     // Вызываем твою стандартную функцию перехода
-    nextStep(); 
+    nextStep();
     
     // Сохраняем изменения на сервер
     save(); 
@@ -810,7 +832,8 @@ if (importBtn) importBtn.onclick = async () => {
                     example: parts[2] || "",
                     exampleTranslate: parts[3] || "",
                     level: 0,
-                    nextReview: Date.now()
+                    nextReview: Date.now(),
+                    forgetStep: 0
                 });
                 importedCount++;
             }
