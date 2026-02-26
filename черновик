@@ -1,0 +1,353 @@
+async function startTraining() {
+    try {
+        // 0. Инициализация времени и элементов
+        const now = Date.now();
+        const trainSect = document.getElementById('training-section');
+        const mainUI = document.getElementById('main-ui');
+        
+        // Сначала синхронизируем время (ждем ответа от сервера)
+        await loadTimerFromServer();
+
+        // 1. Проверка времени: timeLeft должна быть объявлена глобально (let timeLeft)
+        if (typeof timeLeft === 'undefined' || timeLeft <= 0) {
+            alert("Время закончилось! Нажми '+5 мин', чтобы продолжить.");
+            return;
+        }
+
+        // 2. Проверка слов: убеждаемся, что myWords существует
+        if (!Array.isArray(myWords)) {
+            console.error("Массив слов myWords не инициализирован");
+            return;
+        }
+
+        const wordsToReview = myWords.filter(w => !w.nextReview || w.nextReview <= now);
+        
+        if (wordsToReview.length === 0) {
+            alert("На сегодня всё! Все доступные слова повторены.");
+            return;
+        }
+
+        // 3. Защита интерфейса
+        if (trainSect) {
+            trainSect.onselectstart = () => false; 
+            trainSect.oncopy = () => false;
+        }
+
+        // 4. Запуск таймера (если еще не запущен)
+        if (!timerId) {
+            const statusEl = document.getElementById('timer-status');
+            if (statusEl) {
+                statusEl.textContent = "Тренировка идет...";
+                statusEl.style.color = "#00ffcc";
+            }
+
+            timerId = setInterval(async () => {
+                if (timeLeft <= 0) {
+                    clearInterval(timerId);
+                    timerId = null;
+                    await saveTimerToServer();
+                    if (typeof finishDay === 'function') finishDay();
+                    return;
+                }
+
+                timeLeft--;
+                if (typeof updateUI === 'function') updateUI(); 
+
+                if (timeLeft % 10 === 0) {
+                    saveTimerToServer();
+                }
+            }, 1000);
+        }
+
+        // 5. Подготовка данных (ВАЖНО: записываем в глобальные переменные)
+        isSpellingMode = false;
+        mainQueue = [...wordsToReview].sort(() => Math.random() - 0.5);
+        activePool = [];
+        currentWordIndex = 0;
+        
+        if (typeof fillPool === 'function') fillPool();
+        
+        // 6. Прячем лишнее и показываем тренировку
+        const elementsToHide = [
+            document.getElementById('level-stats'),
+            mainUI,
+            document.querySelector('h1'),
+            document.querySelector('.progress-wrapper'),
+            document.getElementById('top-panel') || document.querySelector('.top-panel')
+        ];
+        
+        elementsToHide.forEach(el => { if (el) el.style.display = 'none'; });
+
+        if (trainSect) {
+            trainSect.style.display = 'flex';
+            document.body.classList.add('no-scroll');
+            if (typeof updateFlashcard === 'function') updateFlashcard();
+        }
+
+    } catch (error) {
+        console.error("Критическая ошибка в startTraining:", error);
+    }
+}
+// === 1. ИНИЦИАЛИЗАЦИЯ И СОСТОЯНИЕ ===
+let timeLeft = 0; 
+let timerId = null;
+let myWords = [];
+let mainQueue = [];       
+let trainingHistory = []; 
+let activePool = [];      
+let currentWordIndex = 0;
+let cardClickStage = 0; 
+let isMuted = localStorage.getItem('isMuted') === 'true';
+let isSpellingMode = false;
+let isLoaded = false; 
+const POOL_LIMIT = 50;
+const TRAINING_TIME = 3600;
+
+// Интервалы SRS
+const INTERVALS = {
+    0: 0,
+    1: 24 * 60 * 60 * 1000,
+    2: 3 * 24 * 60 * 60 * 1000,
+    3: 7 * 24 * 60 * 60 * 1000,
+    4: 14 * 24 * 60 * 60 * 1000,
+    5: 30 * 24 * 60 * 60 * 1000
+};
+
+let streakData = JSON.parse(localStorage.getItem('streakData')) || {
+    count: 0, lastDate: null, todayCount: 0
+};
+
+// Элементы DOM
+const inputEn = document.getElementById('input-en');
+const inputRu = document.getElementById('input-ru');
+const inputEx = document.getElementById('input-example');
+const inputExRu = document.getElementById('input-ex-ru');
+const trainSect = document.getElementById('training-section');
+const mainUI = document.getElementById('main-ui');
+const flashcard = document.getElementById('flashcard');
+const spellingInput = document.getElementById('spelling-input');
+const spellingFeedback = document.getElementById('spelling-feedback');
+const spellingArea = document.getElementById('spelling-area');
+
+// === 2. ОСНОВНЫЕ ФУНКЦИИ (API И РЕНДЕР) ===
+
+async function loadWords() {
+    try {
+        const response = await fetch('http://localhost:3000/api/words');
+        const data = await response.json();
+        myWords = (Array.isArray(data) ? data : []).map(w => ({
+            ...w, example: w.example || "", exampleTranslate: w.exampleTranslate || ""
+        }));
+        isLoaded = true; 
+        render();
+    } catch (e) { console.error("Ошибка загрузки слов!", e); }
+}
+
+async function save() {
+    if (!isLoaded) return;
+    try {
+        await fetch('http://localhost:3000/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(myWords)
+        });
+    } catch (e) { console.error("Ошибка сохранения", e); }
+}
+
+function render() {
+    const container = document.getElementById('cards-container');
+    if (!container) return;
+    container.innerHTML = ''; 
+    const now = Date.now();
+
+    myWords.forEach(word => { 
+        const level = word.level || 0;
+        const isReady = !word.nextReview || word.nextReview <= now;
+        const isMax = level === 5;
+        
+        container.innerHTML += `
+        <div class="card ${isReady && !isMax ? 'needs-review' : ''}" data-id="${word.id}" ${isMax ? 'style="opacity: 0.5"' : ''}>
+            <div class="card-content">
+                <span class="level-indicator">Ур. ${level}</span>
+                <span class="original">${word.original}</span> — 
+                <span class="translation hidden">${word.translate}</span>
+            </div>
+            <div class="actions">
+                <button class="speak-btn">🔊</button>
+                <button class="delete-btn">&times;</button>
+            </div>
+        </div>`;
+    });
+    updateOverallProgress();
+    updateLevelStats();
+}
+
+// === 3. ЛОГИКА ТРЕНИРОВКИ ===
+
+async function startTraining() {
+    const now = Date.now();
+    await loadTimerFromServer();
+
+    if (timeLeft <= 0) {
+        alert("Время закончилось! Добавь +5 мин.");
+        return;
+    }
+
+    const wordsToReview = myWords.filter(w => (!w.nextReview || w.nextReview <= now) && w.level < 5);
+    
+    if (wordsToReview.length === 0) {
+        alert("Слов для повторения нет!");
+        return;
+    }
+
+    // Инициализация очереди
+    mainQueue = [...wordsToReview].sort(() => Math.random() - 0.5);
+    activePool = [];
+    currentWordIndex = 0;
+    fillPool();
+
+    // Запуск таймера
+    if (!timerId) {
+        timerId = setInterval(async () => {
+            if (timeLeft <= 0) {
+                clearInterval(timerId);
+                timerId = null;
+                await saveTimerToServer();
+                finishDay();
+                return;
+            }
+            timeLeft--;
+            updateUI();
+            if (timeLeft % 10 === 0) saveTimerToServer();
+        }, 1000);
+    }
+
+    // Смена интерфейса
+    [mainUI, document.querySelector('h1'), document.querySelector('.progress-wrapper'), document.getElementById('level-stats')].forEach(el => {
+        if (el) el.style.display = 'none';
+    });
+    if (trainSect) {
+        trainSect.style.display = 'flex';
+        document.body.classList.add('no-scroll');
+        updateFlashcard();
+    }
+}
+
+function updateFlashcard() {
+    if (activePool.length === 0) {
+        finishTraining();
+        return;
+    }
+
+    cardClickStage = 0; 
+    const word = activePool[currentWordIndex];
+    
+    if (spellingInput) {
+        spellingInput.value = "";
+        spellingInput.focus();
+        spellingFeedback.innerText = "";
+    }
+
+    const isEnToRu = Math.random() > 0.5;
+    const front = document.getElementById('card-front');
+    const back = document.getElementById('card-back-text');
+    
+    if (isEnToRu) {
+        front.innerText = word.original;
+        back.innerText = word.translate;
+        word.currentExpectedAnswer = word.translate;
+    } else {
+        front.innerText = word.translate;
+        back.innerText = word.original;
+        word.currentExpectedAnswer = word.original;
+    }
+
+    document.getElementById('card-example').innerText = word.example || "";
+    document.getElementById('card-example-translate').innerText = word.exampleTranslate || "";
+    document.getElementById('total-remaining').innerText = mainQueue.length;
+    document.getElementById('current-pool-count').innerText = `${currentWordIndex + 1}/${activePool.length}`;
+}
+
+// Обработка ввода в режиме письма
+spellingInput.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+        if (flashcard.classList.contains('is-flipped')) {
+            document.getElementById('btn-know').click();
+            return;
+        }
+        const word = activePool[currentWordIndex];
+        const userValue = spellingInput.value.trim().toLowerCase();
+        const correct = word.currentExpectedAnswer.trim().toLowerCase();
+
+        if (userValue === correct) {
+            spellingFeedback.innerText = "✅ Верно!";
+            spellingFeedback.style.color = "#28a745";
+        } else {
+            spellingFeedback.innerText = `❌ Правильно: ${correct}`;
+            spellingFeedback.style.color = "#dc3545";
+        }
+        flashcard.classList.add('is-flipped');
+        cardClickStage = 1;
+    }
+};
+
+function finishTraining() {
+    if (trainSect) trainSect.style.display = 'none';
+    if (mainUI) mainUI.style.display = 'block';
+    document.querySelectorAll('h1, .progress-wrapper, #level-stats').forEach(el => el.style.display = 'flex');
+    document.body.classList.remove('no-scroll');
+    render();
+}
+
+// === 4. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+async function loadTimerFromServer() {
+    try {
+        const response = await fetch('http://localhost:3000/api/timer');
+        const data = await response.json();
+        timeLeft = data.timeLeft;
+        updateUI();
+    } catch (e) { console.error("Ошибка таймера"); }
+}
+
+async function saveTimerToServer() {
+    try {
+        await fetch('http://localhost:3000/api/timer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ timeLeft: timeLeft })
+        });
+    } catch (e) { }
+}
+
+function updateUI() {
+    const el = document.getElementById('timer-display');
+    if (!el) return;
+    const mins = Math.floor(timeLeft / 60);
+    const secs = timeLeft % 60;
+    el.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+function fillPool() {
+    while (activePool.length < POOL_LIMIT && mainQueue.length > 0) {
+        activePool.push(mainQueue.shift());
+    }
+}
+
+// Специфические функции кнопок
+function safeSetClick(id, callback) {
+    const el = document.getElementById(id);
+    if (el) el.onclick = callback;
+}
+
+// Инициализация при загрузке
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadTimerFromServer();
+    await loadWords();
+    
+    safeSetClick('start-training-btn', startTraining);
+    safeSetClick('add-time-btn', () => addExtraTime(5));
+    safeSetClick('stop-training', finishTraining);
+    
+    const savedTheme = localStorage.getItem('selectedTheme');
+    if (savedTheme) setTheme(savedTheme);
+});
