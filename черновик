@@ -228,3 +228,7 @@ git commit -m "Initial commit"
 git branch -M main
 git remote add origin https://github.com/<твой-логин>/<репо>.git
 git push -u origin main
+
+git status -sb
+
+git pull --rebase origin main
