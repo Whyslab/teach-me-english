@@ -212,14 +212,20 @@ function updateOverallProgress() {
 
 // === УМНЫЙ ЗАПУСК ТРЕНИРОВКИ ===
 async function startTraining() {
+    const didDailyReset = await dailyReset();
+
     // 1. Сначала объявляем время, чтобы фильтр слов его видел
     const now = Date.now(); 
 
-    // 2. Синхронизируем время с сервером
-    try {
-        await loadTimerFromServer();
-    } catch (e) {
-        console.error("Не удалось подтянуть время, работаем на локальном");
+    // 2. Синхронизируем время с сервером.
+    // Если только что был дневной сброс, локальное время уже корректное,
+    // и его нельзя перетирать потенциально устаревшим серверным значением.
+    if (!didDailyReset) {
+        try {
+            await loadTimerFromServer();
+        } catch (e) {
+            console.error("Не удалось подтянуть время, работаем на локальном");
+        }
     }
 
     // 3. Проверка: timeLeft должна быть объявлена в самом верху app.js как let
@@ -310,15 +316,21 @@ function fillPool() {
     }
 }
 // 2. Сброс таймера каждый новый день
-function dailyReset() {
+async function dailyReset() {
     const lastVisit = localStorage.getItem('lastVisit');
     const today = new Date().toLocaleDateString();
 
     if (lastVisit !== today) {
         timeLeft = TRAINING_TIME;
-        localStorage.setItem('timeLeft', timeLeft);
+        localStorage.setItem('timeLeft', String(timeLeft));
         localStorage.setItem('lastVisit', today);
+
+        // Таймер хранится на сервере, поэтому сбрасываем его там же.
+        await saveTimerToServer();
+        return true;
     }
+
+    return false;
 }
 // 2. Умный запуск таймера
 
@@ -1148,7 +1160,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // 5. ИНИЦИАЛИЗАЦИЯ ВИЗУАЛА
     updateStreak();
-    dailyReset();
+    await dailyReset();
     updateUI(); // Показываем время на экране
     
     const savedTheme = localStorage.getItem('selectedTheme');
@@ -1157,5 +1169,4 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.log("Приложение полностью готово к работе");
 });
 
-dailyReset();
 updateUI();
