@@ -11,10 +11,6 @@ const addBtn = document.getElementById('add-btn');
 const clearBtn = document.getElementById('clear-all');
 const searchInput = document.getElementById('search-input');
 
-// Глобальная переменная для управления таймером
-
-let isTrainingActive = localStorage.getItem('isTrainingActive') === 'true';
-
 let isSpellingMode = false; 
 const spellingArea = document.getElementById('spelling-area');
 const spellingInput = document.getElementById('spelling-input');
@@ -27,7 +23,6 @@ const progressStat = document.getElementById('progress-stat');
 
 const mainHeader = document.querySelector('h1');
 const progressWrapper = document.querySelector('.progress-wrapper');
-const topPanel = document.getElementById('top-panel') || document.querySelector('.top-panel');
 const muteBtn = document.getElementById('mute-btn');
 const muteIcon = document.getElementById('mute-icon');
 
@@ -38,7 +33,6 @@ const mainUI = document.getElementById('main-ui');
 const flashcard = document.getElementById('flashcard');
 
 const modal = document.getElementById('import-modal');
-const openBtn = document.getElementById('open-import-btn');
 const closeBtn = document.querySelector('.close-modal');
 const importBtn = document.getElementById('import-btn');
 const importArea = document.getElementById('import-area');
@@ -60,13 +54,13 @@ function safeParseStorage(key, fallback) {
         return fallback;
     }
 }
-// Состояние
 
+// Состояние
 let mainQueue = [];      
 let trainingHistory = []; 
 let activePool = [];     
 let currentWordIndex = 0;
-let cardClickStage = 0; // 0 - лицо, 1 - перевод, 2 - пример
+let cardClickStage = 0;
 let isMuted = localStorage.getItem('isMuted') === 'true'; 
 let isLoaded = false; 
 const POOL_LIMIT = 50;   
@@ -93,22 +87,21 @@ const FORGET_STEPS = [
 ];
 
 const TRAINING_TIME = 60 * 60;
-const SAVE_DEBOUNCE_MS = 250;
 const API_BASE = window.location.origin;
 
 function apiUrl(path) {
     return `${API_BASE}${path}`;
 }
+
 // === 2. ОСНОВНЫЕ ФУНКЦИИ ===
 
 async function loadWords() {
     try {
-       const response = await fetch(apiUrl('/api/words'));
+        const response = await fetch(apiUrl('/api/words'));
         if (!response.ok) throw new Error('Ошибка сети');
         const data = await response.json();
         
-        // Мапим данные, чтобы у каждого слова ТОЧНО были нужные поля
-                myWords = (Array.isArray(data) ? data : []).map(word => ({
+        myWords = (Array.isArray(data) ? data : []).map(word => ({
             ...word,
             example: word.example || "",
             exampleTranslate: word.exampleTranslate || "",
@@ -119,9 +112,11 @@ async function loadWords() {
         render();
     } catch (e) {
         console.error("Ошибка загрузки сервера!", e);
+        isLoaded = true;
+        render();
     }
 }
-// Используем функцию-безопасник, чтобы не ловить ошибки null
+
 function safeSetClick(id, callback) {
     const el = document.getElementById(id);
     if (el) {
@@ -131,7 +126,6 @@ function safeSetClick(id, callback) {
     }
 }
 
-    
 function speak(text) {
     if (!window.speechSynthesis || isMuted) return; 
     window.speechSynthesis.cancel();
@@ -144,13 +138,12 @@ function speak(text) {
 function render() {
     if (!element) return;
     
-    const now = Date.now(); // Текущее время
+    const now = Date.now();
 
     const cardsHTML = myWords.map(word => { 
         const level = word.level || 0;
         const isMaxLevel = level === 5;
         
-        // ПРОВЕРКА: Пора ли повторять?
         const isReady = !word.nextReview || word.nextReview <= now;
         const reviewClass = (isReady && !isMaxLevel) ? 'needs-review' : '';
         
@@ -174,7 +167,7 @@ function render() {
 
     element.innerHTML = cardsHTML;
     updateOverallProgress();
-    updateLevelStats(); // Вызываем новую функцию статистики
+    updateLevelStats();
     updateVisualProgress();
 }
 
@@ -210,39 +203,40 @@ function updateOverallProgress() {
 
 // === 3. ЛОГИКА ТРЕНИРОВКИ ===
 
-// === УМНЫЙ ЗАПУСК ТРЕНИРОВКИ ===
 async function startTraining() {
-    // 1. Сначала объявляем время, чтобы фильтр слов его видел
-    const now = Date.now(); 
+    // 1. Ежедневный сброс таймера если нужно
+    await dailyReset();
 
-    // 2. Синхронизируем время с сервером
+    // 2. Подгружаем актуальное время с сервера
     try {
         await loadTimerFromServer();
     } catch (e) {
         console.error("Не удалось подтянуть время, работаем на локальном");
     }
 
-    // 3. Проверка: timeLeft должна быть объявлена в самом верху app.js как let
+    // ✅ ИСПРАВЛЕНО: если timeLeft = 0, даём время автоматически вместо блокировки
     if (timeLeft <= 0) {
-        alert("Время вышло! Нажми '+5 мин'.");
-        return;
+        timeLeft = TRAINING_TIME;
+        await saveTimerToServer();
     }
 
-    // 4. Фильтруем слова (теперь 'now' определен!)
+    const now = Date.now();
+
+    // ✅ ИСПРАВЛЕНО: фильтруем слова один раз и проверяем корректно
     const wordsToReview = myWords.filter(w => !w.nextReview || w.nextReview <= now);
     
-    if (myWords.filter(w => !w.nextReview || w.nextReview <= Date.now()).length === 0) {
-        alert("Все слова повторены!");
+    if (wordsToReview.length === 0) {
+        alert("Все слова уже повторены! Добавь новые или подожди следующего повторения.");
         return;
     }
 
-    // 5. Переносим локальные слова в глобальную очередь
+    // Переносим слова в очередь
     mainQueue = [...wordsToReview].sort(() => Math.random() - 0.5);
     activePool = [];
     currentWordIndex = 0;
     fillPool();
 
-    // 6. Логика таймера
+    // Запускаем таймер если он ещё не идёт
     if (!timerId) {
         timerId = setInterval(async () => {
             if (timeLeft <= 0) {
@@ -258,7 +252,7 @@ async function startTraining() {
         }, 1000);
     }
 
-    // 7. Визуальное переключение
+    // Визуальное переключение
     document.getElementById('main-ui').style.display = 'none';
     document.getElementById('training-section').style.display = 'flex';
 
@@ -269,16 +263,22 @@ async function startTraining() {
 
     updateFlashcard();
 }
+
 async function loadTimerFromServer() {
     try {
         const response = await fetch(apiUrl('/api/timer'));
+        if (!response.ok) throw new Error('Timer API unavailable');
         const data = await response.json();
-        timeLeft = data.timeLeft;
-        updateUI(); // Обновляем цифры на экране
+        // ✅ ИСПРАВЛЕНО: не перезаписываем timeLeft нулём с сервера
+        if (data.timeLeft > 0) {
+            timeLeft = data.timeLeft;
+        }
+        updateUI();
     } catch (e) {
-        console.error("Ошибка загрузки таймера с сервера");
+        console.warn("Ошибка загрузки таймера с сервера, используем локальное значение");
     }
 }
+
 async function saveTimerToServer() {
     try {
         await fetch(apiUrl('/api/timer'), {
@@ -290,11 +290,11 @@ async function saveTimerToServer() {
         console.warn("Не удалось синхронизировать время с сервером");
     }
 }
+
 async function addExtraTime(minutes) {
     timeLeft += minutes * 60;
-    
     updateUI();
-    await saveTimerToServer(); // Сохраняем в БД сразу
+    await saveTimerToServer();
 
     const statusEl = document.getElementById('timer-status');
     if (statusEl) {
@@ -302,27 +302,26 @@ async function addExtraTime(minutes) {
         statusEl.style.color = "#00ffcc";
     }
 }
-   
 
 function fillPool() {
     while (activePool.length < POOL_LIMIT && mainQueue.length > 0) {
         activePool.push(mainQueue.shift());
     }
 }
-// 2. Сброс таймера каждый новый день
-function dailyReset() {
+
+async function dailyReset() {
     const lastVisit = localStorage.getItem('lastVisit');
     const today = new Date().toLocaleDateString();
 
     if (lastVisit !== today) {
         timeLeft = TRAINING_TIME;
-        localStorage.setItem('timeLeft', timeLeft);
         localStorage.setItem('lastVisit', today);
+        await saveTimerToServer();
+        return true;
     }
+    return false;
 }
-// 2. Умный запуск таймера
 
-// 3. Форматирование времени
 function updateUI() {
     const displayEl = document.getElementById('timer-display');
     if (!displayEl) return;
@@ -330,8 +329,8 @@ function updateUI() {
     const secs = timeLeft % 60;
     displayEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
-function updateFlashcard() {
 
+function updateFlashcard() {
     if (activePool.length === 0) {
         finishTraining();
         return;
@@ -340,18 +339,13 @@ function updateFlashcard() {
     cardClickStage = 0; 
     const word = activePool[currentWordIndex];
     
-    // --- ОЧИСТКА ПОЛЕЙ РЕЖИМА ПИСЬМА ---
-    const spellingInput = document.getElementById('spelling-input');
-    const spellingFeedback = document.getElementById('spelling-feedback');
-    
     if (spellingInput) {
-        spellingInput.value = ""; // Очищаем поле ввода
-        spellingInput.focus();    // Ставим фокус для следующего слова
+        spellingInput.value = "";
+        if (isSpellingMode) spellingInput.focus();
     }
     if (spellingFeedback) {
-        spellingFeedback.innerText = ""; // Убираем надпись "Верно!"
+        spellingFeedback.innerText = "";
     }
-    // ----------------------------------
 
     const cardFront = document.getElementById('card-front');
     const cardBackText = document.getElementById('card-back-text');
@@ -381,9 +375,9 @@ function updateFlashcard() {
     document.getElementById('total-remaining').innerText = mainQueue.length;
     document.getElementById('current-pool-count').innerText = `${currentWordIndex + 1}/${activePool.length}`;
 }
+
 flashcard.onclick = () => {
     if (isSpellingMode && !flashcard.classList.contains('is-flipped')) return;
-    
 
     const word = activePool[currentWordIndex];
     const exampleBlock = document.getElementById('card-example-block');
@@ -392,29 +386,23 @@ flashcard.onclick = () => {
     
     const hasExample = word && word.example && word.example.trim() !== "";
 
-    // ШАГ 1: Переворачиваем карточку
     if (cardClickStage === 0) {
         flashcard.classList.add('is-flipped');
         if (!isMuted && word) speak(word.original);
         cardClickStage = 1;
-    } 
-    // ШАГ 2: Показываем блок примера и САМ ПРИМЕР (En)
-    else if (cardClickStage === 1 && hasExample) {
+    } else if (cardClickStage === 1 && hasExample) {
         if (exampleBlock) exampleBlock.style.display = 'block';
         if (cardExample) cardExample.style.visibility = 'visible';
-        if (cardExRu) cardExRu.style.visibility = 'hidden'; // Перевод пока спит
+        if (cardExRu) cardExRu.style.visibility = 'hidden';
         cardClickStage = 2;
-    } 
-    // ШАГ 3: Показываем ПЕРЕВОД примера (Ru)
-    else if (cardClickStage === 2 && hasExample) {
+    } else if (cardClickStage === 2 && hasExample) {
         if (cardExRu) cardExRu.style.visibility = 'visible';
         cardClickStage = 3;
-    } 
-    // ШАГ 4: Если кликнуть еще раз — сброс (или если примера вообще нет)
-    else {
+    } else {
         resetCardView();
     }
 };
+
 function resetCardView() {
     cardClickStage = 0;
     if (flashcard) flashcard.classList.remove('is-flipped');
@@ -429,64 +417,49 @@ function resetCardView() {
         if (cardExRu) cardExRu.style.visibility = 'hidden';
     }, 200);
 }
-// 1. При запуске тренировки — скрываем уровни
 
 function stopTraining() {
     clearInterval(timerId);
     timerId = null;
-    isTrainingActive = false;
-    localStorage.setItem('isTrainingActive', 'false');
     
     const statusEl = document.getElementById('timer-status');
     if (statusEl) statusEl.textContent = "На паузе";
 }
+
 function finishDay() {
-    // 1. Останавливаем таймер
     clearInterval(timerId);
     timerId = null;
 
-    // 2. Выходим из режима тренировки в главное меню
     finishTraining(); 
 
-    // 3. Показываем уведомление
     alert("Время тренировки вышло! На сегодня достаточно. Но ты можешь продолжить работу со словарем в обычном режиме.");
     
-    // 4. Опционально: меняем статус таймера
     const statusEl = document.getElementById('timer-status');
     if (statusEl) {
         statusEl.textContent = "Лимит исчерпан";
         statusEl.style.color = "#ff4444";
     }
 }
-// 2. При завершении — ОБЯЗАТЕЛЬНО показываем обратно
+
 function finishTraining() {
     const levelStats = document.getElementById('level-stats');
     const mainUI = document.getElementById('main-ui');
     const trainSect = document.getElementById('training-section');
-    
-    // Новые элементы, которые нужно вернуть:
     const mainHeader = document.querySelector('h1');
     const progressWrapper = document.querySelector('.progress-wrapper');
-    const topPanel = document.getElementById('top-panel') || document.querySelector('.top-panel');
 
-    // Прячем экран тренировки, показываем главный экран
     if (trainSect) trainSect.style.display = 'none';
     if (mainUI) mainUI.style.display = 'block';
-    
-    // ВОЗВРАЩАЕМ ЗАГОЛОВОК И ПРОГРЕСС
     if (mainHeader) mainHeader.style.display = 'block';
     if (progressWrapper) progressWrapper.style.display = 'block';
-    if (topPanel) topPanel.style.display = 'flex'; // Панель обычно flex
-    
-    // Возвращаем статистику уровней
-    if (levelStats) levelStats.style.display = 'flex'; 
+    if (levelStats) levelStats.style.display = 'flex';
 
-    // Возвращаем скролл страницы
     document.body.classList.remove('no-scroll');
     document.body.style.overflow = 'auto';
 
     render(); 
 }
+
 function nextStep() {
     flashcard.classList.remove('is-flipped');
     setTimeout(updateFlashcard, 300);
@@ -528,7 +501,7 @@ document.getElementById('btn-know').onclick = async () => {
         mainWord.nextReview = Date.now() + INTERVALS[mainWord.level];
         mainWord.forgetStep = 0;
         streakData.todayCount++;
-         recordDailyLearn(1);
+        recordDailyLearn(1);
         updateStreak();
         await save();
     }
@@ -566,42 +539,55 @@ document.getElementById('btn-back').onclick = () => {
     nextStep();
 };
 
-// === 4. ОБРАБОТЧИКИ СОБЫТИЙ ===
+document.getElementById('btn-next').onclick = () => {
+    const word = activePool[currentWordIndex];
+    if (!word) return;
 
+    saveToHistory(false); 
+
+    const mainWord = myWords.find(w => w.id === word.id);
+    if (mainWord) {
+        applyForgetSchedule(mainWord);
+        save();
+    }
+
+    currentWordIndex++;
+    if (currentWordIndex >= activePool.length) {
+        currentWordIndex = 0;
+    }
+    
+    nextStep();
+};
+
+// === 4. ОБРАБОТЧИКИ СОБЫТИЙ ===
 
 if (resetLearnedBtn) {
     resetLearnedBtn.onclick = async () => {
         if (confirm("Вы уверены? Это обнулит уровни слов, стрик и счетчик за сегодня!")) {
-            
-            // 1. Сбрасываем уровни слов
             myWords.forEach(word => {
                 word.level = 0;
                 word.nextReview = Date.now();
                 word.forgetStep = 0;
             });
 
-            // 2. Полностью обнуляем объект стрика
             streakData = {
-                count: 0,        // Огонь (дни подряд)
-                lastDate: new Date().toDateString(), // Сегодняшняя дата
-                todayCount: 0    // Твои "17 / 10" превратятся в "0 / 10"
+                count: 0,
+                lastDate: new Date().toDateString(),
+                todayCount: 0
             };
 
-            // 3. Сохраняем обнуленные данные в локальную память браузера
             localStorage.setItem('streakData', JSON.stringify(streakData));
             dailyActivity = {};
             localStorage.setItem('dailyActivity', JSON.stringify(dailyActivity));
 
-            // 4. Отправляем пустые уровни на сервер
             await save(); 
 
-            // 5. ОБНОВЛЯЕМ ЭКРАН
             if (typeof updateStreak === 'function') {
-                updateStreak(); // Эта функция обновит текст "0 / 10"
+                updateStreak();
             }
             
-            render();                // Перерисует список слов
-            updateOverallProgress(); // Сбросит общую полосу прогресса
+            render();
+            updateOverallProgress();
             
             alert("Весь прогресс, включая дневной счетчик, сброшен!");
         }
@@ -625,11 +611,11 @@ clearBtn.onclick = async () => {
         render();
     }
 };
+
 function updateLevelStats() {
     const statsEl = document.getElementById('level-stats');
     if (!statsEl) return;
 
-    // 1. Берем текущий акцентный цвет из CSS-переменной
     const accentColor = getComputedStyle(document.documentElement)
                         .getPropertyValue('--accent-color').trim() || '#00d2ff';
 
@@ -638,9 +624,7 @@ function updateLevelStats() {
         counts[w.level || 0]++;
     });
 
-    // 2. Генерируем карточки уровней
     let statsHTML = Object.entries(counts).map(([lvl, count]) => {
-        // Уровень 5 всегда зеленый (успех), остальные — в цвет темы
         const color = lvl == 5 ? '#28a745' : accentColor;
         
         return `
@@ -653,7 +637,6 @@ function updateLevelStats() {
         `;
     }).join('');
 
-    // 3. Кнопка "Все" (белая подложка для контраста)
     statsHTML += `
         <div class="stat-item" 
              onclick="filterByLevel('all')" 
@@ -671,65 +654,54 @@ toggleModeBtn.onclick = () => {
     const btnKnow = document.getElementById('btn-know');
     const btnDontKnow = document.getElementById('btn-dont-know');
     const btnBack = document.getElementById('btn-back');
-    const btnNext = document.getElementById('btn-next'); // Находим нашу новую кнопку
+    const btnNext = document.getElementById('btn-next');
 
     if (isSpellingMode) {
         toggleModeBtn.innerHTML = "<span>📝</span> Режим: Письмо";
         spellingArea.style.display = 'block';
-        
-        // В режиме ПИСЬМА:
-        btnKnow.style.display = 'none';      // Прячем "Знаю"
-        btnDontKnow.style.display = 'none';  // Прячем "Не знаю"
-        btnNext.style.display = 'block';     // ПОКАЗЫВАЕМ "Вперед"
-        
+        btnKnow.style.display = 'none';
+        btnDontKnow.style.display = 'none';
+        btnNext.style.display = 'block';
         btnBack.classList.add('full-width-btn');
         spellingInput.focus();
     } else {
         toggleModeBtn.innerHTML = "<span>🎴</span> Режим: Карточки";
         spellingArea.style.display = 'none';
-        
-        // В режиме КАРТОЧЕК:
-        btnKnow.style.display = 'block';     // Показываем "Знаю"
-        btnDontKnow.style.display = 'block'; // Показываем "Не знаю"
-        btnNext.style.display = 'none';      // ПРЯЧЕМ "Вперед"
-        
+        btnKnow.style.display = 'block';
+        btnDontKnow.style.display = 'block';
+        btnNext.style.display = 'none';
         btnBack.classList.remove('full-width-btn');
     }
 };
+
+// ✅ ИСПРАВЛЕНО: убран дублирующий обработчик Enter, логика объединена корректно
 spellingInput.onkeydown = (e) => {
-    if (e.key === 'Enter') {
-    // Если карточка уже открыта, второй Enter переводит к следующему слову
+    if (e.key !== 'Enter') return;
+
+    // Если карточка уже перевёрнута — второй Enter переходит к следующему слову
     if (flashcard.classList.contains('is-flipped')) {
         document.getElementById('btn-know').click();
         return;
     }
-    // ... остальной код проверки слова ...
-}
-    if (e.key === 'Enter') {
-        const word = activePool[currentWordIndex];
-        const userValue = spellingInput.value.trim().toLowerCase();
-        const correctAnswer = word.currentExpectedAnswer.trim().toLowerCase();
 
-        if (userValue === correctAnswer) {
-            spellingFeedback.innerText = "✅ Верно!";
-            spellingFeedback.style.color = "#28a745";
-            flashcard.classList.add('is-flipped');
-            cardClickStage = 1; // Теперь ты можешь кликать и смотреть примеры
-        } else {
-            spellingFeedback.innerText = `❌ Правильно: ${correctAnswer}`;
-            spellingFeedback.style.color = "#dc3545";
-            flashcard.classList.add('is-flipped');
-            cardClickStage = 1;
-        }
-        // ТАЙМЕР УДАЛЕН. Теперь переход только по кнопке или Enter еще раз.
+    // Проверяем введённый ответ
+    const word = activePool[currentWordIndex];
+    if (!word) return;
+
+    const userValue = spellingInput.value.trim().toLowerCase();
+    const correctAnswer = (word.currentExpectedAnswer || '').trim().toLowerCase();
+
+    if (userValue === correctAnswer) {
+        spellingFeedback.innerText = "✅ Верно!";
+        spellingFeedback.style.color = "#28a745";
+    } else {
+        spellingFeedback.innerText = `❌ Правильно: ${correctAnswer}`;
+        spellingFeedback.style.color = "#dc3545";
     }
-};
 
-function resetSpelling() {
-    spellingInput.value = '';
-    spellingFeedback.innerText = '';
-    setTimeout(() => spellingInput.focus(), 100);
-}
+    flashcard.classList.add('is-flipped');
+    cardClickStage = 1;
+};
 
 function toDayKey(date = new Date()) {
     return date.toISOString().slice(0, 10);
@@ -865,7 +837,6 @@ function updateStreak() {
     if (dailyCountEl) dailyCountEl.innerText = streakData.todayCount;
     
     localStorage.setItem('streakData', JSON.stringify(streakData));
-    
 }
 
 addBtn.onclick = async () => {
@@ -885,42 +856,7 @@ addBtn.onclick = async () => {
         inputEn.focus();
     }
 };
-document.getElementById('btn-next').onclick = () => {
-    // В режиме письма эта кнопка работает как "Не знаю"
-    const word = activePool[currentWordIndex];
-    if (!word) return;
 
-    // 1. Сохраняем состояние в историю (чтобы можно было нажать "Назад")
-    saveToHistory(false); 
-
-    // 2. Находим слово в основной базе и сбрасываем уровень
-    const mainWord = myWords.find(w => w.id === word.id);
-    if (mainWord) {
-        applyForgetSchedule(mainWord);
-        save(); // Отправляем на сервер
-    }
-
-    // 3. Двигаемся к следующему слову
-    currentWordIndex++;
-    if (currentWordIndex >= activePool.length) {
-        currentWordIndex = 0;
-    }
-    
-    nextStep();
-};
-function handleDontKnow() {
-    const word = activePool[currentWordIndex];
-    if (!word) return;
-
-    applyForgetSchedule(word);
-
-    // Перемещаем слово в конец очереди или просто идем дальше
-    // Вызываем твою стандартную функцию перехода
-    nextStep();
-    
-    // Сохраняем изменения на сервер
-    save(); 
-}
 element.onclick = (e) => {
     const card = e.target.closest('.card');
     if (!card) return;
@@ -940,10 +876,7 @@ element.onclick = (e) => {
 };
 
 if (stopBtn) stopBtn.onclick = finishTraining;
-if (openBtn) openBtn.onclick = () => {
-    modal.style.display = "block";
-    setTimeout(() => importArea.focus(), 100); // Фокус на поле импорта
-};
+
 if (closeBtn) closeBtn.onclick = () => modal.style.display = "none";
 
 if (importBtn) importBtn.onclick = async () => {
@@ -957,22 +890,18 @@ if (importBtn) importBtn.onclick = async () => {
     lines.forEach(line => {
         const parts = line.split('|').map(p => p.trim());
         
-        // Проверяем, что в строке есть хотя бы оригинал и перевод
         if (parts.length >= 2) {
             const originalText = parts[0];
             const translateText = parts[1];
-
-            // ПРОВЕРКА НА ДУБЛИКАТ
-           const originalKey = originalText.toLowerCase();
+            const originalKey = originalText.toLowerCase();
 
             if (existingWords.has(originalKey)) {
                 duplicateCount++;
                 if (duplicatesList.length < 20) duplicatesList.push(originalText);
             } else {
-            existingWords.add(originalKey);
-                // Если слова нет — добавляем
+                existingWords.add(originalKey);
                 myWords.push({
-                    id: Date.now() + Math.random(), // Уникальный ID
+                    id: Date.now() + Math.random(),
                     original: originalText,
                     translate: translateText,
                     example: parts[2] || "",
@@ -987,28 +916,24 @@ if (importBtn) importBtn.onclick = async () => {
     });
 
     if (importedCount > 0) {
-        await save(); // Сохраняем в SQLite через твой API
-        render();     // Перерисовываем список на экране
+        await save();
+        render();
     }
 
-    // Оповещение пользователя
     if (duplicateCount > 0) {
-    const duplicatePreview = duplicatesList.join(', ');
+        const duplicatePreview = duplicatesList.join(', ');
         const duplicateTail = duplicateCount > duplicatesList.length ? ', ...' : '';
-        alert(`Импорт завершен!
-✅ Добавлено новых слов: ${importedCount}
-⚠️ Пропущено дубликатов: ${duplicateCount}
-(Первые дубликаты: ${duplicatePreview}${duplicateTail})`);
+        alert(`Импорт завершен!\n✅ Добавлено новых слов: ${importedCount}\n⚠️ Пропущено дубликатов: ${duplicateCount}\n(Первые дубликаты: ${duplicatePreview}${duplicateTail})`);
     } else if (importedCount > 0) {
         alert(`Успешно добавлено ${importedCount} слов!`);
     } else {
         alert("Новых слов для добавления не найдено.");
     }
 
-    // Закрываем модалку и чистим поле
     modal.style.display = 'none';
     importArea.value = '';
 };
+
 if (exportBtn) exportBtn.onclick = () => {
     const textToSave = myWords.map(w => `${w.original}|${w.translate}|${w.example}|${w.exampleTranslate}`).join('\n');
     const blob = new Blob([textToSave], { type: 'text/plain' });
@@ -1026,12 +951,10 @@ if (searchInput) searchInput.oninput = () => {
         const originalSpan = card.querySelector('.original');
         const translationSpan = card.querySelector('.translation');
         
-        // Получаем чистый текст без старой подсветки
         const originalText = originalSpan.textContent;
         const translationText = translationSpan.textContent;
 
         if (val === "") {
-            // Если поиск пустой, возвращаем всё как было
             card.style.display = 'flex';
             originalSpan.innerHTML = originalText;
             translationSpan.innerHTML = translationText;
@@ -1043,7 +966,6 @@ if (searchInput) searchInput.oninput = () => {
 
         if (matchOriginal || matchTranslation) {
             card.style.display = 'flex';
-            // Подсвечиваем совпадения
             originalSpan.innerHTML = highlightMatch(originalText, val);
             translationSpan.innerHTML = highlightMatch(translationText, val);
         } else {
@@ -1052,85 +974,76 @@ if (searchInput) searchInput.oninput = () => {
     });
 };
 
-// Вспомогательная функция для замены текста на текст с тегом <mark>
 function highlightMatch(text, term) {
     const regex = new RegExp(`(${term})`, 'gi');
     return text.replace(regex, `<mark>$1</mark>`);
 }
+
 function filterByLevel(level) {
     const cards = document.querySelectorAll('.card');
     
     cards.forEach(card => {
-        // Находим индикатор уровня внутри карточки (мы его добавили в render)
         const levelBadge = card.querySelector('.level-indicator');
         if (!levelBadge) return;
 
-        // Извлекаем число из текста "Ур. X"
         const cardLevel = levelBadge.innerText.replace('Ур. ', '');
 
         if (level === 'all') {
-            card.style.display = 'flex'; // Показываем все
+            card.style.display = 'flex';
         } else if (cardLevel == level) {
-            card.style.display = 'flex'; // Показываем только совпадения
+            card.style.display = 'flex';
         } else {
-            card.style.display = 'none'; // Скрываем остальные
+            card.style.display = 'none';
         }
     });
-
-    // Визуальный отклик: можно добавить уведомление или просто прокрутить к списку
-    console.log(`Фильтр: Уровень ${level}`);
 }
+
 function setTheme(color) {
-    // Устанавливаем основную переменную
     document.documentElement.style.setProperty('--accent-color', color);
-    
-    // Создаем цвет для свечения (с прозрачностью)
-    const glowColor = color + '4D'; // Добавляем 4D (это ~30% прозрачности в HEX)
+    const glowColor = color + '4D';
     document.documentElement.style.setProperty('--accent-glow', glowColor);
-    
-    // Сохраняем выбор пользователя
     localStorage.setItem('selectedTheme', color);
-    
-    // Перерисовываем статистику, так как там цвета прописаны в JS
     updateLevelStats();
-}
-// Находим кнопку импорта по новому ID
-const openImportBtn = document.getElementById('open-import-btn');
-const importModal = document.getElementById('import-modal');
-
-if (openImportBtn && importModal) {
-    openImportBtn.onclick = () => {
-        importModal.style.display = 'flex';
-    };
 }
 
 function openImportModal() {
-    if (!importModal) return;
-    importModal.style.display = 'flex';
+    if (!modal) return;
+    modal.style.display = 'flex';
     if (importArea) {
         setTimeout(() => importArea.focus(), 100);
     }
 }
 
-// Когда страница загрузилась
-window.addEventListener('DOMContentLoaded', async () => {
-    // 1. ЗАГРУЗКА ДАННЫХ (оставляем как было)
-    await loadTimerFromServer(); 
-    await loadWords(); 
+// ✅ ИСПРАВЛЕНО: favicon 404 — добавляем программно чтобы не было ошибки
+(function addFavicon() {
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.href = 'data:,'; // пустая иконка, убирает 404
+    document.head.appendChild(link);
+})();
 
-    // 2. СБРОС СОСТОЯНИЙ (перенесли из шага 4)
+// === 5. ИНИЦИАЛИЗАЦИЯ ===
+window.addEventListener('DOMContentLoaded', async () => {
+    // Сбрасываем состояние тренировки при загрузке
     localStorage.removeItem('isTrainingActive');
     if (timerId) {
         clearInterval(timerId);
         timerId = null;
     }
 
-    // 3. ОБРАБОТЧИКИ КНОПОК
+    // Загружаем данные
+    await loadWords();
+    
+    // Сначала делаем дневной сброс, потом подгружаем время
+    await dailyReset();
+    await loadTimerFromServer();
+
+    // ✅ ИСПРАВЛЕНО: единственное место назначения обработчиков кнопок
     safeSetClick('start-training-btn', startTraining);
     safeSetClick('add-time-btn', () => addExtraTime(5));
-    safeSetClick('open-import-btn', openImportModal); // если есть такая функция
+    safeSetClick('open-import-btn', openImportModal);
 
-    // 4. ВОЗВРАТ ИНТЕРФЕЙСА (перенесли из шага 4)
+    // Восстанавливаем главный экран
     const trainSect = document.getElementById('training-section');
     const mainUI = document.getElementById('main-ui');
     const levelStats = document.getElementById('level-stats');
@@ -1146,16 +1059,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     const statusEl = document.getElementById('timer-status');
     if (statusEl) statusEl.textContent = "В ожидании";
 
-    // 5. ИНИЦИАЛИЗАЦИЯ ВИЗУАЛА
     updateStreak();
-    dailyReset();
-    updateUI(); // Показываем время на экране
+    updateUI();
     
     const savedTheme = localStorage.getItem('selectedTheme');
     if (savedTheme) setTheme(savedTheme);
 
     console.log("Приложение полностью готово к работе");
 });
-
-dailyReset();
-updateUI();
