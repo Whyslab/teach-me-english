@@ -93,12 +93,17 @@ const FORGET_STEPS = [
 ];
 
 const TRAINING_TIME = 60 * 60;
+const SAVE_DEBOUNCE_MS = 250;
+const API_BASE = window.location.origin;
 
+function apiUrl(path) {
+    return `${API_BASE}${path}`;
+}
 // === 2. ОСНОВНЫЕ ФУНКЦИИ ===
 
 async function loadWords() {
     try {
-        const response = await fetch('http://localhost:3000/api/words');
+       const response = await fetch(apiUrl('/api/words'));
         if (!response.ok) throw new Error('Ошибка сети');
         const data = await response.json();
         
@@ -176,7 +181,7 @@ function render() {
 async function save() {
     if (!isLoaded) return;
     try {
-        await fetch('http://localhost:3000/api/sync', {
+        await fetch(apiUrl('/api/sync'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(myWords)
@@ -266,7 +271,7 @@ async function startTraining() {
 }
 async function loadTimerFromServer() {
     try {
-        const response = await fetch('http://localhost:3000/api/timer');
+        const response = await fetch(apiUrl('/api/timer'));
         const data = await response.json();
         timeLeft = data.timeLeft;
         updateUI(); // Обновляем цифры на экране
@@ -276,7 +281,7 @@ async function loadTimerFromServer() {
 }
 async function saveTimerToServer() {
     try {
-        await fetch('http://localhost:3000/api/timer', {
+        await fetch(apiUrl('/api/timer'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ timeLeft: timeLeft })
