@@ -45,6 +45,9 @@ const importArea = document.getElementById('import-area');
 
 const resetLearnedBtn = document.getElementById('reset-learned-btn');
 const exportBtn = document.getElementById('export-btn');
+const learningCurveEl = document.getElementById('learning-curve');
+const activityHeatmapEl = document.getElementById('activity-heatmap');
+const weeklyChartEl = document.getElementById('weekly-progress-chart');
 
 // Состояние
 
@@ -62,6 +65,8 @@ let streakData = JSON.parse(localStorage.getItem('streakData')) || {
     lastDate: null,
     todayCount: 0
 };
+
+let dailyActivity = JSON.parse(localStorage.getItem('dailyActivity')) || {};
 
 const INTERVALS = {
     0: 0,
@@ -122,10 +127,10 @@ function speak(text) {
 
 function render() {
     if (!element) return;
-    element.innerHTML = ''; 
+    
     const now = Date.now(); // Текущее время
 
-    myWords.forEach(word => { 
+    const cardsHTML = myWords.map(word => { 
         const level = word.level || 0;
         const isMaxLevel = level === 5;
         
@@ -136,7 +141,7 @@ function render() {
         const learnedStyle = isMaxLevel ? 'style="opacity: 0.5; background: rgba(40, 167, 69, 0.05);"' : '';
         const badge = `<span class="level-indicator" style="font-size: 10px; color: #00d2ff; background: rgba(0, 210, 255, 0.1); padding: 2px 6px; border-radius: 4px; margin-right: 8px;">Ур. ${level}</span>`;
 
-        element.innerHTML += `
+        return `
         <div class="card ${reviewClass}" data-id="${word.id}" ${learnedStyle}>
             <div class="card-content">
                 ${badge}
@@ -149,9 +154,12 @@ function render() {
                 <button class="delete-btn" title="Удалить">&times;</button>
             </div>
         </div>`;
-    });
+    }).join('');
+
+    element.innerHTML = cardsHTML;
     updateOverallProgress();
     updateLevelStats(); // Вызываем новую функцию статистики
+    updateVisualProgress();
 }
 
 async function save() {
@@ -503,6 +511,7 @@ document.getElementById('btn-know').onclick = async () => {
         mainWord.nextReview = Date.now() + INTERVALS[mainWord.level];
         mainWord.forgetStep = 0;
         streakData.todayCount++;
+         recordDailyLearn(1);
         updateStreak();
         await save();
     }
@@ -563,6 +572,8 @@ if (resetLearnedBtn) {
 
             // 3. Сохраняем обнуленные данные в локальную память браузера
             localStorage.setItem('streakData', JSON.stringify(streakData));
+            dailyActivity = {};
+            localStorage.setItem('dailyActivity', JSON.stringify(dailyActivity));
 
             // 4. Отправляем пустые уровни на сервер
             await save(); 
@@ -703,6 +714,124 @@ function resetSpelling() {
     setTimeout(() => spellingInput.focus(), 100);
 }
 
+function toDayKey(date = new Date()) {
+    return date.toISOString().slice(0, 10);
+}
+
+function recordDailyLearn(count = 1) {
+    const key = toDayKey();
+    dailyActivity[key] = (dailyActivity[key] || 0) + count;
+    localStorage.setItem('dailyActivity', JSON.stringify(dailyActivity));
+}
+
+function updateLearningCurve() {
+    if (!learningCurveEl) return;
+
+    const counts = [0, 0, 0, 0, 0, 0];
+    myWords.forEach(w => {
+        const lvl = Math.min(Math.max(Number(w.level) || 0, 0), 5);
+        counts[lvl]++;
+    });
+
+    const maxCount = Math.max(...counts, 1);
+    learningCurveEl.innerHTML = counts.map((count, lvl) => {
+        const width = Math.round((count / maxCount) * 100);
+        return `<div class="level-row">
+            <span>Ур. ${lvl}</span>
+            <div class="level-fill-wrap"><div class="level-fill" style="width:${width}%"></div></div>
+            <strong>${count}</strong>
+        </div>`;
+    }).join('');
+}
+
+function updateActivityHeatmap() {
+    if (!activityHeatmapEl) return;
+
+    const days = 84;
+    const cells = [];
+    let maxCount = 0;
+
+    for (let i = days - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = toDayKey(d);
+        const count = Number(dailyActivity[key]) || 0;
+        if (count > maxCount) maxCount = count;
+        cells.push({ key, count, date: d });
+    }
+
+    activityHeatmapEl.innerHTML = cells.map(({ count, date }) => {
+        const alpha = maxCount > 0 ? (count / maxCount) : 0;
+        const bg = count === 0 ? 'rgba(255,255,255,0.08)' : `rgba(0, 210, 255, ${Math.max(0.2, alpha)})`;
+        const title = `${date.toLocaleDateString()}: ${count} слов`;
+        return `<div class="heat-cell" title="${title}" style="background:${bg}"></div>`;
+    }).join('');
+}
+
+function updateWeeklyProgressChart() {
+    if (!weeklyChartEl) return;
+    const ctx = weeklyChartEl.getContext('2d');
+    if (!ctx) return;
+
+    const labels = [];
+    const values = [];
+
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = toDayKey(d);
+        labels.push(d.toLocaleDateString('ru-RU', { weekday: 'short' }));
+        values.push(Number(dailyActivity[key]) || 0);
+    }
+
+    const w = weeklyChartEl.width;
+    const h = weeklyChartEl.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const pad = { left: 24, right: 10, top: 10, bottom: 22 };
+    const graphW = w - pad.left - pad.right;
+    const graphH = h - pad.top - pad.bottom;
+    const maxV = Math.max(...values, 1);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top + graphH);
+    ctx.lineTo(w - pad.right, pad.top + graphH);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#00d2ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    values.forEach((v, i) => {
+        const x = pad.left + (graphW / (values.length - 1)) * i;
+        const y = pad.top + graphH - (v / maxV) * graphH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    ctx.fillStyle = '#00d2ff';
+    values.forEach((v, i) => {
+        const x = pad.left + (graphW / (values.length - 1)) * i;
+        const y = pad.top + graphH - (v / maxV) * graphH;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#aaa';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(labels[i], x, h - 6);
+        ctx.fillStyle = '#00d2ff';
+    });
+}
+
+function updateVisualProgress() {
+    updateLearningCurve();
+    updateActivityHeatmap();
+    updateWeeklyProgressChart();
+}
+
 function updateStreak() {
     const now = new Date();
     const today = now.toDateString();
@@ -719,6 +848,7 @@ function updateStreak() {
     if (dailyCountEl) dailyCountEl.innerText = streakData.todayCount;
     
     localStorage.setItem('streakData', JSON.stringify(streakData));
+    updateVisualProgress();
 }
 
 addBtn.onclick = async () => {
@@ -804,7 +934,8 @@ if (importBtn) importBtn.onclick = async () => {
     const lines = text.split('\n');
     let importedCount = 0;
     let duplicateCount = 0;
-    let duplicatesList = [];
+    const duplicatesList = [];
+    const existingWords = new Set(myWords.map(w => (w.original || '').toLowerCase()));
 
     lines.forEach(line => {
         const parts = line.split('|').map(p => p.trim());
@@ -815,15 +946,13 @@ if (importBtn) importBtn.onclick = async () => {
             const translateText = parts[1];
 
             // ПРОВЕРКА НА ДУБЛИКАТ
-            // Ищем в myWords слово с таким же оригиналом (без учета регистра)
-            const isDuplicate = myWords.some(w => 
-                w.original.toLowerCase() === originalText.toLowerCase()
-            );
+           const originalKey = originalText.toLowerCase();
 
-            if (isDuplicate) {
+            if (existingWords.has(originalKey)) {
                 duplicateCount++;
-                duplicatesList.push(originalText);
+                if (duplicatesList.length < 20) duplicatesList.push(originalText);
             } else {
+            existingWords.add(originalKey);
                 // Если слова нет — добавляем
                 myWords.push({
                     id: Date.now() + Math.random(), // Уникальный ID
@@ -847,10 +976,12 @@ if (importBtn) importBtn.onclick = async () => {
 
     // Оповещение пользователя
     if (duplicateCount > 0) {
+    const duplicatePreview = duplicatesList.join(', ');
+        const duplicateTail = duplicateCount > duplicatesList.length ? ', ...' : '';
         alert(`Импорт завершен!
 ✅ Добавлено новых слов: ${importedCount}
 ⚠️ Пропущено дубликатов: ${duplicateCount}
-(Слова уже в словаре: ${duplicatesList.join(', ')})`);
+(Первые дубликаты: ${duplicatePreview}${duplicateTail})`);
     } else if (importedCount > 0) {
         alert(`Успешно добавлено ${importedCount} слов!`);
     } else {
