@@ -47,7 +47,7 @@ mark {
             height: 100vh;
         }
 
-        h1 { margin: 15px 0; font-size: 2.2em; }
+        h1 { margin: 15px auto; font-size: 2.2em; width: 100%; max-width: 500px; text-align: center; }
 
         /* 2. ВЕРХНЯЯ ПАНЕЛЬ */
         .top-panel {
@@ -134,7 +134,7 @@ mark {
         /* 3. ГЛАВНЫЙ ИНТЕРФЕЙС */
         #main-ui {
             width: 100%;
-            max-width: 500px;
+            max-width: 1200px;
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -195,7 +195,7 @@ mark {
         }
 
         /* 4. ПРОГРЕСС */
-        .progress-wrapper { width: 100%; max-width: 500px; margin-bottom: 15px; }
+        .progress-wrapper { width: 100%; max-width: 500px; margin: 0 auto 15px; }
         .progress-container { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-top: 8px; }
         #progress-bar { height: 100%; background: #00d2ff; width: 0%; transition: 0.5s; }
 
@@ -405,6 +405,9 @@ mark {
         }
 
         /* Список слов */
+        #cards-container {
+    width: 100%;
+}
         .card {
             background: #1e1e1e;
             padding: 12px;
@@ -592,7 +595,44 @@ mark {
     height: 130px;
     display: block;
 }
-
+ 
+.workspace-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+    gap: 16px;
+    align-items: start;
+}
+.workspace-left,
+.workspace-right {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.quick-actions {
+    display: none;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+.quick-action-btn {
+    all: unset;
+    box-sizing: border-box;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #fff;
+    border-radius: 10px;
+    text-align: center;
+    padding: 10px 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+@media (max-width: 900px) {
+    #main-ui { max-width: 100%; }
+    .workspace-grid { grid-template-columns: 1fr; }
+    .workspace-right { order: 2; }
+    .workspace-left { order: 1; }
+    .quick-actions { display: grid; }
+    .buttons-row { display: none; }
+}
     </style>
 </head>
 <body>
@@ -637,46 +677,57 @@ mark {
     <div id="level-stats" class="stats-grid"></div>
 
     <div id="main-ui">
-        <div class="input-group">
-            <input type="text" placeholder="английское слово" id="input-en">
-            <input type="text" placeholder="русский перевод" id="input-ru">
-            <input type="text" placeholder="пример предложения (необязательно)" id="input-example">
-            <input type="text" placeholder="перевод предложения" id="input-ex-ru">
-        </div>
+        <div class="workspace-grid">
+            <section class="workspace-left">
+                <div class="input-group">
+                    <input type="text" placeholder="английское слово" id="input-en">
+                    <input type="text" placeholder="русский перевод" id="input-ru">
+                    <input type="text" placeholder="пример предложения (необязательно)" id="input-example">
+                    <input type="text" placeholder="перевод предложения" id="input-ex-ru">
+                </div>
 
         <div class="buttons-row">
-            <button id="add-btn" class="action-btn">Добавить слово</button>
-            <button id="reset-learned-btn" class="outline-btn warning">Сбросить прогресс</button>
-            <button id="export-btn" class="outline-btn secondary">Скачать словарь</button>
-            <button id="clear-all" class="outline-btn danger">Очистить всё</button>
+                    <button id="add-btn" class="action-btn">Добавить слово</button>
+                    <button id="reset-learned-btn" class="outline-btn warning">Сбросить прогресс</button>
+                    <button id="export-btn" class="outline-btn secondary">Скачать словарь</button>
+                    <button id="clear-all" class="outline-btn danger">Очистить всё</button>
+                </div>
+        <div class="quick-actions">
+                    <button class="quick-action-btn" onclick="document.getElementById('add-btn').click()">➕ Добавить</button>
+                    <button class="quick-action-btn" onclick="document.getElementById('start-training-btn').click()">🎯 Трен</button>
+                    <button class="quick-action-btn" onclick="document.getElementById('open-import-btn').click()">📥 Импорт</button>
+                    <button class="quick-action-btn" onclick="document.getElementById('export-btn').click()">📤 Экспорт</button>
+                </div>
+
+                <input type="text" id="search-input" placeholder="Найти слово в словаре...">
+
+
+                        <div id="streak-container" class="streak-wrapper">
+                    🔥 <span id="streak-count">0</span> дней подряд | Сегодня: <span id="daily-count">0</span> / 10
+                </div>
+
+                <button onclick="startTraining()" id="start-training-btn" class="start-btn">Начать тренировку (B1)</button>
+
+         <div id="cards-container"></div>
+            </section>
+
+            <aside class="workspace-right">
+                <div id="visual-progress" class="visual-progress">
+                    <div class="viz-card">
+                        <div class="viz-title">Кривая обучения (уровни 0–5)</div>
+                        <div id="learning-curve" class="level-bars"></div>
+                    </div>
+                    <div class="viz-card">
+                        <div class="viz-title">Активность (последние 3 месяца)</div>
+                        <div id="activity-heatmap" class="heatmap-grid"></div>
+                    </div>
+                    <div class="viz-card">
+                        <div class="viz-title">Ежедневный прогресс (7 дней)</div>
+                        <canvas id="weekly-progress-chart" class="weekly-canvas" width="900" height="130"></canvas>
+                    </div>
+                </div>
+            </aside>
         </div>
-        
-        <input type="text" id="search-input" placeholder="Найти слово в словаре...">
-
-        <div id="streak-container" class="streak-wrapper">
-            🔥 <span id="streak-count">0</span> дней подряд | Сегодня: <span id="daily-count">0</span> / 10
-        </div>
-
-
-        <div id="visual-progress" class="visual-progress">
-            <div class="viz-card">
-                <div class="viz-title">Кривая обучения (уровни 0–5)</div>
-                <div id="learning-curve" class="level-bars"></div>
-            </div>
-            <div class="viz-card">
-                <div class="viz-title">Активность (последние 3 месяца)</div>
-                <div id="activity-heatmap" class="heatmap-grid"></div>
-            </div>
-            <div class="viz-card">
-                <div class="viz-title">Ежедневный прогресс (7 дней)</div>
-                <canvas id="weekly-progress-chart" class="weekly-canvas" width="900" height="130"></canvas>
-            </div>
-        </div>
-
-        <button onclick="startTraining()" id="start-training-btn" class="start-btn">Начать тренировку (B1)</button>
-        
-        <div id="cards-container"></div>
-    </div>
 
     <div id="training-section" style="display: none;">
         <button id="toggle-mode-btn" class="mode-badge"><span>🎴</span> Режим: Карточки</button>
