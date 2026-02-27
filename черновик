@@ -213,3 +213,18 @@ index c1c128eb778019af69a37dc7f9976e7dcaf07965..733328b2b1bb4ee2d77778965ded9960
 -updateUI();}
 +dailyReset();
 +updateUI();
+
+
+git clone https://github.com/<твой-логин>/<репо>.git
+cd <репо>
+npm install
+node server.js
+
+http://192.168.1.50:3000
+
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin https://github.com/<твой-логин>/<репо>.git
+git push -u origin main

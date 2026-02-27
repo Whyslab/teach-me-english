@@ -15,6 +15,13 @@ const db = new sqlite3.Database('./vocab.db', (err) => {
     else console.log('Подключено к базе данных SQLite (vocab.db).');
 });
 
+db.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL;
+    PRAGMA temp_store = MEMORY;
+    PRAGMA busy_timeout = 5000;
+`);
+
 // 1. Инициализация таблиц
 db.serialize(() => {
     // Таблица настроек
@@ -40,7 +47,9 @@ db.serialize(() => {
         if (err) console.error("Ошибка создания таблицы слов:", err.message);
         else console.log("Таблица слов готова: OK");
     });
+    db.run("CREATE INDEX IF NOT EXISTS idx_words_next_review ON words(nextReview)");
 });
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
