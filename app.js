@@ -49,6 +49,17 @@ const learningCurveEl = document.getElementById('learning-curve');
 const activityHeatmapEl = document.getElementById('activity-heatmap');
 const weeklyChartEl = document.getElementById('weekly-progress-chart');
 
+function safeParseStorage(key, fallback) {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        const parsed = JSON.parse(raw);
+        return parsed ?? fallback;
+    } catch (e) {
+        console.warn(`Поврежден localStorage для ${key}, сбрасываем значение.`);
+        return fallback;
+    }
+}
 // Состояние
 
 let mainQueue = [];      
@@ -60,13 +71,13 @@ let isMuted = localStorage.getItem('isMuted') === 'true';
 let isLoaded = false; 
 const POOL_LIMIT = 50;   
 
-let streakData = JSON.parse(localStorage.getItem('streakData')) || {
+let streakData = safeParseStorage('streakData', {
     count: 0,
     lastDate: null,
     todayCount: 0
-};
+});
 
-let dailyActivity = JSON.parse(localStorage.getItem('dailyActivity')) || {};
+let dailyActivity = safeParseStorage('dailyActivity', {});
 
 const INTERVALS = {
     0: 0,
@@ -504,6 +515,7 @@ function applyForgetSchedule(word) {
 
 document.getElementById('btn-know').onclick = async () => {
     const word = activePool[currentWordIndex];
+    if (!word) return;
     saveToHistory(true); 
     const mainWord = myWords.find(w => w.id === word.id);
     if (mainWord) {
@@ -848,7 +860,7 @@ function updateStreak() {
     if (dailyCountEl) dailyCountEl.innerText = streakData.todayCount;
     
     localStorage.setItem('streakData', JSON.stringify(streakData));
-    updateVisualProgress();
+    
 }
 
 addBtn.onclick = async () => {
