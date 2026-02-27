@@ -7,12 +7,10 @@
     <title>Легкий Словарь^^</title>
     <style>
         :root {
-    --accent-color: #00d2ff; /* Стандартный Neon Blue */
-    --accent-glow: var(--accent-color)4D
+    --accent-color: #00d2ff;
+    --accent-glow: rgba(0, 210, 255, 0.3);
 }
 
-/* Теперь везде в CSS, где был голубой цвет, замени его на var(--accent-color) */
-/* Например: */
 .level-indicator {
     color: var(--accent-color) !important;
     background: var(--accent-glow) !important;
@@ -30,7 +28,6 @@ button#add-btn {
 mark {
     background: var(--accent-glow) !important;
 }
-        /* 1. БАЗОВЫЕ СТИЛИ */
         body {
         background-color: #121212;
         color: #ffffff;
@@ -41,7 +38,6 @@ mark {
         margin: 0;
         padding: 0;
     }
-        /* Блокировка скролла для режима тренировки */
         body.no-scroll {
             overflow: hidden;
             height: 100vh;
@@ -49,7 +45,6 @@ mark {
 
         h1 { margin: 15px auto; font-size: 2.2em; width: 100%; max-width: 500px; text-align: center; }
 
-        /* 2. ВЕРХНЯЯ ПАНЕЛЬ */
         .top-panel {
             width: 100%;
             max-width: 600px;
@@ -60,7 +55,7 @@ mark {
         }
 .header-bar {
     width: 100%;
-    max-width: 800px; /* Увеличил, чтобы было просторнее */
+    max-width: 800px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -83,10 +78,10 @@ mark {
 #level-stats {
     display: flex;
     justify-content: center;
-    gap: 12px; /* Расстояние между карточками */
+    gap: 12px;
     margin: 25px auto;
-    max-width: 500px; /* Чтобы счетчик не растягивался слишком сильно на весь экран */
-    flex-wrap: wrap; /* Чтобы на мобилках цифры переносились */
+    max-width: 500px;
+    flex-wrap: wrap;
 }
 
 .stat-item {
@@ -96,7 +91,7 @@ mark {
 }
 
 .stat-item:hover {
-    transform: translateY(-3px); /* Легкий эффект при наведении */
+    transform: translateY(-3px);
     background: rgba(255,255,255,0.08) !important;
 }
        #mute-btn:hover {
@@ -111,7 +106,7 @@ mark {
 }
 
   .theme-circle {
-    width: 24px; /* Чуть увеличил для удобства клика */
+    width: 24px;
     height: 24px;
     border-radius: 50%;
     cursor: pointer;
@@ -131,7 +126,6 @@ mark {
         align-items: center;
         gap: 5px;
     }
-        /* 3. ГЛАВНЫЙ ИНТЕРФЕЙС */
         #main-ui {
             width: 100%;
             max-width: 1200px;
@@ -194,7 +188,6 @@ mark {
             margin-top: 5px;
         }
 
-        /* 4. ПРОГРЕСС */
         .progress-wrapper { width: 100%; max-width: 500px; margin: 0 auto 15px; }
         .progress-container { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-top: 8px; }
         #progress-bar { height: 100%; background: #00d2ff; width: 0%; transition: 0.5s; }
@@ -207,28 +200,25 @@ mark {
             font-size: 14px;
         }
 
-        /* 5. ЭКРАН ТРЕНИРОВКИ (ОПТИМИЗИРОВАННЫЙ) */
-    /* ЭКРАН ТРЕНИРОВКИ: Опускаем всё ниже и центрируем */
+/* ✅ ИСПРАВЛЕНО: training-section теперь отдельный блок на уровне main-content */
 #training-section {
-    display: none; 
+    display: none;
     flex-direction: column;
     align-items: center;
     padding-top: 10px;
     width: 100%;
     max-width: 500px;
-    min-height: auto; /* Занимает почти весь экран, чтобы центровка работала */
+    min-height: auto;
     margin: 0 auto;
 }
 
-/* Дополнительный отступ сверху для заголовка/статистики, чтобы не было слишком высоко */
 #training-stats {
     color: #888;
     font-size: 13px;
     margin-bottom: 10px;
-    margin-top: 20px; /* Добавили отступ сверху */
+    margin-top: 20px;
 }
 
-/* Если нужно еще ниже, увеличим отступ у кнопки переключения */
 #toggle-mode-btn {
     all: unset;
     display: flex;
@@ -244,7 +234,7 @@ mark {
     cursor: pointer;
     transition: 0.3s;
     backdrop-filter: blur(10px);
-    margin-top: 5px; /* Опускает всю конструкцию ниже от верхнего края */
+    margin-top: 5px;
     margin-bottom: 5px;
 }
         #toggle-mode-btn.spelling-active {
@@ -256,15 +246,14 @@ mark {
         .flashcard-container {
             perspective: 1000px;
             width: 280px;
-            
             margin: 10px 0;
         }
 .flashcard {
     width: 300px;
-    height: 200px; /* Установи подходящую тебе высоту */
+    height: 200px;
     perspective: 1000px;
     cursor: pointer;
-    margin: px auto;
+    margin: 0 auto;
     position: relative;
 }
 .flashcard-inner {
@@ -275,18 +264,16 @@ mark {
     transition: transform 0.6s;
     transform-style: preserve-3d;
 }
-/* Когда карточка перевернута */
 .flashcard.is-flipped .flashcard-inner {
     transform: rotateY(180deg);
 }
 
-/* Общие стили для обеих сторон карточки */
 .flashcard-front, 
 .flashcard-back {
     position: absolute;
     width: 100%;
     height: 100%;
-    -webkit-backface-visibility: hidden; /* Чтобы не просвечивало в Chrome */
+    -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
     display: flex;
     flex-direction: column;
@@ -302,32 +289,26 @@ mark {
 .flashcard-front {
     font-size: 24px;
     font-weight: bold;
-    /* Тут нет трансформации, это лицевая сторона */
 }
 
 .flashcard-back {
-    transform: rotateY(180deg); /* Разворачиваем заднюю сторону заранее */
+    transform: rotateY(180deg);
     font-size: 20px; 
 }
 
-
-
-/* Блок примера внутри карточки, но под основным текстом */
-
 .header-side {
-    flex: 1; /* Занимают равное пространство */
+    flex: 1;
     display: flex;
     align-items: center;
 }
 .header-right {
     justify-content: flex-end;
 }
-        /* Внутри стилей карточки */
 
 #card-front, #card-back-text {
     white-space: normal;
     overflow-wrap: break-word;
-    word-break: keep-all; /* Не рвать слово на части */
+    word-break: keep-all;
     padding: 0 10px;
 }
         #spelling-area { width: 100%; margin-top: 5px; }
@@ -342,8 +323,8 @@ mark {
     font-size: 0.85rem;
     color: var(--accent-color);
     margin-bottom: 4px;
-    line-height: 1.2; /* Чтобы строки не слипались */
-    word-wrap: break-word; /* Чтобы длинные предложения переносились */
+    line-height: 1.2;
+    word-wrap: break-word;
 }
 
 #card-example-translate {
@@ -357,8 +338,8 @@ mark {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     padding-top: 8px;
     width: 100%;
-    display: block; /* Убедись, что он не hidden по умолчанию в CSS */
-    min-height: 40px; /* Даем минимальное место под текст */
+    display: block;
+    min-height: 40px;
 }
         .training-buttons {
             display: flex;
@@ -384,14 +365,13 @@ mark {
         #btn-dont-know { background: #ff4d4d; }
         #btn-back { background: #333; color: #888; }
         #btn-back.full-width-btn { flex: 2; color: #fff; border: 1px solid #444; }
-/* Стиль для слов, которые пора повторить */
+
 .card.needs-review {
     border-left: 5px solid var(--accent-color) !important;
     box-shadow: 0 0 10px rgba(0, 210, 255, 0.1);
     background: rgba(0, 210, 255, 0.02);
 }
 
-/* Эффект пульсации дляBadge, если очень надо привлечь внимание */
 .card.needs-review .level-indicator {
     box-shadow: 0 0 5px rgba(0, 210, 255, 0.5);
 }
@@ -404,7 +384,6 @@ mark {
             text-decoration: underline;
         }
 
-        /* Список слов */
         #cards-container {
     width: 100%;
 }
@@ -423,38 +402,33 @@ mark {
 }
 
 .stat-item:active {
-    transform: scale(0.95); /* Эффект нажатия */
+    transform: scale(0.95);
     background: rgba(255,255,255,0.15) !important;
 }
 
-/* Подсветим выбранный фильтр (опционально) */
 .stat-item.active-filter {
     background: rgba(0, 210, 255, 0.2) !important;
     border-top: 1px solid rgba(0, 210, 255, 0.3);
 }
 mark {
-    background: rgba(0, 210, 255, 0.3); /* Полупрозрачный голубой фон */
-    color: #fff; /* Белый текст */
+    background: rgba(0, 210, 255, 0.3);
+    color: #fff;
     border-radius: 2px;
     padding: 0 1px;
     font-weight: bold;
-    
 }
 #btn-next {
-    display: none; /* Скрыта изначально */
+    display: none;
 }
 
-/* Когда кнопка внутри активного режима письма, она может выглядеть шире */
 .full-width-btn {
     width: 100% !important;
 }
-/* Стили для плавности (по желанию) */
 .card {
     transition: opacity 0.2s ease;
 }
         .hidden { display: none; }
 
-        /* МОДАЛКА */
         .modal {
         display: none;
         position: fixed;
@@ -469,12 +443,12 @@ mark {
         .input-group {
     display: flex;
     flex-direction: column;
-    gap: 8px; /* Расстояние между инпутами */
+    gap: 8px;
     margin-bottom: 15px;
 }
 
 .input-group input {
-    padding: 10px 15px; /* Чуть уменьшим высоту для компактности */
+    padding: 10px 15px;
     font-size: 14px;
 }
 .timer-card {
@@ -505,20 +479,17 @@ mark {
     letter-spacing: 1px;
     opacity: 0.7;
 }
-/* Полная блокировка выделения и курсора выбора текста */
 #training-section {
-    -webkit-user-select: none;  /* Safari */
-    -moz-user-select: none;     /* Firefox */
-    -ms-user-select: none;      /* IE/Edge */
-    user-select: none;          /* Standard */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 
-/* Возвращаем курсор-указатель, чтобы карточка ощущалась как кнопка */
 #flashcard, .card-content {
     cursor: pointer;
 }
 
-/* Но оставляем возможность печатать в инпуте, если включен режим письма */
 #spelling-input {
     user-select: text !important;
     -webkit-user-select: text !important;
@@ -526,10 +497,9 @@ mark {
 }
 .timer-status {
     font-size: 0.7rem;
-    color: #00ffcc; /* Цвет при активной тренировке */
+    color: #00ffcc;
 }
 
-/* Красный цвет, когда времени мало */
 .timer-low {
     color: #ff4d4d !important;
     animation: pulse 1s infinite;
@@ -676,6 +646,7 @@ mark {
 
     <div id="level-stats" class="stats-grid"></div>
 
+    <!-- ✅ ГЛАВНЫЙ ЭКРАН -->
     <div id="main-ui">
         <div class="workspace-grid">
             <section class="workspace-left">
@@ -686,13 +657,14 @@ mark {
                     <input type="text" placeholder="перевод предложения" id="input-ex-ru">
                 </div>
 
-        <div class="buttons-row">
+                <div class="buttons-row">
                     <button id="add-btn" class="action-btn">Добавить слово</button>
                     <button id="reset-learned-btn" class="outline-btn warning">Сбросить прогресс</button>
                     <button id="export-btn" class="outline-btn secondary">Скачать словарь</button>
                     <button id="clear-all" class="outline-btn danger">Очистить всё</button>
                 </div>
-        <div class="quick-actions">
+
+                <div class="quick-actions">
                     <button class="quick-action-btn" onclick="document.getElementById('add-btn').click()">➕ Добавить</button>
                     <button class="quick-action-btn" onclick="document.getElementById('start-training-btn').click()">🎯 Трен</button>
                     <button class="quick-action-btn" onclick="document.getElementById('open-import-btn').click()">📥 Импорт</button>
@@ -701,14 +673,13 @@ mark {
 
                 <input type="text" id="search-input" placeholder="Найти слово в словаре...">
 
-
-                        <div id="streak-container" class="streak-wrapper">
+                <div id="streak-container" class="streak-wrapper">
                     🔥 <span id="streak-count">0</span> дней подряд | Сегодня: <span id="daily-count">0</span> / 10
                 </div>
 
                 <button onclick="startTraining()" id="start-training-btn" class="start-btn">Начать тренировку (B1)</button>
 
-         <div id="cards-container"></div>
+                <div id="cards-container"></div>
             </section>
 
             <aside class="workspace-right">
@@ -728,7 +699,10 @@ mark {
                 </div>
             </aside>
         </div>
+    </div>
+    <!-- ✅ КОНЕЦ ГЛАВНОГО ЭКРАНА -->
 
+    <!-- ✅ ИСПРАВЛЕНО: экран тренировки ВЫНЕСЕН из #main-ui, теперь он рядом, а не внутри -->
     <div id="training-section" style="display: none;">
         <button id="toggle-mode-btn" class="mode-badge"><span>🎴</span> Режим: Карточки</button>
 
@@ -745,7 +719,6 @@ mark {
                     <div class="flashcard-back">
                         <div class="card-back-wrapper">
                             <div id="card-back-text">Перевод</div>
-                            
                             <div id="card-example-block" class="example-hidden">
                                 <div id="card-example">Пример...</div>
                                 <div id="card-example-translate">Перевод примера...</div>
@@ -760,12 +733,14 @@ mark {
             <input type="text" id="spelling-input" placeholder="Введите перевод..." autocomplete="off">
             <div id="spelling-feedback"></div>
         </div>
-<div id="timer-container" class="timer-card">
-    <div class="timer-label">Осталось времени:</div>
-    <div id="timer-display">60:00</div>
-    <button id="add-time-btn" class="mini-btn">+5 мин</button>
-    <div class="timer-status" id="timer-status">В ожидании</div>
-</div>
+
+        <div id="timer-container" class="timer-card">
+            <div class="timer-label">Осталось времени:</div>
+            <div id="timer-display">60:00</div>
+            <button id="add-time-btn" class="mini-btn">+5 мин</button>
+            <div class="timer-status" id="timer-status">В ожидании</div>
+        </div>
+
         <div class="training-buttons">
             <button id="btn-back" class="nav-btn">← Назад</button>
             <button id="btn-dont-know" class="status-btn error">Не знаю</button>
@@ -775,7 +750,9 @@ mark {
 
         <button onclick="stopTraining()" id="stop-training" class="exit-btn">Завершить тренировку</button>
     </div>
+
 </main>
 
 <script src="app.js" defer></script>
 </body>
+</html>

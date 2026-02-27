@@ -30,11 +30,12 @@ db.serialize(() => {
         value TEXT
     )`, (err) => {
         if (!err) {
-            db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('timeLeft', '600')");
+            // ✅ ИСПРАВЛЕНО: увеличен дефолт до 3600 секунд (1 час)
+            db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('timeLeft', '3600')");
         }
     });
 
-    // Таблица слов
+    // ✅ ИСПРАВЛЕНО: добавлена колонка forgetStep которой не было раньше
     db.run(`CREATE TABLE IF NOT EXISTS words (
         id REAL, 
         original TEXT,
@@ -42,11 +43,25 @@ db.serialize(() => {
         example TEXT,
         exampleTranslate TEXT,
         level INTEGER,
-        nextReview REAL
+        nextReview REAL,
+        forgetStep INTEGER DEFAULT 0
     )`, (err) => {
         if (err) console.error("Ошибка создания таблицы слов:", err.message);
-        else console.log("Таблица слов готова: OK");
+        else {
+            console.log("Таблица слов готова: OK");
+
+            // ✅ ИСПРАВЛЕНО: если таблица уже существует без forgetStep — добавляем колонку
+            db.run("ALTER TABLE words ADD COLUMN forgetStep INTEGER DEFAULT 0", (alterErr) => {
+                if (alterErr && !alterErr.message.includes('duplicate column')) {
+                    // Не логируем ошибку "duplicate column" — это нормально если колонка уже есть
+                    console.log("forgetStep колонка уже существует или добавлена");
+                } else if (!alterErr) {
+                    console.log("Колонка forgetStep успешно добавлена в существующую таблицу");
+                }
+            });
+        }
     });
+
     db.run("CREATE INDEX IF NOT EXISTS idx_words_next_review ON words(nextReview)");
 });
 
@@ -59,8 +74,9 @@ app.get('/', (req, res) => {
 app.get('/api/timer', (req, res) => {
     db.get("SELECT value FROM settings WHERE key = 'timeLeft'", (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
-        if (!row) return res.json({ timeLeft: 600 }); // Подстраховка
-        res.json({ timeLeft: parseInt(row.value) });
+        // ✅ ИСПРАВЛЕНО: если нет записи или значение 0 — возвращаем 3600
+        const timeLeft = row ? parseInt(row.value) : 3600;
+        res.json({ timeLeft: timeLeft > 0 ? timeLeft : 3600 });
     });
 });
 
@@ -77,7 +93,14 @@ app.post('/api/timer', (req, res) => {
 app.get('/api/words', (req, res) => {
     db.all("SELECT * FROM words", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+        // ✅ ИСПРАВЛЕНО: гарантируем что forgetStep всегда есть в ответе
+        const safeRows = rows.map(row => ({
+            ...row,
+            forgetStep: Number(row.forgetStep) || 0,
+            example: row.example || "",
+            exampleTranslate: row.exampleTranslate || ""
+        }));
+        res.json(safeRows);
     });
 });
 
@@ -89,9 +112,10 @@ app.post('/api/sync', (req, res) => {
         db.run("BEGIN TRANSACTION");
         db.run("DELETE FROM words");
 
+        // ✅ ИСПРАВЛЕНО: добавлен forgetStep в INSERT
         const stmt = db.prepare(`
-            INSERT INTO words (id, original, translate, example, exampleTranslate, level, nextReview) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO words (id, original, translate, example, exampleTranslate, level, nextReview, forgetStep) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         words.forEach(w => {
@@ -103,7 +127,8 @@ app.post('/api/sync', (req, res) => {
                     String(w.example || ''),
                     String(w.exampleTranslate || ''),
                     parseInt(w.level) || 0,
-                    Number(w.nextReview) || Date.now()
+                    Number(w.nextReview) || Date.now(),
+                    parseInt(w.forgetStep) || 0   // ✅ новое поле
                 );
             }
         });
@@ -111,6 +136,7 @@ app.post('/api/sync', (req, res) => {
         stmt.finalize((err) => {
             if (err) {
                 db.run("ROLLBACK");
+                console.error("Ошибка финализации:", err.message);
                 res.status(500).json({ error: "Ошибка финализации" });
             } else {
                 db.run("COMMIT");
