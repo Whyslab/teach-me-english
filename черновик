@@ -588,3 +588,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (savedTheme) setTheme(savedTheme);
 });
 >>>>>>> a1b877a95b643afaedc5e06dd0917b8a3b0af4a6
+
+git show --stat a532ae9
+git show a532ae9

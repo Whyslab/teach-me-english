@@ -1133,8 +1133,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     // 4. ВОЗВРАТ ИНТЕРФЕЙСА (перенесли из шага 4)
     const trainSect = document.getElementById('training-section');
     const mainUI = document.getElementById('main-ui');
+    const levelStats = document.getElementById('level-stats');
+    const mainHeader = document.querySelector('h1');
+    const progressWrapper = document.querySelector('.progress-wrapper');
+
     if (trainSect) trainSect.style.display = 'none';
     if (mainUI) mainUI.style.display = 'block';
+    if (mainHeader) mainHeader.style.display = 'block';
+    if (progressWrapper) progressWrapper.style.display = 'block';
+    if (levelStats) levelStats.style.display = 'flex';
 
     const statusEl = document.getElementById('timer-status');
     if (statusEl) statusEl.textContent = "В ожидании";
