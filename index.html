@@ -536,6 +536,62 @@ mark {
     50% { opacity: 0.5; }
     100% { opacity: 1; }
 }
+    
+.visual-progress {
+    margin: 14px 0 18px;
+    display: grid;
+    gap: 12px;
+}
+.viz-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 12px;
+}
+.viz-title {
+    font-size: 13px;
+    color: #bbb;
+    margin-bottom: 8px;
+}
+.level-bars {
+    display: grid;
+    gap: 7px;
+}
+.level-row {
+    display: grid;
+    grid-template-columns: 44px 1fr 38px;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.level-fill-wrap {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+}
+.level-fill {
+    height: 100%;
+    width: 0;
+    background: var(--accent-color, #00d2ff);
+}
+.heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(21, 1fr);
+    gap: 4px;
+}
+.heat-cell {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.08);
+}
+.weekly-canvas {
+    width: 100%;
+    height: 130px;
+    display: block;
+}
+
     </style>
 </head>
 <body>
@@ -598,6 +654,22 @@ mark {
 
         <div id="streak-container" class="streak-wrapper">
             🔥 <span id="streak-count">0</span> дней подряд | Сегодня: <span id="daily-count">0</span> / 10
+        </div>
+
+
+        <div id="visual-progress" class="visual-progress">
+            <div class="viz-card">
+                <div class="viz-title">Кривая обучения (уровни 0–5)</div>
+                <div id="learning-curve" class="level-bars"></div>
+            </div>
+            <div class="viz-card">
+                <div class="viz-title">Активность (последние 3 месяца)</div>
+                <div id="activity-heatmap" class="heatmap-grid"></div>
+            </div>
+            <div class="viz-card">
+                <div class="viz-title">Ежедневный прогресс (7 дней)</div>
+                <canvas id="weekly-progress-chart" class="weekly-canvas" width="900" height="130"></canvas>
+            </div>
         </div>
 
         <button onclick="startTraining()" id="start-training-btn" class="start-btn">Начать тренировку (B1)</button>
