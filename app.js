@@ -93,25 +93,70 @@ function apiUrl(path) {
     return `${API_BASE}${path}`;
 }
 
+// ===== СИСТЕМА ПОЛЬЗОВАТЕЛЕЙ =====
+let currentUserId = localStorage.getItem("userId") || null;
+
+async function initUserId() {
+    if (currentUserId) return;
+    try {
+        const res = await fetch(apiUrl("/api/register"), { method: "POST" });
+        const data = await res.json();
+        currentUserId = data.userId;
+        localStorage.setItem("userId", currentUserId);
+        console.log("Новый пользователь:", currentUserId.slice(0, 8) + "...");
+    } catch (e) {
+        console.error("Не удалось зарегистрироваться:", e);
+    }
+}
+
+// Обёртка: автоматически добавляет X-User-Id в каждый запрос
+function apiFetch(path, options = {}) {
+    return fetch(apiUrl(path), {
+        ...options,
+        headers: {
+            "Content-Type": "application/json",
+            "X-User-Id": currentUserId || "",
+            ...(options.headers || {})
+        }
+    });
+}
+
 // === 2. ОСНОВНЫЕ ФУНКЦИИ ===
 
 async function loadWords() {
-    try {
-        const response = await fetch(apiUrl('/api/words'));
-        if (!response.ok) throw new Error('Ошибка сети');
-        const data = await response.json();
-        
-        myWords = (Array.isArray(data) ? data : []).map(word => ({
+    // Сначала грузим из localStorage — работает всегда (GitHub Pages, офлайн, телефон)
+    const localData = safeParseStorage('myWords', []);
+    if (localData.length > 0) {
+        myWords = localData.map(word => ({
             ...word,
             example: word.example || "",
             exampleTranslate: word.exampleTranslate || "",
             forgetStep: Number(word.forgetStep) || 0
         }));
+        isLoaded = true;
+        render();
+    }
 
-        isLoaded = true; 
+    // Затем пробуем подтянуть с сервера (если он есть)
+    try {
+        const response = await apiFetch('/api/words');
+        if (!response.ok) throw new Error('Сервер недоступен');
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+            myWords = data.map(word => ({
+                ...word,
+                example: word.example || "",
+                exampleTranslate: word.exampleTranslate || "",
+                forgetStep: Number(word.forgetStep) || 0
+            }));
+            // Синхронизируем серверные данные в localStorage
+            localStorage.setItem('myWords', JSON.stringify(myWords));
+        }
+        isLoaded = true;
         render();
     } catch (e) {
-        console.error("Ошибка загрузки сервера!", e);
+        // Сервер недоступен (GitHub Pages) — работаем только на localStorage
+        console.log("Сервер недоступен, работаем офлайн (localStorage)");
         isLoaded = true;
         render();
     }
@@ -173,14 +218,19 @@ function render() {
 
 async function save() {
     if (!isLoaded) return;
+
+    // Всегда сохраняем в localStorage — это основное хранилище
+    localStorage.setItem('myWords', JSON.stringify(myWords));
+
+    // Опционально синхронизируем с сервером (если он есть)
     try {
-        await fetch(apiUrl('/api/sync'), {
+        await apiFetch('/api/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(myWords)
         });
     } catch (e) {
-        console.error("Ошибка сохранения", e);
+        // Сервер недоступен — не страшно, данные уже в localStorage
     }
 }
 
@@ -265,29 +315,41 @@ async function startTraining() {
 }
 
 async function loadTimerFromServer() {
+    // Сначала берём из localStorage
+    const localTime = parseInt(localStorage.getItem('timeLeft')) || 0;
+    if (localTime > 0) {
+        timeLeft = localTime;
+        updateUI();
+    }
+
+    // Пробуем подтянуть с сервера
     try {
-        const response = await fetch(apiUrl('/api/timer'));
+        const response = await apiFetch('/api/timer');
         if (!response.ok) throw new Error('Timer API unavailable');
         const data = await response.json();
-        // ✅ ИСПРАВЛЕНО: не перезаписываем timeLeft нулём с сервера
         if (data.timeLeft > 0) {
             timeLeft = data.timeLeft;
+            localStorage.setItem('timeLeft', String(timeLeft));
         }
         updateUI();
     } catch (e) {
-        console.warn("Ошибка загрузки таймера с сервера, используем локальное значение");
+        // Сервер недоступен — используем localStorage значение
     }
 }
 
 async function saveTimerToServer() {
+    // Всегда сохраняем в localStorage
+    localStorage.setItem('timeLeft', String(timeLeft));
+
+    // Опционально синхронизируем с сервером
     try {
-        await fetch(apiUrl('/api/timer'), {
+        await apiFetch('/api/timer', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ timeLeft: timeLeft })
         });
     } catch (e) {
-        console.warn("Не удалось синхронизировать время с сервером");
+        // Сервер недоступен — не страшно
     }
 }
 
@@ -1147,10 +1209,13 @@ window.addEventListener('DOMContentLoaded', async () => {
         timerId = null;
     }
 
-    // Загружаем данные
+    // 1. Получаем/создаём уникальный ID пользователя (ПЕРВЫМ делом!)
+    await initUserId();
+
+    // 2. Загружаем данные
     await loadWords();
     
-    // Сначала делаем дневной сброс, потом подгружаем время
+    // 3. Дневной сброс и таймер
     await dailyReset();
     await loadTimerFromServer();
 
