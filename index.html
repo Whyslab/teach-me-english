@@ -628,8 +628,43 @@ mark {
     <div class="modal-content">
         <span class="close-modal">&times;</span>
         <h3>Импорт списка слов</h3>
-        <textarea id="import-area" placeholder="apple – яблоко (каждое слово с новой строки)"></textarea>
-        <button id="import-btn" class="primary-btn">Загрузить в словарь</button>
+
+        <!-- Загрузка файла -->
+        <div style="margin-bottom: 10px;">
+            <label for="file-upload" style="
+                display: inline-block;
+                padding: 10px 20px;
+                background: rgba(0, 210, 255, 0.1);
+                border: 1px dashed #00d2ff;
+                border-radius: 10px;
+                color: #00d2ff;
+                cursor: pointer;
+                font-size: 14px;
+                width: 100%;
+                box-sizing: border-box;
+                text-align: center;
+            ">📂 Выбрать .txt файл</label>
+            <input type="file" id="file-upload" accept=".txt" style="display: none;">
+            <div id="file-name" style="font-size: 12px; color: #666; margin-top: 5px; text-align: center;"></div>
+        </div>
+
+        <div style="text-align: center; color: #555; font-size: 12px; margin-bottom: 8px;">— или вставь текст вручную —</div>
+
+        <textarea id="import-area" placeholder="apple|яблоко&#10;banana|банан&#10;&#10;Формат: слово|перевод|пример|перевод примера"></textarea>
+        <button id="import-btn" class="primary-btn" style="
+            all: unset;
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #00bfff;
+            color: white;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            box-sizing: border-box;
+            margin-top: 8px;
+        ">Загрузить в словарь</button>
     </div>
 </div>
 

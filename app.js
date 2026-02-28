@@ -1014,6 +1014,32 @@ function openImportModal() {
     }
 }
 
+// ✅ НОВОЕ: обработчик загрузки .txt файла
+const fileUpload = document.getElementById('file-upload');
+if (fileUpload) {
+    fileUpload.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Показываем имя файла
+        const fileNameEl = document.getElementById('file-name');
+        if (fileNameEl) fileNameEl.textContent = `📄 ${file.name}`;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target.result;
+            // Вставляем содержимое файла в textarea
+            if (importArea) {
+                importArea.value = text;
+            }
+        };
+        reader.onerror = () => {
+            alert("Не удалось прочитать файл. Попробуй другой.");
+        };
+        reader.readAsText(file, 'UTF-8');
+    };
+}
+
 // ✅ ИСПРАВЛЕНО: favicon 404 — добавляем программно чтобы не было ошибки
 (function addFavicon() {
     const link = document.createElement('link');
