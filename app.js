@@ -1014,7 +1014,97 @@ function openImportModal() {
     }
 }
 
-// ✅ НОВОЕ: обработчик загрузки .txt файла
+// ✅ DRAGGABLE TIMER
+(function initDraggableTimer() {
+    const card = document.getElementById('timer-container');
+    if (!card) return;
+
+    let isDragging = false;
+    let startX, startY, origLeft, origTop;
+
+    function isMobile() {
+        return window.innerWidth <= 600;
+    }
+
+    function onStart(x, y) {
+        if (isMobile()) return; // на мобиле не двигаем — он внизу по центру
+        isDragging = true;
+        startX = x;
+        startY = y;
+        const rect = card.getBoundingClientRect();
+        origLeft = rect.left;
+        origTop = rect.top;
+        card.style.right = 'auto';
+        card.style.transition = 'none';
+    }
+
+    function onMove(x, y) {
+        if (!isDragging) return;
+        const dx = x - startX;
+        const dy = y - startY;
+        let newLeft = origLeft + dx;
+        let newTop = origTop + dy;
+
+        // Держим в пределах экрана
+        const maxX = window.innerWidth - card.offsetWidth - 8;
+        const maxY = window.innerHeight - card.offsetHeight - 8;
+        newLeft = Math.max(8, Math.min(newLeft, maxX));
+        newTop = Math.max(8, Math.min(newTop, maxY));
+
+        card.style.left = newLeft + 'px';
+        card.style.top = newTop + 'px';
+    }
+
+    function onEnd() {
+        isDragging = false;
+        card.style.transition = '';
+        // Сохраняем позицию
+        localStorage.setItem('timerPos', JSON.stringify({
+            left: card.style.left,
+            top: card.style.top
+        }));
+    }
+
+    // Восстанавливаем позицию
+    const saved = localStorage.getItem('timerPos');
+    if (saved && !isMobile()) {
+        try {
+            const pos = JSON.parse(saved);
+            if (pos.left) { card.style.left = pos.left; card.style.right = 'auto'; }
+            if (pos.top) card.style.top = pos.top;
+        } catch(e) {}
+    }
+
+    // Mouse events
+    card.addEventListener('mousedown', (e) => {
+        if (e.target.id === 'add-time-btn') return;
+        onStart(e.clientX, e.clientY);
+    });
+    document.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+    document.addEventListener('mouseup', onEnd);
+
+    // Touch events
+    card.addEventListener('touchstart', (e) => {
+        if (e.target.id === 'add-time-btn') return;
+        const t = e.touches[0];
+        onStart(t.clientX, t.clientY);
+    }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const t = e.touches[0];
+        onMove(t.clientX, t.clientY);
+    }, { passive: true });
+    document.addEventListener('touchend', onEnd);
+
+    // При ресайзе сбрасываем позицию если вышло за экран
+    window.addEventListener('resize', () => {
+        if (isMobile()) {
+            card.style.left = '';
+            card.style.top = '';
+            card.style.right = '';
+        }
+    });
+})();
 const fileUpload = document.getElementById('file-upload');
 if (fileUpload) {
     fileUpload.onchange = (e) => {
