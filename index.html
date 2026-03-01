@@ -1,9 +1,14 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#121212">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Словарь">
+    <link rel="manifest" href="manifest.json">
     <title>Легкий Словарь^^</title>
     <style>
         :root {
@@ -289,11 +294,27 @@ mark {
 .flashcard-front {
     font-size: 24px;
     font-weight: bold;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .flashcard-back {
     transform: rotateY(180deg);
-    font-size: 20px; 
+    font-size: 20px;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Анимация правильного ответа */
+.flashcard-front.flash-correct,
+.flashcard-back.flash-correct {
+    background: rgba(40, 167, 69, 0.25) !important;
+    box-shadow: inset 0 0 0 2px rgba(40, 167, 69, 0.7), 0 0 24px rgba(40, 167, 69, 0.3);
+}
+
+/* Анимация неправильного ответа */
+.flashcard-front.flash-wrong,
+.flashcard-back.flash-wrong {
+    background: rgba(220, 53, 69, 0.25) !important;
+    box-shadow: inset 0 0 0 2px rgba(220, 53, 69, 0.7), 0 0 24px rgba(220, 53, 69, 0.3);
 }
 
 .header-side {
@@ -498,6 +519,150 @@ mark {
 .timer-status { font-size: 0.65rem; color: #00ffcc; margin-top: 2px; }
 .timer-low { color: #ff4d4d !important; animation: pulse 1s infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ===== TOAST ===== */
+#toast-container {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 9998;
+    pointer-events: none;
+    align-items: center;
+}
+#toast-container > * { pointer-events: all; }
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+@keyframes toastOut {
+    from { opacity: 1; transform: translateY(0)    scale(1); }
+    to   { opacity: 0; transform: translateY(8px)  scale(0.95); }
+}
+
+/* Кнопки: 3 колонки чтобы влезло больше */
+.buttons-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+}
+
+/* Сортировка */
+.sort-bar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+.sort-btn {
+    all: unset;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #aaa;
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+.sort-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+/* Комбо-анимация */
+@keyframes comboPop {
+    0%   { transform: scale(1.5); opacity: 0.5; }
+    100% { transform: scale(1);   opacity: 1; }
+}
+#combo-display { animation: comboPop 0.3s ease; }
+
+@keyframes slideUp {
+    from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+    to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+}
+
+/* Карточка результата */
+.result-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 12px 8px;
+    text-align: center;
+}
+.result-card .rc-value { font-size: 1.8rem; font-weight: 800; line-height: 1; }
+.result-card .rc-label { font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Quiz кнопки */
+.quiz-option {
+    all: unset;
+    padding: 14px 10px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: background 0.15s, border-color 0.15s;
+}
+.quiz-option:hover { background: rgba(255,255,255,0.1); }
+.quiz-option.correct { background: rgba(40,167,69,0.25) !important; border-color: #28a745 !important; }
+.quiz-option.wrong   { background: rgba(220,53,69,0.25)  !important; border-color: #ff4d4d !important; }
+.quiz-option:disabled { cursor: default; }
+
+/* Тег-чипы */
+.tag-chip {
+    all: unset;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 12px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #aaa;
+    transition: all 0.15s;
+    box-sizing: border-box;
+}
+.tag-chip:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+.tag-chip.active {
+    background: rgba(0,210,255,0.15);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+/* Тег-бейдж на карточке слова */
+.word-tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 100px;
+    font-size: 10px;
+    background: rgba(255,255,255,0.07);
+    color: #888;
+    border: 1px solid rgba(255,255,255,0.1);
+    margin-right: 3px;
+}
+
+/* Подсказка горячих клавиш */
+.hotkey-hint {
+    display: none;
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #444;
+    white-space: nowrap;
+    pointer-events: none;
+}
+@media (hover: hover) {
+    /* Показываем подсказку только на устройствах с мышью */
+    #flashcard:hover .hotkey-hint { display: block; }
+    .flashcard-container { position: relative; }
+}
 
 #add-time-btn {
     all: unset;
@@ -756,13 +921,17 @@ mark {
                     <input type="text" placeholder="русский перевод" id="input-ru">
                     <input type="text" placeholder="пример предложения (необязательно)" id="input-example">
                     <input type="text" placeholder="перевод предложения" id="input-ex-ru">
+                    <input type="text" placeholder="теги через запятую: работа, B2, путешествия" id="input-tags">
                 </div>
 
                 <div class="buttons-row">
                     <button id="add-btn" class="action-btn">Добавить слово</button>
                     <button id="reset-learned-btn" class="outline-btn warning">Сбросить прогресс</button>
-                    <button id="export-btn" class="outline-btn secondary">Скачать словарь</button>
+                    <button id="export-btn" class="outline-btn secondary">Скачать .txt</button>
                     <button id="clear-all" class="outline-btn danger">Очистить всё</button>
+                    <button id="backup-btn" class="outline-btn secondary">💾 Бэкап JSON</button>
+                    <button id="restore-btn" class="outline-btn secondary">📂 Восстановить</button>
+                    <input type="file" id="restore-input" accept=".json" style="display:none">
                 </div>
 
                 <div class="quick-actions">
@@ -778,7 +947,28 @@ mark {
                     🔥 <span id="streak-count">0</span> дней подряд | Сегодня: <span id="daily-count">0</span> / 10
                 </div>
 
-                <button onclick="startTraining()" id="start-training-btn" class="start-btn">Начать тренировку (B1)</button>
+                <button onclick="startTraining()" id="start-training-btn" class="start-btn">Начать тренировку</button>
+
+                <!-- Кнопки режимов тренировки -->
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button onclick="startTraining('mistakes')" id="start-mistakes-btn" style="all:unset;flex:1;padding:10px;background:rgba(255,77,77,0.12);border:1px solid rgba(255,77,77,0.3);border-radius:10px;color:#ff4d4d;font-weight:600;font-size:13px;text-align:center;cursor:pointer;box-sizing:border-box;">🔴 Только ошибки</button>
+                    <button onclick="startQuizMode()" id="start-quiz-btn" style="all:unset;flex:1;padding:10px;background:rgba(243,156,18,0.12);border:1px solid rgba(243,156,18,0.3);border-radius:10px;color:#f39c12;font-weight:600;font-size:13px;text-align:center;cursor:pointer;box-sizing:border-box;">🎮 Угадай из 4</button>
+                </div>
+
+                <!-- Фильтр по тегам -->
+                <div id="tag-filter-bar" style="display:none;">
+                    <div style="font-size:11px;color:#666;margin-bottom:5px;">Фильтр по тегу:</div>
+                    <div id="tag-chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+                </div>
+
+                <div class="sort-bar">
+                    <span style="font-size:11px;color:#666;margin-right:4px;">Сортировка:</span>
+                    <button class="sort-btn" data-sort="default"  onclick="setSortMode('default')" >По умолч.</button>
+                    <button class="sort-btn" data-sort="level-asc" onclick="setSortMode('level-asc')">Ур. ↑</button>
+                    <button class="sort-btn" data-sort="level-desc" onclick="setSortMode('level-desc')">Ур. ↓</button>
+                    <button class="sort-btn" data-sort="alpha"     onclick="setSortMode('alpha')"    >А–Я</button>
+                    <button class="sort-btn" data-sort="review"    onclick="setSortMode('review')"   >Повтор</button>
+                </div>
 
                 <div id="cards-container"></div>
             </section>
@@ -809,6 +999,8 @@ mark {
 
         <div id="training-stats">
             Осталось: <span id="total-remaining">0</span> | Пачка: <span id="current-pool-count">0/0</span>
+            &nbsp;·&nbsp; <span id="session-counter"><span style="color:#28a745">✓ 0</span> &nbsp; <span style="color:#ff4d4d">✗ 0</span></span>
+            &nbsp; <span id="combo-display" style="display:none;font-weight:700;color:#f39c12;font-size:15px;"></span>
         </div>
 
         <div class="flashcard-container">
@@ -850,7 +1042,58 @@ mark {
             <button id="btn-next" class="btn secondary">Вперед →</button>
         </div>
 
+        <!-- РЕЖИМ УГАДАЙ ИЗ 4 -->
+        <div id="quiz-area" style="display:none;width:100%;">
+            <div id="quiz-word" style="font-size:1.6rem;font-weight:800;text-align:center;margin:12px 0 20px;min-height:40px;"></div>
+            <div id="quiz-options" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;"></div>
+            <div id="quiz-feedback" style="text-align:center;font-size:14px;margin-top:12px;min-height:20px;"></div>
+        </div>
+
         <button onclick="stopTraining()" id="stop-training" class="exit-btn">Завершить тренировку</button>
+        <button onclick="openQuickAdd()" style="all:unset;margin-top:8px;color:#00d2ff;font-size:12px;cursor:pointer;opacity:0.7;">➕ Добавить слово</button>
+    </div>
+
+    <!-- UNDO TOAST — отмена удаления -->
+    <div id="undo-toast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e1e1e;border:1px solid rgba(255,255,255,0.15);border-radius:100px;padding:10px 18px;z-index:3000;box-shadow:0 8px 24px rgba(0,0,0,0.5);display:none;align-items:center;gap:12px;white-space:nowrap;">
+        <span id="undo-text" style="font-size:13px;color:#ccc;"></span>
+        <button id="undo-btn" style="all:unset;color:#00d2ff;font-weight:700;font-size:13px;cursor:pointer;">Отменить</button>
+    </div>
+
+    <!-- ИТОГИ ТРЕНИРОВКИ -->
+    <div id="results-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;justify-content:center;align-items:center;">
+        <div style="background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:32px 28px;max-width:360px;width:90%;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+            <div style="font-size:2.5rem;margin-bottom:8px;" id="results-emoji">🎉</div>
+            <h2 style="margin:0 0 20px;font-size:1.3rem;">Итоги тренировки</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;" id="results-grid"></div>
+            <div id="results-hardest" style="background:rgba(255,255,255,0.04);border-radius:12px;padding:12px;margin-bottom:18px;text-align:left;font-size:13px;display:none;">
+                <div style="color:#888;margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Сложные слова</div>
+                <div id="results-hardest-list"></div>
+            </div>
+            <button onclick="closeResults()" style="all:unset;display:block;width:100%;padding:13px;background:#00bfff;color:#fff;border-radius:12px;font-weight:700;cursor:pointer;box-sizing:border-box;font-size:15px;">Готово</button>
+        </div>
+    </div>
+
+    <!-- БЫСТРОЕ ДОБАВЛЕНИЕ ВО ВРЕМЯ ТРЕНИРОВКИ -->
+    <div id="quick-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;justify-content:center;align-items:center;">
+        <div style="background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:24px;max-width:340px;width:90%;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+            <h3 style="margin:0 0 16px;font-size:1rem;">➕ Добавить слово</h3>
+            <input id="qa-en" type="text" placeholder="English word" style="margin-bottom:8px;">
+            <div style="position:relative;display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+                <input id="qa-ru" type="text" placeholder="Перевод" style="margin-bottom:0;flex:1;">
+                <button id="qa-translate-btn" title="Автоперевод" style="all:unset;width:36px;height:36px;border-radius:10px;background:rgba(0,210,255,0.1);border:1px solid rgba(0,210,255,0.3);color:#00d2ff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🔄</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+                <button onclick="closeQuickAdd()" style="all:unset;flex:1;padding:11px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#aaa;font-weight:600;cursor:pointer;text-align:center;box-sizing:border-box;">Отмена</button>
+                <button id="qa-save-btn" style="all:unset;flex:2;padding:11px;border-radius:10px;background:#00bfff;color:#fff;font-weight:700;cursor:pointer;text-align:center;box-sizing:border-box;">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ДОСТИЖЕНИЯ TOAST -->
+    <div id="achievement-toast" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#1a1a1a,#242424);border:1px solid rgba(255,215,0,0.3);border-radius:16px;padding:12px 20px;z-index:3000;box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:260px;text-align:center;animation:slideUp 0.4s ease;">
+        <div style="font-size:1.6rem;" id="ach-icon">🏆</div>
+        <div style="font-weight:700;color:#ffd700;font-size:14px;margin-top:4px;" id="ach-title">Достижение!</div>
+        <div style="font-size:12px;color:#aaa;margin-top:2px;" id="ach-desc"></div>
     </div>
 
 </main>

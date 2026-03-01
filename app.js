@@ -63,7 +63,32 @@ let currentWordIndex = 0;
 let cardClickStage = 0;
 let isMuted = localStorage.getItem('isMuted') === 'true'; 
 let isLoaded = false; 
-const POOL_LIMIT = 50;   
+const POOL_LIMIT = 50;
+let sessionCorrect = 0;
+let sessionWrong = 0;   
+
+let comboCount = 0;
+
+function updateCombo(correct) {
+    if (correct) {
+        comboCount++;
+        if (comboCount >= 3 && comboCount % 3 === 0) playSound('combo');
+    } else {
+        comboCount = 0;
+    }
+    const el = document.getElementById('combo-display');
+    if (!el) return;
+    if (comboCount >= 3) {
+        el.style.display = 'inline';
+        const fire = comboCount >= 10 ? '🔥🔥🔥' : comboCount >= 6 ? '🔥🔥' : '🔥';
+        el.textContent = `${fire} ×${comboCount}`;
+        el.style.animation = 'none';
+        void el.offsetWidth; // reflow
+        el.style.animation = 'comboPop 0.3s ease';
+    } else {
+        el.style.display = 'none';
+    }
+}
 
 let streakData = safeParseStorage('streakData', {
     count: 0,
@@ -185,7 +210,19 @@ function render() {
     
     const now = Date.now();
 
-    const cardsHTML = myWords.map(word => { 
+    renderTagFilterBar();
+    const base = getFilteredWords();
+    const sorted = currentSort === 'default' ? base : (() => {
+        const arr = [...base];
+        switch (currentSort) {
+            case 'level-asc':  return arr.sort((a,b) => (a.level||0) - (b.level||0));
+            case 'level-desc': return arr.sort((a,b) => (b.level||0) - (a.level||0));
+            case 'alpha':      return arr.sort((a,b) => a.original.localeCompare(b.original));
+            case 'review':     return arr.sort((a,b) => (a.nextReview||0) - (b.nextReview||0));
+        }
+        return arr;
+    })();
+    const cardsHTML = sorted.map(word => { 
         const level = word.level || 0;
         const isMaxLevel = level === 5;
         
@@ -194,6 +231,7 @@ function render() {
         
         const learnedStyle = isMaxLevel ? 'style="opacity: 0.5; background: rgba(40, 167, 69, 0.05);"' : '';
         const badge = `<span class="level-indicator" style="font-size: 10px; color: #00d2ff; background: rgba(0, 210, 255, 0.1); padding: 2px 6px; border-radius: 4px; margin-right: 8px;">Ур. ${level}</span>`;
+        const tagsBadges = (word.tags || []).map(t => `<span class="word-tag">${t}</span>`).join('');
 
         return `
         <div class="card ${reviewClass}" data-id="${word.id}" ${learnedStyle}>
@@ -202,6 +240,7 @@ function render() {
                 <span class="original editable-text" contenteditable="true">${word.original}</span>
                 <span class="arrow" style="color: #999"> —> </span>
                 <span class="translation hidden editable-text" contenteditable="true">${word.translate}</span>
+                ${tagsBadges ? `<span style="margin-left:6px">${tagsBadges}</span>` : ''}
             </div>
             <div class="actions">
                 <button class="speak-btn" title="Прослушать">🔊</button>
@@ -214,6 +253,21 @@ function render() {
     updateOverallProgress();
     updateLevelStats();
     updateVisualProgress();
+    updateTrainingBtnCount();
+}
+
+function updateTrainingBtnCount() {
+    const btn = document.getElementById('start-training-btn');
+    if (!btn) return;
+    const now = Date.now();
+    const readyCount = myWords.filter(w => !w.nextReview || w.nextReview <= now).length;
+    if (readyCount > 0) {
+        btn.textContent = `Начать тренировку (${readyCount} слов)`;
+        btn.style.background = readyCount > 20 ? '#00bfff' : readyCount > 5 ? '#0099cc' : '#006b8f';
+    } else {
+        btn.textContent = 'Все слова повторены ✓';
+        btn.style.background = 'rgba(40,167,69,0.4)';
+    }
 }
 
 async function save() {
@@ -253,7 +307,7 @@ function updateOverallProgress() {
 
 // === 3. ЛОГИКА ТРЕНИРОВКИ ===
 
-async function startTraining() {
+async function startTraining(mode) {
     // 1. Ежедневный сброс таймера если нужно
     await dailyReset();
 
@@ -276,7 +330,7 @@ async function startTraining() {
     const wordsToReview = myWords.filter(w => !w.nextReview || w.nextReview <= now);
     
     if (wordsToReview.length === 0) {
-        alert("Все слова уже повторены! Добавь новые или подожди следующего повторения.");
+        showToast('Все слова уже повторены! Добавь новые или подожди следующего повторения.', 'info'); return;
         return;
     }
 
@@ -284,6 +338,14 @@ async function startTraining() {
     mainQueue = [...wordsToReview].sort(() => Math.random() - 0.5);
     activePool = [];
     currentWordIndex = 0;
+    sessionCorrect = 0;
+    sessionWrong = 0;
+    comboCount = 0;
+    sessionBestCombo = 0;
+    sessionStartTime = Date.now();
+    wordMistakes = {};
+    const comboEl = document.getElementById('combo-display');
+    if (comboEl) comboEl.style.display = 'none';
     fillPool();
 
     // Запускаем таймер если он ещё не идёт
@@ -450,6 +512,7 @@ flashcard.onclick = () => {
 
     if (cardClickStage === 0) {
         flashcard.classList.add('is-flipped');
+        playSound('flip');
         if (!isMuted && word) speak(word.original);
         cardClickStage = 1;
     } else if (cardClickStage === 1 && hasExample) {
@@ -483,9 +546,8 @@ function resetCardView() {
 function stopTraining() {
     clearInterval(timerId);
     timerId = null;
-    
-    const statusEl = document.getElementById('timer-status');
-    if (statusEl) statusEl.textContent = "На паузе";
+    saveTimerToServer();
+    finishTraining(); // возвращаемся на главный экран
 }
 
 function finishDay() {
@@ -494,7 +556,7 @@ function finishDay() {
 
     finishTraining(); 
 
-    alert("Время тренировки вышло! На сегодня достаточно. Но ты можешь продолжить работу со словарем в обычном режиме.");
+    showToast('Время тренировки вышло! На сегодня достаточно 💪', 'warning', 5000);
     
     const statusEl = document.getElementById('timer-status');
     if (statusEl) {
@@ -519,12 +581,46 @@ function finishTraining() {
     document.body.classList.remove('no-scroll');
     document.body.style.overflow = 'auto';
 
-    render(); 
+    render();
+
+    // Показываем итоги если было хоть одно слово
+    if (sessionCorrect + sessionWrong > 0) {
+        setTimeout(() => {
+            showResults();
+            checkAchievements();
+        }, 300);
+    }
 }
 
 function nextStep() {
     flashcard.classList.remove('is-flipped');
     setTimeout(updateFlashcard, 300);
+}
+
+// Мигает зелёным (верно) или красным (неверно)
+function flashCard(correct) {
+    return new Promise(resolve => {
+        const fc = document.getElementById('flashcard');
+        if (!fc) { resolve(); return; }
+
+        // Вешаем класс на обе стороны — они имеют border-radius 25px
+        const sides = fc.querySelectorAll('.flashcard-front, .flashcard-back');
+        const cls = correct ? 'flash-correct' : 'flash-wrong';
+
+        sides.forEach(s => s.classList.add(cls));
+
+        setTimeout(() => {
+            sides.forEach(s => s.classList.remove(cls));
+            resolve();
+        }, 380);
+    });
+}
+
+// Обновляет счётчик сессии в шапке тренировки
+function updateSessionCounter() {
+    let el = document.getElementById('session-counter');
+    if (!el) return;
+    el.innerHTML = `<span style="color:#28a745">✓ ${sessionCorrect}</span> &nbsp; <span style="color:#ff4d4d">✗ ${sessionWrong}</span>`;
 }
 
 function saveToHistory(wasRemoved = false) {
@@ -556,7 +652,14 @@ function applyForgetSchedule(word) {
 document.getElementById('btn-know').onclick = async () => {
     const word = activePool[currentWordIndex];
     if (!word) return;
-    saveToHistory(true); 
+    sessionCorrect++;
+    updateCombo(true);
+    updateSessionCounter();
+    saveToHistory(true);
+
+    await flashCard(true);
+    playSound('correct');
+
     const mainWord = myWords.find(w => w.id === word.id);
     if (mainWord) {
         mainWord.level = Math.min((mainWord.level || 0) + 1, 5);
@@ -564,18 +667,36 @@ document.getElementById('btn-know').onclick = async () => {
         mainWord.forgetStep = 0;
         streakData.todayCount++;
         recordDailyLearn(1);
+
+        // Конфетти когда выполнена дневная цель!
+        if (streakData.todayCount === 10) {
+            launchConfetti();
+        }
+
         updateStreak();
         await save();
     }
     activePool.splice(currentWordIndex, 1);
     fillPool();
     if (currentWordIndex >= activePool.length) currentWordIndex = 0;
+    checkAchievements();
     nextStep();
 };
 
-document.getElementById('btn-dont-know').onclick = () => {
-    saveToHistory(false); 
+document.getElementById('btn-dont-know').onclick = async () => {
+    sessionWrong++;
+    updateCombo(false);
+    updateSessionCounter();
+    saveToHistory(false);
+
+    await flashCard(false);
+    playSound('wrong');
+
     const word = activePool[currentWordIndex];
+    // Трекаем ошибки для топа сложных слов
+    if (word) {
+        wordMistakes[word.id] = (wordMistakes[word.id] || 0) + 1;
+    }
     const mainWord = myWords.find(w => w.id === word.id);
     if (mainWord) {
         applyForgetSchedule(mainWord);
@@ -625,7 +746,7 @@ document.getElementById('btn-next').onclick = () => {
 
 if (resetLearnedBtn) {
     resetLearnedBtn.onclick = async () => {
-        if (confirm("Вы уверены? Это обнулит уровни слов, стрик и счетчик за сегодня!")) {
+        if (await showConfirm("Сбросить весь прогресс?<br><small style='color:#888'>Уровни слов, стрик и счётчик за сегодня обнулятся</small>", "Сбросить", "Отмена")) {
             myWords.forEach(word => {
                 word.level = 0;
                 word.nextReview = Date.now();
@@ -651,7 +772,7 @@ if (resetLearnedBtn) {
             render();
             updateOverallProgress();
             
-            alert("Весь прогресс, включая дневной счетчик, сброшен!");
+            showToast('Весь прогресс сброшен', 'warning');
         }
     };
 }
@@ -667,7 +788,7 @@ if (muteBtn) {
 }
 
 clearBtn.onclick = async () => {
-    if (confirm("Удалить все слова?")) {
+    if (await showConfirm("Удалить все слова?<br><small style='color:#888'>Это действие нельзя отменить</small>", "Удалить всё", "Отмена")) {
         myWords = [];
         await save();
         render();
@@ -884,20 +1005,37 @@ function updateVisualProgress() {
 }
 
 function updateStreak() {
-    const now = new Date();
-    const today = now.toDateString();
-    
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+
     if (streakData.lastDate !== today) {
+        // Новый день
+        if (streakData.lastDate === yesterday && streakData.todayCount >= 10) {
+            // Вчера выполнили цель — стрик продолжается
+            streakData.count = (streakData.count || 0) + 1;
+        } else if (streakData.lastDate !== yesterday) {
+            // Пропустили день — стрик сбрасывается
+            streakData.count = 0;
+        }
         streakData.todayCount = 0;
         streakData.lastDate = today;
     }
 
     const streakCountEl = document.getElementById('streak-count');
     const dailyCountEl = document.getElementById('daily-count');
-
     if (streakCountEl) streakCountEl.innerText = streakData.count;
     if (dailyCountEl) dailyCountEl.innerText = streakData.todayCount;
-    
+
+    // Подсвечиваем прогресс дневной цели
+    const streakContainer = document.getElementById('streak-container');
+    if (streakContainer) {
+        const pct = Math.min(streakData.todayCount / 10, 1);
+        streakContainer.style.background = `linear-gradient(90deg, rgba(0,210,255,0.15) ${pct*100}%, #1e1e1e ${pct*100}%)`;
+        if (streakData.todayCount >= 10 && streakData.count > 0) {
+            streakContainer.style.background = 'rgba(40,167,69,0.15)';
+        }
+    }
+
     localStorage.setItem('streakData', JSON.stringify(streakData));
 }
 
@@ -905,17 +1043,23 @@ addBtn.onclick = async () => {
     const en = inputEn.value.trim();
     const ru = inputRu.value.trim();
     if (en && ru) {
+        const tagsInput = document.getElementById('input-tags');
+        const tags = tagsInput ? tagsInput.value.split(',').map(t => t.trim()).filter(Boolean) : [];
         myWords.push({
             id: Date.now(),
             original: en, translate: ru,
             example: inputEx.value.trim(),
             exampleTranslate: inputExRu.value.trim(),
-            level: 0, nextReview: Date.now(), forgetStep: 0
+            level: 0, nextReview: Date.now(), forgetStep: 0,
+            tags
         });
         await save();
         render();
+        renderTagFilterBar();
         inputEn.value = ''; inputRu.value = ''; inputEx.value = ''; inputExRu.value = '';
+        if (tagsInput) tagsInput.value = '';
         inputEn.focus();
+        checkAchievements();
     }
 };
 
@@ -929,13 +1073,38 @@ element.onclick = (e) => {
         return; 
     }
     if (e.target.classList.contains('delete-btn')) {
-        myWords = myWords.filter(w => w.id !== id);
+        const idx = myWords.findIndex(w => w.id === id);
+        const removed = myWords.splice(idx, 1)[0];
         save(); render();
+        showUndoToast(removed, idx);
         return;
     }
     const trans = card.querySelector('.translation');
     if (trans) trans.classList.toggle('hidden');
 };
+
+// Сохраняем изменения при редактировании слова через contenteditable
+element.addEventListener('blur', (e) => {
+    if (!e.target.classList.contains('editable-text')) return;
+    const card = e.target.closest('.card');
+    if (!card) return;
+    const id = Number(card.dataset.id);
+    const word = myWords.find(w => w.id === id);
+    if (!word) return;
+
+    const newText = e.target.innerText.trim();
+    if (!newText) { e.target.innerText = e.target.classList.contains('original') ? word.original : word.translate; return; }
+
+    if (e.target.classList.contains('original')) {
+        word.original = newText;
+    } else if (e.target.classList.contains('translation')) {
+        word.translate = newText;
+    }
+    save();
+    // Небольшая визуальная подсказка что сохранилось
+    e.target.style.color = '#28a745';
+    setTimeout(() => { e.target.style.color = ''; }, 600);
+}, true);
 
 if (stopBtn) stopBtn.onclick = finishTraining;
 
@@ -985,11 +1154,11 @@ if (importBtn) importBtn.onclick = async () => {
     if (duplicateCount > 0) {
         const duplicatePreview = duplicatesList.join(', ');
         const duplicateTail = duplicateCount > duplicatesList.length ? ', ...' : '';
-        alert(`Импорт завершен!\n✅ Добавлено новых слов: ${importedCount}\n⚠️ Пропущено дубликатов: ${duplicateCount}\n(Первые дубликаты: ${duplicatePreview}${duplicateTail})`);
+        showToast(`Добавлено ${importedCount} слов, пропущено дубликатов: ${duplicateCount}`, 'success');
     } else if (importedCount > 0) {
-        alert(`Успешно добавлено ${importedCount} слов!`);
+        showToast(`Добавлено ${importedCount} слов!`, 'success');
     } else {
-        alert("Новых слов для добавления не найдено.");
+        showToast('Новых слов не найдено — все уже есть в словаре', 'info');
     }
 
     modal.style.display = 'none';
@@ -997,13 +1166,60 @@ if (importBtn) importBtn.onclick = async () => {
 };
 
 if (exportBtn) exportBtn.onclick = () => {
-    const textToSave = myWords.map(w => `${w.original}|${w.translate}|${w.example}|${w.exampleTranslate}`).join('\n');
+    // Экспорт текста (.txt) — просто слова без прогресса
+    const textToSave = myWords.map(w => `${w.original}|${w.translate}|${w.example || ''}|${w.exampleTranslate || ''}`).join('\n');
     const blob = new Blob([textToSave], { type: 'text/plain' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `vocab_backup.txt`;
+    link.download = `словарь_${new Date().toLocaleDateString('ru-RU').replace(/\./g,'-')}.txt`;
     link.click();
 };
+
+// Резервная копия — полный JSON включая уровни и прогресс
+const backupBtn = document.getElementById('backup-btn');
+if (backupBtn) backupBtn.onclick = () => {
+    const backup = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        words: myWords,
+        streak: streakData,
+        activity: dailyActivity
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `backup_${new Date().toLocaleDateString('ru-RU').replace(/\./g,'-')}.json`;
+    link.click();
+    showToast('Резервная копия сохранена', 'success');
+};
+
+// Восстановление из JSON
+const restoreBtn = document.getElementById('restore-btn');
+const restoreInput = document.getElementById('restore-input');
+if (restoreBtn && restoreInput) {
+    restoreBtn.onclick = () => restoreInput.click();
+    restoreInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            if (!data.words || !Array.isArray(data.words)) throw new Error('Неверный формат');
+            if (await showConfirm(`Восстановить ${data.words.length} слов из резервной копии?<br><small style='color:#888'>Текущий словарь будет заменён</small>`, 'Восстановить', 'Отмена')) {
+                myWords = data.words;
+                if (data.streak) { streakData = data.streak; }
+                if (data.activity) { dailyActivity = data.activity; }
+                await save();
+                updateStreak();
+                render();
+                showToast(`Восстановлено ${myWords.length} слов`, 'success');
+            }
+        } catch(err) {
+            showToast('Не удалось прочитать файл. Убедись что это JSON-бэкап.', 'error');
+        }
+        restoreInput.value = '';
+    };
+}
 
 if (searchInput) searchInput.oninput = () => {
     const val = searchInput.value.trim().toLowerCase();
@@ -1074,6 +1290,721 @@ function openImportModal() {
     if (importArea) {
         setTimeout(() => importArea.focus(), 100);
     }
+}
+
+
+// ============================================================
+// СВАЙП КАРТОЧКИ на телефоне
+// влево = Не знаю, вправо = Знаю
+// ============================================================
+(function initSwipe() {
+    const fc = document.getElementById('flashcard');
+    if (!fc) return;
+
+    let startX = 0, startY = 0, isDragging = false;
+    const THRESHOLD = 80; // px для срабатывания
+
+    function onStart(x, y) {
+        startX = x; startY = y;
+        isDragging = true;
+        fc.style.transition = 'none';
+    }
+
+    function onMove(x, y) {
+        if (!isDragging) return;
+        const dx = x - startX;
+        const dy = y - startY;
+        // Если вертикальный скролл — не свайпаем карточку
+        if (Math.abs(dy) > Math.abs(dx) + 10) { isDragging = false; fc.style.transform = ''; return; }
+        const rotate = dx * 0.08;
+        fc.style.transform = `translateX(${dx}px) rotate(${rotate}deg)`;
+        // Цвет подсказки
+        const sides = fc.querySelectorAll('.flashcard-front, .flashcard-back');
+        if (dx > 40) sides.forEach(s => { s.classList.remove('flash-wrong'); s.classList.add('flash-correct'); });
+        else if (dx < -40) sides.forEach(s => { s.classList.remove('flash-correct'); s.classList.add('flash-wrong'); });
+        else sides.forEach(s => { s.classList.remove('flash-correct', 'flash-wrong'); });
+    }
+
+    function onEnd(x) {
+        if (!isDragging) return;
+        isDragging = false;
+        const dx = x - startX;
+        fc.style.transition = 'transform 0.3s';
+
+        if (dx > THRESHOLD) {
+            // Свайп вправо — Знаю
+            fc.style.transform = 'translateX(120%) rotate(20deg)';
+            setTimeout(() => {
+                fc.style.transform = '';
+                fc.style.transition = '';
+                document.getElementById('btn-know').click();
+            }, 280);
+        } else if (dx < -THRESHOLD) {
+            // Свайп влево — Не знаю
+            fc.style.transform = 'translateX(-120%) rotate(-20deg)';
+            setTimeout(() => {
+                fc.style.transform = '';
+                fc.style.transition = '';
+                document.getElementById('btn-dont-know').click();
+            }, 280);
+        } else {
+            // Не хватило — возвращаем на место
+            fc.style.transform = '';
+            setTimeout(() => { fc.style.transition = ''; }, 300);
+        }
+    }
+
+    // Touch
+    fc.addEventListener('touchstart', e => {
+        // Не свайпаем если карточка уже перевёрнута (просматривают перевод)
+        if (fc.classList.contains('is-flipped')) return;
+        const t = e.touches[0];
+        onStart(t.clientX, t.clientY);
+    }, { passive: true });
+
+    fc.addEventListener('touchmove', e => {
+        const t = e.touches[0];
+        onMove(t.clientX, t.clientY);
+    }, { passive: true });
+
+    fc.addEventListener('touchend', e => {
+        const t = e.changedTouches[0];
+        onEnd(t.clientX);
+    });
+})();
+
+
+function launchConfetti() {
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const pieces = Array.from({length: 120}, () => ({
+        x: Math.random() * canvas.width,
+        y: -20 - Math.random() * 100,
+        r: 4 + Math.random() * 6,
+        d: 2 + Math.random() * 3,
+        color: ['#00d2ff','#28a745','#f39c12','#e74c3c','#9b59b6','#fff'][Math.floor(Math.random()*6)],
+        tilt: Math.random() * 10 - 5,
+        tiltSpeed: 0.1 + Math.random() * 0.2,
+        angle: 0
+    }));
+
+    let frame = 0;
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+            p.angle += p.tiltSpeed;
+            p.y += p.d;
+            p.x += Math.sin(p.angle) * 1.5;
+            p.tilt = Math.sin(p.angle) * 12;
+            ctx.beginPath();
+            ctx.lineWidth = p.r;
+            ctx.strokeStyle = p.color;
+            ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+            ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2);
+            ctx.stroke();
+        });
+        frame++;
+        if (frame < 160) requestAnimationFrame(draw);
+        else canvas.remove();
+    }
+    draw();
+}
+
+
+// ============================================================
+// ГОРЯЧИЕ КЛАВИШИ
+// Пробел — перевернуть карточку
+// → или L — Знаю
+// ← или J — Не знаю
+// ============================================================
+document.addEventListener('keydown', (e) => {
+    const trainSect = document.getElementById('training-section');
+    if (!trainSect || trainSect.style.display === 'none') return;
+
+    // Не перехватываем если фокус в input/textarea
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+    if (e.code === 'Space') {
+        e.preventDefault();
+        flashcard.click();
+    } else if (e.code === 'ArrowRight' || e.code === 'KeyL') {
+        e.preventDefault();
+        document.getElementById('btn-know')?.click();
+    } else if (e.code === 'ArrowLeft' || e.code === 'KeyJ') {
+        e.preventDefault();
+        document.getElementById('btn-dont-know')?.click();
+    } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+        e.preventDefault();
+        document.getElementById('btn-back')?.click();
+    }
+});
+
+
+// ============================================================
+// СОРТИРОВКА СПИСКА
+// ============================================================
+let currentSort = 'default'; // default | level-asc | level-desc | alpha | review
+
+function getSortedWords() {
+    const arr = [...myWords];
+    switch (currentSort) {
+        case 'level-asc':  return arr.sort((a,b) => (a.level||0) - (b.level||0));
+        case 'level-desc': return arr.sort((a,b) => (b.level||0) - (a.level||0));
+        case 'alpha':      return arr.sort((a,b) => a.original.localeCompare(b.original));
+        case 'review':     return arr.sort((a,b) => (a.nextReview||0) - (b.nextReview||0));
+        default:           return arr;
+    }
+}
+
+function setSortMode(mode) {
+    currentSort = mode;
+    // Подсветить активную кнопку
+    document.querySelectorAll('.sort-btn').forEach(b => {
+        b.style.background = b.dataset.sort === mode
+            ? 'rgba(0,210,255,0.2)'
+            : 'rgba(255,255,255,0.05)';
+        b.style.borderColor = b.dataset.sort === mode
+            ? 'var(--accent-color)'
+            : 'rgba(255,255,255,0.1)';
+    });
+    render();
+}
+
+
+// ============================================================
+// TOAST — красивые уведомления вместо alert()
+// showToast(msg, type)  type: 'success' | 'error' | 'info' | 'warning'
+// showConfirm(msg) => Promise<boolean>  — вместо confirm()
+// ============================================================
+function showToast(message, type = 'info', duration = 3500) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    const colors = {
+        success: 'rgba(40,167,69,0.15)',
+        error:   'rgba(220,53,69,0.15)',
+        warning: 'rgba(243,156,18,0.15)',
+        info:    'rgba(0,210,255,0.12)'
+    };
+    const borders = {
+        success: 'rgba(40,167,69,0.4)',
+        error:   'rgba(220,53,69,0.4)',
+        warning: 'rgba(243,156,18,0.4)',
+        info:    'rgba(0,210,255,0.35)'
+    };
+
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        display:flex;align-items:flex-start;gap:10px;
+        background:${colors[type]};
+        border:1px solid ${borders[type]};
+        backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+        padding:12px 16px;border-radius:14px;
+        color:#fff;font-size:14px;line-height:1.4;
+        box-shadow:0 4px 20px rgba(0,0,0,0.4);
+        max-width:320px;word-break:break-word;
+        animation:toastIn 0.3s ease;
+        cursor:pointer;
+    `;
+    toast.innerHTML = `<span style="font-size:16px;flex-shrink:0">${icons[type]}</span><span>${message}</span>`;
+    toast.onclick = () => dismissToast(toast);
+    container.appendChild(toast);
+
+    const timer = setTimeout(() => dismissToast(toast), duration);
+    toast._timer = timer;
+
+    return toast;
+}
+
+function dismissToast(toast) {
+    clearTimeout(toast._timer);
+    toast.style.animation = 'toastOut 0.25s ease forwards';
+    setTimeout(() => toast.remove(), 250);
+}
+
+function showConfirm(message, confirmText = 'Подтвердить', cancelText = 'Отмена') {
+    return new Promise(resolve => {
+        // Затемнение
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+
+        const box = document.createElement('div');
+        box.style.cssText = 'background:#1e1e1e;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:28px 24px;max-width:320px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);animation:toastIn 0.2s ease;';
+        box.innerHTML = `
+            <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#eee">${message}</p>
+            <div style="display:flex;gap:10px;justify-content:center">
+                <button id="confirm-cancel" style="all:unset;padding:10px 22px;border-radius:12px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#aaa;cursor:pointer;font-size:14px;">${cancelText}</button>
+                <button id="confirm-ok" style="all:unset;padding:10px 22px;border-radius:12px;background:rgba(220,53,69,0.2);border:1px solid rgba(220,53,69,0.4);color:#ff6b6b;cursor:pointer;font-size:14px;font-weight:600;">${confirmText}</button>
+            </div>
+        `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const close = (val) => { overlay.remove(); resolve(val); };
+        box.querySelector('#confirm-ok').onclick     = () => close(true);
+        box.querySelector('#confirm-cancel').onclick = () => close(false);
+        overlay.onclick = (e) => { if (e.target === overlay) close(false); };
+    });
+}
+
+
+// ============================================================
+// ЗВУКОВЫЕ ЭФФЕКТЫ (AudioContext — без файлов)
+// ============================================================
+let audioCtx = null;
+
+function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+}
+
+function playSound(type) {
+    if (isMuted) return;
+    try {
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'correct') {
+            // Два восходящих тона — приятный аккорд
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, ctx.currentTime);
+            osc.frequency.setValueAtTime(660, ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.18, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.35);
+        } else if (type === 'wrong') {
+            // Нисходящий тон
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, ctx.currentTime);
+            osc.frequency.setValueAtTime(180, ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.3);
+        } else if (type === 'flip') {
+            // Тихий клик при перевороте
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            gain.gain.setValueAtTime(0.06, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.08);
+        } else if (type === 'combo') {
+            // Восходящий аккорд для комбо
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(523, ctx.currentTime);
+            osc.frequency.setValueAtTime(784, ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.15, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.4);
+        }
+    } catch(e) { /* AudioContext недоступен */ }
+}
+
+
+// ============================================================
+// ИТОГИ ТРЕНИРОВКИ
+// ============================================================
+let sessionBestCombo = 0;
+let sessionStartTime = 0;
+let wordMistakes = safeParseStorage('wordMistakes', {}); // { wordId: count }
+
+function showResults() {
+    const modal = document.getElementById('results-modal');
+    if (!modal) return;
+
+    const total = sessionCorrect + sessionWrong;
+    const accuracy = total > 0 ? Math.round(sessionCorrect / total * 100) : 0;
+    const mins = Math.round((Date.now() - sessionStartTime) / 60000);
+
+    // Выбираем эмодзи по точности
+    const emoji = accuracy >= 90 ? '🏆' : accuracy >= 70 ? '🎉' : accuracy >= 50 ? '💪' : '📚';
+    const emojiEl = document.getElementById('results-emoji');
+    if (emojiEl) emojiEl.textContent = emoji;
+
+    const grid = document.getElementById('results-grid');
+    if (grid) {
+        grid.innerHTML = [
+            { value: sessionCorrect, label: 'Верно', color: '#28a745' },
+            { value: sessionWrong,   label: 'Ошибки', color: '#ff4d4d' },
+            { value: accuracy + '%', label: 'Точность', color: accuracy >= 70 ? '#00d2ff' : '#f39c12' },
+            { value: sessionBestCombo + '×', label: 'Макс. комбо', color: '#f39c12' },
+            { value: mins + ' мин',  label: 'Время', color: '#aaa' },
+            { value: streakData.count + ' 🔥', label: 'Стрик', color: '#ff6b35' },
+        ].map(r => `
+            <div class="result-card">
+                <div class="rc-value" style="color:${r.color}">${r.value}</div>
+                <div class="rc-label">${r.label}</div>
+            </div>
+        `).join('');
+    }
+
+    // Топ-3 сложных слова из текущей сессии
+    const hardWords = Object.entries(wordMistakes)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([id, cnt]) => {
+            const w = myWords.find(x => x.id == id);
+            return w ? `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span>${w.original}</span><span style="color:#ff4d4d;font-weight:700">${cnt}× ❌</span></div>` : '';
+        }).filter(Boolean).join('');
+
+    const hardEl = document.getElementById('results-hardest');
+    const hardList = document.getElementById('results-hardest-list');
+    if (hardEl && hardList) {
+        if (hardWords) {
+            hardList.innerHTML = hardWords;
+            hardEl.style.display = 'block';
+        } else {
+            hardEl.style.display = 'none';
+        }
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeResults() {
+    const modal = document.getElementById('results-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// ============================================================
+// ДОСТИЖЕНИЯ
+// ============================================================
+const ACHIEVEMENTS = [
+    { id: 'words10',    icon: '🌱', title: 'Первые шаги',    desc: '10 слов в словаре',        check: () => myWords.length >= 10 },
+    { id: 'words100',   icon: '📚', title: 'Библиотека',     desc: '100 слов в словаре',       check: () => myWords.length >= 100 },
+    { id: 'words500',   icon: '🧠', title: 'Эрудит',         desc: '500 слов в словаре',       check: () => myWords.length >= 500 },
+    { id: 'streak3',    icon: '🔥', title: 'На волне',       desc: '3 дня подряд',             check: () => streakData.count >= 3 },
+    { id: 'streak7',    icon: '⚡', title: 'Недельный воин', desc: '7 дней подряд',            check: () => streakData.count >= 7 },
+    { id: 'streak30',   icon: '💎', title: 'Легенда',        desc: '30 дней подряд',           check: () => streakData.count >= 30 },
+    { id: 'combo10',    icon: '🎯', title: 'Снайпер',        desc: 'Комбо ×10',                check: () => sessionBestCombo >= 10 },
+    { id: 'accuracy100',icon: '✨', title: 'Идеальная',      desc: 'Тренировка без ошибок',    check: () => sessionCorrect >= 5 && sessionWrong === 0 },
+    { id: 'lvl5first',  icon: '🏅', title: 'Мастер слова',  desc: 'Первое слово на ур. 5',     check: () => myWords.some(w => w.level >= 5) },
+];
+
+let unlockedAchievements = safeParseStorage('achievements', []);
+
+function checkAchievements() {
+    ACHIEVEMENTS.forEach(ach => {
+        if (!unlockedAchievements.includes(ach.id) && ach.check()) {
+            unlockedAchievements.push(ach.id);
+            localStorage.setItem('achievements', JSON.stringify(unlockedAchievements));
+            showAchievementToast(ach);
+        }
+    });
+}
+
+function showAchievementToast(ach) {
+    const toast = document.getElementById('achievement-toast');
+    if (!toast) return;
+    document.getElementById('ach-icon').textContent = ach.icon;
+    document.getElementById('ach-title').textContent = ach.title;
+    document.getElementById('ach-desc').textContent = ach.desc;
+    toast.style.display = 'block';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 4000);
+}
+
+// ============================================================
+// АВТОПЕРЕВОД (MyMemory API — бесплатный, без ключа)
+// ============================================================
+async function autoTranslate(word) {
+    if (!word) return '';
+    try {
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ru`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.responseStatus === 200) {
+            return data.responseData.translatedText;
+        }
+    } catch (e) {}
+    return '';
+}
+
+// Кнопка автоперевода на главной форме
+document.getElementById('input-en')?.addEventListener('blur', async () => {
+    const en = document.getElementById('input-en')?.value.trim();
+    const ruField = document.getElementById('input-ru');
+    if (!en || !ruField || ruField.value.trim()) return;
+    ruField.placeholder = '⏳ Переводим...';
+    const translation = await autoTranslate(en);
+    ruField.placeholder = 'русский перевод';
+    if (translation && !ruField.value) ruField.value = translation;
+});
+
+// ============================================================
+// БЫСТРОЕ ДОБАВЛЕНИЕ ВО ВРЕМЯ ТРЕНИРОВКИ
+// ============================================================
+function openQuickAdd() {
+    const m = document.getElementById('quick-add-modal');
+    if (!m) return;
+    m.style.display = 'flex';
+    const enField = document.getElementById('qa-en');
+    if (enField) { enField.value = ''; enField.focus(); }
+    const ruField = document.getElementById('qa-ru');
+    if (ruField) ruField.value = '';
+}
+
+function closeQuickAdd() {
+    const m = document.getElementById('quick-add-modal');
+    if (m) m.style.display = 'none';
+}
+
+document.getElementById('qa-translate-btn')?.addEventListener('click', async () => {
+    const en = document.getElementById('qa-en')?.value.trim();
+    if (!en) return;
+    const btn = document.getElementById('qa-translate-btn');
+    btn.textContent = '⏳';
+    btn.style.pointerEvents = 'none';
+    const translation = await autoTranslate(en);
+    btn.textContent = '🔄';
+    btn.style.pointerEvents = '';
+    const ruField = document.getElementById('qa-ru');
+    if (translation && ruField) ruField.value = translation;
+});
+
+document.getElementById('qa-save-btn')?.addEventListener('click', async () => {
+    const en = document.getElementById('qa-en')?.value.trim();
+    const ru = document.getElementById('qa-ru')?.value.trim();
+    if (!en || !ru) return;
+    myWords.push({ id: Date.now(), original: en, translate: ru, example: '', exampleTranslate: '', level: 0, nextReview: Date.now(), forgetStep: 0 });
+    await save();
+    closeQuickAdd();
+    // Маленькое подтверждение
+    showToast(`"${en}" добавлено!`, 'success', 2000);
+    checkAchievements();
+});
+
+// Закрывать модалки по клику вне
+document.getElementById('quick-add-modal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('quick-add-modal')) closeQuickAdd();
+});
+document.getElementById('results-modal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('results-modal')) closeResults();
+});
+
+
+// ============================================================
+// ТЕГИ / ГРУППЫ
+// ============================================================
+let activeTagFilter = null; // null = все слова
+
+function getAllTags() {
+    const set = new Set();
+    myWords.forEach(w => (w.tags || []).forEach(t => set.add(t)));
+    return [...set].sort();
+}
+
+function renderTagFilterBar() {
+    const bar = document.getElementById('tag-filter-bar');
+    const chips = document.getElementById('tag-chips');
+    if (!bar || !chips) return;
+    const tags = getAllTags();
+    if (tags.length === 0) { bar.style.display = 'none'; return; }
+    bar.style.display = 'block';
+    chips.innerHTML = `
+        <button class="tag-chip${!activeTagFilter ? ' active' : ''}" onclick="setTagFilter(null)">Все</button>
+        ${tags.map(t => `<button class="tag-chip${activeTagFilter === t ? ' active' : ''}" onclick="setTagFilter('${t}')">${t}</button>`).join('')}
+    `;
+}
+
+function setTagFilter(tag) {
+    activeTagFilter = tag;
+    renderTagFilterBar();
+    render();
+}
+
+function getFilteredWords() {
+    if (!activeTagFilter) return myWords;
+    return myWords.filter(w => (w.tags || []).includes(activeTagFilter));
+}
+
+// ============================================================
+// UNDO УДАЛЕНИЯ
+// ============================================================
+let undoTimer = null;
+let undoWord = null;
+let undoIndex = -1;
+
+function showUndoToast(word, index) {
+    undoWord = word;
+    undoIndex = index;
+    const toast = document.getElementById('undo-toast');
+    const text = document.getElementById('undo-text');
+    if (!toast || !text) return;
+    text.textContent = `"${word.original}" удалено`;
+    toast.style.display = 'flex';
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => {
+        toast.style.display = 'none';
+        undoWord = null;
+    }, 5000);
+}
+
+document.getElementById('undo-btn')?.addEventListener('click', async () => {
+    if (!undoWord) return;
+    clearTimeout(undoTimer);
+    // Вставляем обратно на то же место
+    myWords.splice(Math.min(undoIndex, myWords.length), 0, undoWord);
+    undoWord = null;
+    document.getElementById('undo-toast').style.display = 'none';
+    await save();
+    render();
+});
+
+// ============================================================
+// РЕЖИМ QUIZ — УГАДАЙ ИЗ 4
+// ============================================================
+let isQuizMode = false;
+let quizQueue = [];
+let quizIndex = 0;
+let quizWaiting = false; // ждём клика после ответа
+
+function startQuizMode() {
+    const now = Date.now();
+    const pool = getFilteredWords().filter(w => !w.nextReview || w.nextReview <= now);
+    if (pool.length < 4) {
+        alert('Нужно минимум 4 слова для этого режима!');
+        return;
+    }
+    isQuizMode = true;
+    quizQueue = [...pool].sort(() => Math.random() - 0.5);
+    quizIndex = 0;
+    quizWaiting = false;
+    sessionCorrect = 0; sessionWrong = 0;
+    sessionBestCombo = 0; comboCount = 0;
+    sessionStartTime = Date.now();
+    wordMistakes = {};
+
+    // Показываем тренировочный экран
+    document.getElementById('main-ui').style.display = 'none';
+    document.getElementById('training-section').style.display = 'flex';
+    const levelStats = document.getElementById('level-stats');
+    if (levelStats) levelStats.style.display = 'none';
+    if (mainHeader) mainHeader.style.display = 'none';
+    if (progressWrapper) progressWrapper.style.display = 'none';
+
+    // Скрываем карточку, показываем quiz
+    document.querySelector('.flashcard-container').style.display = 'none';
+    document.getElementById('spelling-area').style.display = 'none';
+    document.querySelector('.training-buttons').style.display = 'none';
+    document.getElementById('toggle-mode-btn').style.display = 'none';
+    document.getElementById('quiz-area').style.display = 'block';
+
+    updateSessionCounter();
+    showQuizQuestion();
+}
+
+function showQuizQuestion() {
+    if (quizIndex >= quizQueue.length) {
+        // Пройдены все — финиш
+        restoreTrainingUI();
+        finishTraining();
+        return;
+    }
+    quizWaiting = false;
+    const word = quizQueue[quizIndex];
+    const wordEl = document.getElementById('quiz-word');
+    const optionsEl = document.getElementById('quiz-options');
+    const feedbackEl = document.getElementById('quiz-feedback');
+    if (!wordEl || !optionsEl) return;
+
+    wordEl.textContent = word.original;
+    feedbackEl.textContent = '';
+
+    // Собираем 3 случайных неправильных варианта из остальных слов
+    const others = myWords.filter(w => w.id !== word.id);
+    const wrong3 = others.sort(() => Math.random() - 0.5).slice(0, 3).map(w => w.translate);
+    const options = [...wrong3, word.translate].sort(() => Math.random() - 0.5);
+
+    optionsEl.innerHTML = options.map(opt => `
+        <button class="quiz-option" onclick="handleQuizAnswer(this, '${word.translate.replace(/'/g, "\\'")}', '${opt.replace(/'/g, "\\'")}')">
+            ${opt}
+        </button>
+    `).join('');
+
+    document.getElementById('total-remaining').textContent = quizQueue.length - quizIndex;
+    document.getElementById('current-pool-count').textContent = `${quizIndex + 1}/${quizQueue.length}`;
+}
+
+function handleQuizAnswer(btn, correct, chosen) {
+    if (quizWaiting) return;
+    quizWaiting = true;
+
+    const isCorrect = chosen === correct;
+    const feedbackEl = document.getElementById('quiz-feedback');
+    const btns = document.querySelectorAll('.quiz-option');
+
+    // Подсвечиваем все кнопки
+    btns.forEach(b => {
+        b.disabled = true;
+        const bText = b.textContent.trim();
+        if (bText === correct) b.classList.add('correct');
+        else if (b === btn && !isCorrect) b.classList.add('wrong');
+    });
+
+    const word = quizQueue[quizIndex];
+    if (isCorrect) {
+        sessionCorrect++;
+        updateCombo(true);
+        feedbackEl.textContent = '✅ Верно!';
+        feedbackEl.style.color = '#28a745';
+        // Повышаем уровень
+        const mw = myWords.find(w => w.id === word.id);
+        if (mw) {
+            mw.level = Math.min((mw.level || 0) + 1, 5);
+            mw.nextReview = Date.now() + INTERVALS[mw.level];
+            mw.forgetStep = 0;
+            streakData.todayCount++;
+            recordDailyLearn(1);
+            updateStreak();
+            if (streakData.todayCount === 10) launchConfetti();
+            save();
+        }
+    } else {
+        sessionWrong++;
+        updateCombo(false);
+        wordMistakes[word.id] = (wordMistakes[word.id] || 0) + 1;
+        feedbackEl.textContent = `❌ Правильно: ${correct}`;
+        feedbackEl.style.color = '#ff4d4d';
+        const mw = myWords.find(w => w.id === word.id);
+        if (mw) { applyForgetSchedule(mw); save(); }
+    }
+    updateSessionCounter();
+    checkAchievements();
+
+    setTimeout(() => {
+        quizIndex++;
+        showQuizQuestion();
+    }, 900);
+}
+
+function restoreTrainingUI() {
+    isQuizMode = false;
+    const fc = document.querySelector('.flashcard-container');
+    const tb = document.querySelector('.training-buttons');
+    const tg = document.getElementById('toggle-mode-btn');
+    const qa = document.getElementById('quiz-area');
+    if (fc) fc.style.display = '';
+    if (tb) tb.style.display = '';
+    if (tg) tg.style.display = '';
+    if (qa) qa.style.display = 'none';
 }
 
 // ✅ DRAGGABLE TIMER
@@ -1186,7 +2117,7 @@ if (fileUpload) {
             }
         };
         reader.onerror = () => {
-            alert("Не удалось прочитать файл. Попробуй другой.");
+            showToast('Не удалось прочитать файл. Попробуй другой.', 'error');
         };
         reader.readAsText(file, 'UTF-8');
     };
@@ -1248,3 +2179,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     console.log("Приложение полностью готово к работе");
 });
+
+// ===== PWA: Service Worker =====
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
