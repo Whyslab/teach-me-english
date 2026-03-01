@@ -1,593 +1,617 @@
-<<<<<<< HEAD
-diff --git a/app.js b/app.js
-index c1c128eb778019af69a37dc7f9976e7dcaf07965..733328b2b1bb4ee2d77778965ded99603c5fcddd 100644
---- a/app.js
-+++ b/app.js
-@@ -41,58 +41,60 @@ const modal = document.getElementById('import-modal');
- const openBtn = document.getElementById('open-import-btn');
- const closeBtn = document.querySelector('.close-modal');
- const importBtn = document.getElementById('import-btn');
- const importArea = document.getElementById('import-area');
- 
- const resetLearnedBtn = document.getElementById('reset-learned-btn');
- const exportBtn = document.getElementById('export-btn');
- 
- // Состояние
- 
- let mainQueue = [];      
- let trainingHistory = []; 
- let activePool = [];     
- let currentWordIndex = 0;
- let cardClickStage = 0; // 0 - лицо, 1 - перевод, 2 - пример
- let isMuted = localStorage.getItem('isMuted') === 'true'; 
- let isLoaded = false; 
- const POOL_LIMIT = 50;   
- 
- let streakData = JSON.parse(localStorage.getItem('streakData')) || {
-     count: 0,
-     lastDate: null,
-     todayCount: 0
- };
- 
--const INTERVALS = {
-+const INTERVALS = {
-     0: 0,
-     1: 24 * 60 * 60 * 1000,
-     2: 3 * 24 * 60 * 60 * 1000,
-     3: 7 * 24 * 60 * 60 * 1000,
-     4: 14 * 24 * 60 * 60 * 1000,
--    5: 30 * 24 * 60 * 60 * 1000
--};
-+    5: 30 * 24 * 60 * 60 * 1000
-+};
-+
-+const TRAINING_TIME = 60 * 60;
- 
- // === 2. ОСНОВНЫЕ ФУНКЦИИ ===
- 
- async function loadWords() {
-     try {
-         const response = await fetch('http://localhost:3000/api/words');
-         if (!response.ok) throw new Error('Ошибка сети');
-         const data = await response.json();
-         
-         // Мапим данные, чтобы у каждого слова ТОЧНО были нужные поля
-         myWords = (Array.isArray(data) ? data : []).map(word => ({
-             ...word,
-             example: word.example || "",
-             exampleTranslate: word.exampleTranslate || ""
-         }));
- 
-         isLoaded = true; 
-         render();
-     } catch (e) {
-         console.error("Ошибка загрузки сервера!", e);
-     }
- }
- // Используем функцию-безопасник, чтобы не ловить ошибки null
- function safeSetClick(id, callback) {
-     const el = document.getElementById(id);
-@@ -264,54 +266,55 @@ async function loadTimerFromServer() {
- async function saveTimerToServer() {
-     try {
-         await fetch('http://localhost:3000/api/timer', {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ timeLeft: timeLeft })
-         });
-     } catch (e) {
-         console.warn("Не удалось синхронизировать время с сервером");
-     }
- }
- async function addExtraTime(minutes) {
-     timeLeft += minutes * 60;
-     
-     updateUI();
-     await saveTimerToServer(); // Сохраняем в БД сразу
- 
-     const statusEl = document.getElementById('timer-status');
-     if (statusEl) {
-         statusEl.textContent = "Время добавлено";
-         statusEl.style.color = "#00ffcc";
-     }
- }
+#!/usr/bin/env python3
+import argparse
+import sqlite3
+import time
+import random
+from dataclasses import dataclass
+from typing import Optional
+from yt_dlp import YoutubeDL
+
+@dataclass
+class MatchResult:
+    word: str
+    video_id: str
+    start_time: float
+
+class YouTubeFinder:
+    def __init__(self):
+        self.ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+            "writesubtitles": True,
+            "writeautomaticsub": True,
+            "subtitleslangs": ["en.*"],
+            "extract_flat": False, # Нам нужны полные данные, не flat
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        }
+
+    def find(self, word: str) -> Optional[MatchResult]:
+        # Ищем видео, где слово точно произносится
+        query = f"sentence with the word {word} english"
+        try:
+            with YoutubeDL(self.ydl_opts) as ydl:
+                # Берем только 1 самое релевантное видео, чтобы не спамить
+                search_data = ydl.extract_info(f"ytsearch1:{query}", download=False)
+                
+                if not search_data or 'entries' not in search_data or not search_data['entries']:
+                    return None
+                
+                entry = search_data['entries'][0]
+                v_id = entry['id']
+                
+                # Проверяем наличие субтитров в метаданных, которые прислал YouTube
+                subtitles = entry.get('requested_subtitles') or entry.get('subtitles') or entry.get('automatic_captions')
+                
+                if subtitles:
+                    # Если нашли видео, просто берем его ID. 
+                    # Найти точную секунду без скачивания файла сложно, 
+                    # поэтому ставим 0.0 или 5.0 (начало), главное — ID видео в базе!
+                    return MatchResult(word, v_id, 5.0)
+        except Exception as e:
+            # print(f"Ошибка: {e}")
+            return None
+        return None
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--db", default="./vocab.db")
+    parser.add_argument("--limit", type=int, default=5)
+    args = parser.parse_args()
+
+    conn = sqlite3.connect(args.db)
+    cur = conn.cursor()
     
- 
--function fillPool() {
--    while (activePool.length < POOL_LIMIT && mainQueue.length > 0) {
--        activePool.push(mainQueue.shift());
--    }
-+function fillPool() {
-+    while (activePool.length < POOL_LIMIT && mainQueue.length > 0) {
-+        activePool.push(mainQueue.shift());
-+    }
-+}
- 
- // 2. Сброс таймера каждый новый день
- function dailyReset() {
-     const lastVisit = localStorage.getItem('lastVisit');
-     const today = new Date().toLocaleDateString();
- 
-     if (lastVisit !== today) {
-         timeLeft = TRAINING_TIME;
-         localStorage.setItem('timeLeft', timeLeft);
-         localStorage.setItem('lastVisit', today);
-     }
- }
- // 2. Умный запуск таймера
- 
- // 3. Форматирование времени
- function updateUI() {
-     const displayEl = document.getElementById('timer-display');
-     if (!displayEl) return;
-     const mins = Math.floor(timeLeft / 60);
-     const secs = timeLeft % 60;
-     displayEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
- }
- function updateFlashcard() {
- 
-     if (activePool.length === 0) {
-@@ -917,71 +920,79 @@ function filterByLevel(level) {
-             card.style.display = 'none'; // Скрываем остальные
-         }
-     });
- 
-     // Визуальный отклик: можно добавить уведомление или просто прокрутить к списку
-     console.log(`Фильтр: Уровень ${level}`);
- }
- function setTheme(color) {
-     // Устанавливаем основную переменную
-     document.documentElement.style.setProperty('--accent-color', color);
-     
-     // Создаем цвет для свечения (с прозрачностью)
-     const glowColor = color + '4D'; // Добавляем 4D (это ~30% прозрачности в HEX)
-     document.documentElement.style.setProperty('--accent-glow', glowColor);
-     
-     // Сохраняем выбор пользователя
-     localStorage.setItem('selectedTheme', color);
-     
-     // Перерисовываем статистику, так как там цвета прописаны в JS
-     updateLevelStats();
- }
- // Находим кнопку импорта по новому ID
- const openImportBtn = document.getElementById('open-import-btn');
- const importModal = document.getElementById('import-modal');
- 
--if (openImportBtn && importModal) {
--    openImportBtn.onclick = () => {
--        importModal.style.display = 'flex';
--    };
--}
-+if (openImportBtn && importModal) {
-+    openImportBtn.onclick = () => {
-+        importModal.style.display = 'flex';
-+    };
-+}
-+
-+function openImportModal() {
-+    if (!importModal) return;
-+    importModal.style.display = 'flex';
-+    if (importArea) {
-+        setTimeout(() => importArea.focus(), 100);
-+    }
-+}
- 
- // Когда страница загрузилась
- window.addEventListener('DOMContentLoaded', async () => {
-     // 1. ЗАГРУЗКА ДАННЫХ (оставляем как было)
-     await loadTimerFromServer(); 
-     await loadWords(); 
- 
-     // 2. СБРОС СОСТОЯНИЙ (перенесли из шага 4)
-     localStorage.removeItem('isTrainingActive');
-     if (timerId) {
-         clearInterval(timerId);
-         timerId = null;
-     }
- 
-     // 3. ОБРАБОТЧИКИ КНОПОК
-     safeSetClick('start-training-btn', startTraining);
-     safeSetClick('add-time-btn', () => addExtraTime(5));
-     safeSetClick('open-import-btn', openImportModal); // если есть такая функция
- 
-     // 4. ВОЗВРАТ ИНТЕРФЕЙСА (перенесли из шага 4)
-     const trainSect = document.getElementById('training-section');
-     const mainUI = document.getElementById('main-ui');
-     if (trainSect) trainSect.style.display = 'none';
-     if (mainUI) mainUI.style.display = 'block';
- 
-     const statusEl = document.getElementById('timer-status');
-     if (statusEl) statusEl.textContent = "В ожидании";
- 
-     // 5. ИНИЦИАЛИЗАЦИЯ ВИЗУАЛА
-     updateStreak();
-     dailyReset();
-     updateUI(); // Показываем время на экране
-     
-     const savedTheme = localStorage.getItem('selectedTheme');
-     if (savedTheme) setTheme(savedTheme);
- 
-     console.log("Приложение полностью готово к работе");
- });
- 
--dailyReset();
--updateUI();}
-+dailyReset();
-+updateUI();
-
-
-git clone https://github.com/<твой-логин>/<репо>.git
-cd <репо>
-npm install
-node server.js
-
-http://192.168.1.50:3000
-
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/<твой-логин>/<репо>.git
-git push -u origin main
-
-git status -sb
-
-git pull --rebase origin main
-=======
-async function startTraining() {
-    try {
-        // 0. Инициализация времени и элементов
-        const now = Date.now();
-        const trainSect = document.getElementById('training-section');
-        const mainUI = document.getElementById('main-ui');
-        
-        // Сначала синхронизируем время (ждем ответа от сервера)
-        await loadTimerFromServer();
-
-        // 1. Проверка времени: timeLeft должна быть объявлена глобально (let timeLeft)
-        if (typeof timeLeft === 'undefined' || timeLeft <= 0) {
-            alert("Время закончилось! Нажми '+5 мин', чтобы продолжить.");
-            return;
-        }
-
-        // 2. Проверка слов: убеждаемся, что myWords существует
-        if (!Array.isArray(myWords)) {
-            console.error("Массив слов myWords не инициализирован");
-            return;
-        }
-
-        const wordsToReview = myWords.filter(w => !w.nextReview || w.nextReview <= now);
-        
-        if (wordsToReview.length === 0) {
-            alert("На сегодня всё! Все доступные слова повторены.");
-            return;
-        }
-
-        // 3. Защита интерфейса
-        if (trainSect) {
-            trainSect.onselectstart = () => false; 
-            trainSect.oncopy = () => false;
-        }
-
-        // 4. Запуск таймера (если еще не запущен)
-        if (!timerId) {
-            const statusEl = document.getElementById('timer-status');
-            if (statusEl) {
-                statusEl.textContent = "Тренировка идет...";
-                statusEl.style.color = "#00ffcc";
-            }
-
-            timerId = setInterval(async () => {
-                if (timeLeft <= 0) {
-                    clearInterval(timerId);
-                    timerId = null;
-                    await saveTimerToServer();
-                    if (typeof finishDay === 'function') finishDay();
-                    return;
-                }
-
-                timeLeft--;
-                if (typeof updateUI === 'function') updateUI(); 
-
-                if (timeLeft % 10 === 0) {
-                    saveTimerToServer();
-                }
-            }, 1000);
-        }
-
-        // 5. Подготовка данных (ВАЖНО: записываем в глобальные переменные)
-        isSpellingMode = false;
-        mainQueue = [...wordsToReview].sort(() => Math.random() - 0.5);
-        activePool = [];
-        currentWordIndex = 0;
-        
-        if (typeof fillPool === 'function') fillPool();
-        
-        // 6. Прячем лишнее и показываем тренировку
-        const elementsToHide = [
-            document.getElementById('level-stats'),
-            mainUI,
-            document.querySelector('h1'),
-            document.querySelector('.progress-wrapper'),
-            document.getElementById('top-panel') || document.querySelector('.top-panel')
-        ];
-        
-        elementsToHide.forEach(el => { if (el) el.style.display = 'none'; });
-
-        if (trainSect) {
-            trainSect.style.display = 'flex';
-            document.body.classList.add('no-scroll');
-            if (typeof updateFlashcard === 'function') updateFlashcard();
-        }
-
-    } catch (error) {
-        console.error("Критическая ошибка в startTraining:", error);
-    }
-}
-// === 1. ИНИЦИАЛИЗАЦИЯ И СОСТОЯНИЕ ===
-let timeLeft = 0; 
-let timerId = null;
-let myWords = [];
-let mainQueue = [];       
-let trainingHistory = []; 
-let activePool = [];      
-let currentWordIndex = 0;
-let cardClickStage = 0; 
-let isMuted = localStorage.getItem('isMuted') === 'true';
-let isSpellingMode = false;
-let isLoaded = false; 
-const POOL_LIMIT = 50;
-const TRAINING_TIME = 3600;
-
-// Интервалы SRS
-const INTERVALS = {
-    0: 0,
-    1: 24 * 60 * 60 * 1000,
-    2: 3 * 24 * 60 * 60 * 1000,
-    3: 7 * 24 * 60 * 60 * 1000,
-    4: 14 * 24 * 60 * 60 * 1000,
-    5: 30 * 24 * 60 * 60 * 1000
-};
-
-let streakData = JSON.parse(localStorage.getItem('streakData')) || {
-    count: 0, lastDate: null, todayCount: 0
-};
-
-// Элементы DOM
-const inputEn = document.getElementById('input-en');
-const inputRu = document.getElementById('input-ru');
-const inputEx = document.getElementById('input-example');
-const inputExRu = document.getElementById('input-ex-ru');
-const trainSect = document.getElementById('training-section');
-const mainUI = document.getElementById('main-ui');
-const flashcard = document.getElementById('flashcard');
-const spellingInput = document.getElementById('spelling-input');
-const spellingFeedback = document.getElementById('spelling-feedback');
-const spellingArea = document.getElementById('spelling-area');
-
-// === 2. ОСНОВНЫЕ ФУНКЦИИ (API И РЕНДЕР) ===
-
-async function loadWords() {
-    try {
-        const response = await fetch('http://localhost:3000/api/words');
-        const data = await response.json();
-        myWords = (Array.isArray(data) ? data : []).map(w => ({
-            ...w, example: w.example || "", exampleTranslate: w.exampleTranslate || ""
-        }));
-        isLoaded = true; 
-        render();
-    } catch (e) { console.error("Ошибка загрузки слов!", e); }
-}
-
-async function save() {
-    if (!isLoaded) return;
-    try {
-        await fetch('http://localhost:3000/api/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(myWords)
-        });
-    } catch (e) { console.error("Ошибка сохранения", e); }
-}
-
-function render() {
-    const container = document.getElementById('cards-container');
-    if (!container) return;
-    container.innerHTML = ''; 
-    const now = Date.now();
-
-    myWords.forEach(word => { 
-        const level = word.level || 0;
-        const isReady = !word.nextReview || word.nextReview <= now;
-        const isMax = level === 5;
-        
-        container.innerHTML += `
-        <div class="card ${isReady && !isMax ? 'needs-review' : ''}" data-id="${word.id}" ${isMax ? 'style="opacity: 0.5"' : ''}>
-            <div class="card-content">
-                <span class="level-indicator">Ур. ${level}</span>
-                <span class="original">${word.original}</span> — 
-                <span class="translation hidden">${word.translate}</span>
-            </div>
-            <div class="actions">
-                <button class="speak-btn">🔊</button>
-                <button class="delete-btn">&times;</button>
-            </div>
-        </div>`;
-    });
-    updateOverallProgress();
-    updateLevelStats();
-}
-
-// === 3. ЛОГИКА ТРЕНИРОВКИ ===
-
-async function startTraining() {
-    const now = Date.now();
-    await loadTimerFromServer();
-
-    if (timeLeft <= 0) {
-        alert("Время закончилось! Добавь +5 мин.");
-        return;
-    }
-
-    const wordsToReview = myWords.filter(w => (!w.nextReview || w.nextReview <= now) && w.level < 5);
+    # Берем слова длиннее 3 букв (пропускаем артикли)
+    cur.execute("""
+        SELECT DISTINCT original FROM words 
+        WHERE (videoId IS NULL OR videoId = '') 
+          AND length(original) > 3 
+        LIMIT ?
+    """, (args.limit,))
     
-    if (wordsToReview.length === 0) {
-        alert("Слов для повторения нет!");
-        return;
-    }
-
-    // Инициализация очереди
-    mainQueue = [...wordsToReview].sort(() => Math.random() - 0.5);
-    activePool = [];
-    currentWordIndex = 0;
-    fillPool();
-
-    // Запуск таймера
-    if (!timerId) {
-        timerId = setInterval(async () => {
-            if (timeLeft <= 0) {
-                clearInterval(timerId);
-                timerId = null;
-                await saveTimerToServer();
-                finishDay();
-                return;
-            }
-            timeLeft--;
-            updateUI();
-            if (timeLeft % 10 === 0) saveTimerToServer();
-        }, 1000);
-    }
-
-    // Смена интерфейса
-    [mainUI, document.querySelector('h1'), document.querySelector('.progress-wrapper'), document.getElementById('level-stats')].forEach(el => {
-        if (el) el.style.display = 'none';
-    });
-    if (trainSect) {
-        trainSect.style.display = 'flex';
-        document.body.classList.add('no-scroll');
-        updateFlashcard();
-    }
-}
-
-function updateFlashcard() {
-    if (activePool.length === 0) {
-        finishTraining();
-        return;
-    }
-
-    cardClickStage = 0; 
-    const word = activePool[currentWordIndex];
+    words = [r[0] for r in cur.fetchall()]
     
-    if (spellingInput) {
-        spellingInput.value = "";
-        spellingInput.focus();
-        spellingFeedback.innerText = "";
+    if not words:
+        print("✅ Все слова уже найдены!")
+        return
+
+    finder = YouTubeFinder()
+    print(f"🚀 Запуск обходного метода для {len(words)} слов...")
+
+    for i, word in enumerate(words, start=1):
+        res = finder.find(word)
+        if res:
+            cur.execute("UPDATE words SET videoId=?, startTime=? WHERE original=?", (res.video_id, res.start_time, word))
+            conn.commit()
+            print(f"[{i}/{len(words)}] ✅ {word} -> {res.video_id}")
+        else:
+            print(f"[{i}/{len(words)}] ❌ {word} -> не удалось пробить блок")
+        
+        # Ждем подольше, чтобы YouTube остыл
+        time.sleep(random.uniform(5, 10))
+
+    conn.close()
+    print("🏁 Готово.")
+
+if __name__ == "__main__":
+    main()
+
+
+===============================
+РАБОЧИЙ СОФТ КОТОРЫЙ ДЕЛАЕТ VIDEOiD
+===============================
+
+
+во первых нет поля ввода куда вводить перевод во вторых невозможно выйти из этого режима в третих я хочу чтобы показывали видео с определенного таймкода и видео заканчивалось на таймкоде дальше не понятно какие слово ты сейчас проходишь нужно это тоже добавить соотвественно дбавить не только полее ввода но и кнопку типо далее и оповещение правильно\неправильно софт просто берет видео по английскому где было нужное слово как я понял и показывает видео с 5 секунды а не с момента где началось предложение с этим словом 
+
+
+#!/usr/bin/env python3
+"""
+refine_segments.py v5
+---------------------
+При 429 автоматически меняет IP через Tor или список прокси.
+
+Варианты запуска:
+  # Через Tor (автосмена IP при 429):
+  python refine_segments.py --db ./vocab.db --tor
+
+  # Через список прокси (файл с прокси по одному на строку):
+  python refine_segments.py --db ./vocab.db --proxy-list ./proxies.txt
+
+  # Просто с cookies (без смены IP):
+  python refine_segments.py --db ./vocab.db --cookies-file ./cookies.txt
+
+Установка Tor:
+  pip install requests[socks] stem
+  Скачай Tor: https://www.torproject.org/download/tor/
+  Запусти tor.exe (или tor в Linux/Mac)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import random
+import sqlite3
+import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Optional
+
+try:
+    from yt_dlp import YoutubeDL
+except ImportError:
+    print("❌ pip install yt-dlp")
+    raise SystemExit(1)
+
+
+# ─── Tor / прокси ─────────────────────────────────────────────
+
+class ProxyRotator:
+    """Ротатор прокси — Tor или список прокси из файла."""
+
+    def __init__(self, mode: str, proxies: list[str] | None = None,
+                 tor_host: str = "127.0.0.1", tor_port: int = 9050,
+                 tor_control_port: int = 9051, tor_password: str = ""):
+        self.mode       = mode        # "tor" | "list" | "none"
+        self.proxies    = proxies or []
+        self.proxy_idx  = 0
+        self.tor_host   = tor_host
+        self.tor_port   = tor_port
+        self.tor_control = tor_control_port
+        self.tor_password = tor_password
+        self._tor_controller = None
+
+        if mode == "tor":
+            self._init_tor()
+
+    def _init_tor(self):
+        try:
+            from stem import Signal
+            from stem.control import Controller
+            ctrl = Controller.from_port(port=self.tor_control)
+
+            # Пробуем все методы аутентификации по очереди
+            authenticated = False
+            errors = []
+
+            # 1. Cookie-файл (бинарный — stem читает сам)
+            if not authenticated:
+                try:
+                    ctrl.authenticate()
+                    authenticated = True
+                except Exception as e:
+                    errors.append(f"cookie: {e}")
+
+            # 2. Пустой пароль
+            if not authenticated:
+                try:
+                    ctrl.authenticate(password="")
+                    authenticated = True
+                except Exception as e:
+                    errors.append(f"empty pass: {e}")
+
+            # 3. Заданный пароль
+            if not authenticated and self.tor_password:
+                try:
+                    ctrl.authenticate(password=self.tor_password)
+                    authenticated = True
+                except Exception as e:
+                    errors.append(f"password: {e}")
+
+            if not authenticated:
+                raise Exception(" | ".join(errors))
+
+            self._tor_controller = ctrl
+            print(f"  🧅 Tor подключён (контроль: порт {self.tor_control})")
+
+        except Exception as e:
+            print(f"  ⚠️  Tor контроллер недоступен: {e}")
+            print("     Смена IP не будет работать, но прокси всё равно используется.")
+            self._tor_controller = None
+
+    @property
+    def current_proxy(self) -> str | None:
+        if self.mode == "tor":
+            return f"socks5://{self.tor_host}:{self.tor_port}"
+        if self.mode == "list" and self.proxies:
+            return self.proxies[self.proxy_idx % len(self.proxies)]
+        return None
+
+    def rotate(self) -> str | None:
+        """Меняет IP. Возвращает новый прокси."""
+        if self.mode == "tor":
+            return self._rotate_tor()
+        if self.mode == "list":
+            return self._rotate_list()
+        return None
+
+    def _rotate_tor(self) -> str:
+        if self._tor_controller:
+            try:
+                from stem import Signal
+                self._tor_controller.signal(Signal.NEWNYM)
+                time.sleep(3)  # Tor нужно время на смену цепочки
+                print("  🔄 Tor: новый IP получен")
+            except Exception as e:
+                print(f"  ⚠️  Ошибка смены Tor IP: {e}")
+        else:
+            # Без контроллера просто ждём — Tor сам меняет цепочку раз в 10 мин
+            print("  ⏳ Tor без контроллера — ждём 15с...")
+            time.sleep(15)
+        return f"socks5://{self.tor_host}:{self.tor_port}"
+
+    def _rotate_list(self) -> str | None:
+        if not self.proxies:
+            return None
+        self.proxy_idx = (self.proxy_idx + 1) % len(self.proxies)
+        proxy = self.proxies[self.proxy_idx]
+        print(f"  🔄 Новый прокси: {proxy}")
+        return proxy
+
+
+def load_proxy_list(path: str) -> list[str]:
+    proxies = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                # Добавляем схему если нет
+                if not line.startswith(("http", "socks")):
+                    line = "socks5://" + line
+                proxies.append(line)
+    print(f"  📋 Загружено прокси: {len(proxies)}")
+    return proxies
+
+
+# ─── Структуры ────────────────────────────────────────────────
+
+@dataclass
+class Chunk:
+    text:  str
+    start: float
+    end:   float
+
+EMPTY_VALUES = ("", "Check video for context", None)
+
+DEFAULT_COLUMNS = {
+    "startTime":         "REAL",
+    "endTime":           "REAL",
+    "subtitleText":      "TEXT",
+    "subtitleLang":      "TEXT",
+    "subtitleUpdatedAt": "TEXT",
+}
+
+
+# ─── YDL ──────────────────────────────────────────────────────
+
+def _build_ydl_opts(proxy: str | None, cookies_file: str | None) -> dict:
+    opts = {
+        "quiet":             True,
+        "no_warnings":       True,
+        "skip_download":     True,
+        "extract_flat":      False,
+        "writesubtitles":    True,
+        "writeautomaticsub": True,
+        "subtitleslangs":    ["en"],
+        "subtitlesformat":   "json3",
+        "retries":           3,
+        "sleep_interval":    1,
+        "max_sleep_interval": 5,
+        "user_agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
     }
+    if proxy:
+        opts["proxy"] = proxy
+    if cookies_file:
+        opts["cookiefile"] = cookies_file
+    return opts
 
-    const isEnToRu = Math.random() > 0.5;
-    const front = document.getElementById('card-front');
-    const back = document.getElementById('card-back-text');
-    
-    if (isEnToRu) {
-        front.innerText = word.original;
-        back.innerText = word.translate;
-        word.currentExpectedAnswer = word.translate;
-    } else {
-        front.innerText = word.translate;
-        back.innerText = word.original;
-        word.currentExpectedAnswer = word.original;
-    }
 
-    document.getElementById('card-example').innerText = word.example || "";
-    document.getElementById('card-example-translate').innerText = word.exampleTranslate || "";
-    document.getElementById('total-remaining').innerText = mainQueue.length;
-    document.getElementById('current-pool-count').innerText = `${currentWordIndex + 1}/${activePool.length}`;
-}
+def fetch_chunks(video_id: str, proxy: str | None,
+                 cookies_file: str | None) -> tuple[list[Chunk], str]:
+    url      = f"https://www.youtube.com/watch?v={video_id}"
+    ydl_opts = _build_ydl_opts(proxy, cookies_file)
 
-// Обработка ввода в режиме письма
-spellingInput.onkeydown = (e) => {
-    if (e.key === 'Enter') {
-        if (flashcard.classList.contains('is-flipped')) {
-            document.getElementById('btn-know').click();
-            return;
-        }
-        const word = activePool[currentWordIndex];
-        const userValue = spellingInput.value.trim().toLowerCase();
-        const correct = word.currentExpectedAnswer.trim().toLowerCase();
+    with YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
 
-        if (userValue === correct) {
-            spellingFeedback.innerText = "✅ Верно!";
-            spellingFeedback.style.color = "#28a745";
-        } else {
-            spellingFeedback.innerText = `❌ Правильно: ${correct}`;
-            spellingFeedback.style.color = "#dc3545";
-        }
-        flashcard.classList.add('is-flipped');
-        cardClickStage = 1;
-    }
-};
+    if not info:
+        raise RuntimeError("yt-dlp вернул пустой результат")
 
-function finishTraining() {
-    if (trainSect) trainSect.style.display = 'none';
-    if (mainUI) mainUI.style.display = 'block';
-    document.querySelectorAll('h1, .progress-wrapper, #level-stats').forEach(el => el.style.display = 'flex');
-    document.body.classList.remove('no-scroll');
-    render();
-}
+    subs_url = lang = None
+    for key in ("subtitles", "automatic_captions"):
+        lang_data = (info.get(key) or {}).get("en", [])
+        for fmt in lang_data:
+            if fmt.get("ext") in ("json3", "srv3"):
+                subs_url = fmt.get("url")
+                lang = "en"
+                break
+        if subs_url:
+            break
 
-// === 4. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
-async function loadTimerFromServer() {
-    try {
-        const response = await fetch('http://localhost:3000/api/timer');
-        const data = await response.json();
-        timeLeft = data.timeLeft;
-        updateUI();
-    } catch (e) { console.error("Ошибка таймера"); }
-}
+    if not subs_url:
+        raise RuntimeError("Субтитры на английском не найдены")
 
-async function saveTimerToServer() {
-    try {
-        await fetch('http://localhost:3000/api/timer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ timeLeft: timeLeft })
-        });
-    } catch (e) { }
-}
+    # Скачиваем через yt-dlp (с теми же cookies/proxy)
+    with YoutubeDL({**ydl_opts, "quiet": True}) as ydl:
+        raw = ydl.urlopen(subs_url).read().decode("utf-8")
 
-function updateUI() {
-    const el = document.getElementById('timer-display');
-    if (!el) return;
-    const mins = Math.floor(timeLeft / 60);
-    const secs = timeLeft % 60;
-    el.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-}
+    data   = json.loads(raw)
+    chunks = _parse_json3(data)
+    if not chunks:
+        raise RuntimeError("Субтитры пустые после парсинга")
 
-function fillPool() {
-    while (activePool.length < POOL_LIMIT && mainQueue.length > 0) {
-        activePool.push(mainQueue.shift());
-    }
-}
+    return chunks, lang or "en"
 
-// Специфические функции кнопок
-function safeSetClick(id, callback) {
-    const el = document.getElementById(id);
-    if (el) el.onclick = callback;
-}
 
-// Инициализация при загрузке
-window.addEventListener('DOMContentLoaded', async () => {
-    await loadTimerFromServer();
-    await loadWords();
-    
-    safeSetClick('start-training-btn', startTraining);
-    safeSetClick('add-time-btn', () => addExtraTime(5));
-    safeSetClick('stop-training', finishTraining);
-    
-    const savedTheme = localStorage.getItem('selectedTheme');
-    if (savedTheme) setTheme(savedTheme);
-});
->>>>>>> a1b877a95b643afaedc5e06dd0917b8a3b0af4a6
+def _parse_json3(data: dict) -> list[Chunk]:
+    result: list[Chunk] = []
+    for event in data.get("events", []):
+        start_ms = event.get("tStartMs", 0)
+        dur_ms   = event.get("dDurationMs", 0)
+        text = "".join(s.get("utf8", "") for s in event.get("segs", [])).strip()
+        text = _clean(text)
+        if text:
+            result.append(Chunk(text=text,
+                                start=start_ms / 1000.0,
+                                end=(start_ms + dur_ms) / 1000.0))
+    return result
 
-git show --stat a532ae9
-git show a532ae9
+
+def _clean(text: str) -> str:
+    text = text.replace("\n", " ")
+    text = re.sub(r"\[(?:music|applause|laughter|noise|\s)+\]", "", text, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+# ─── Поиск слова ──────────────────────────────────────────────
+
+def find_sentence(chunks: list[Chunk], word: str,
+                  max_expand: int = 6) -> Optional[tuple[float, float, str]]:
+    pattern = re.compile(r"(?<!\w)" + re.escape(word) + r"(?!\w)", re.IGNORECASE)
+    hit = next((i for i, c in enumerate(chunks) if pattern.search(c.text)), None)
+    if hit is None:
+        return None
+
+    left = hit
+    while left > 0 and (hit - left) < max_expand:
+        if re.search(r"[.!?…]\s*$", chunks[left - 1].text):
+            break
+        left -= 1
+
+    right = hit
+    while right < len(chunks) - 1 and (right - hit) < max_expand:
+        if re.search(r"[.!?…]\s*$", chunks[right].text):
+            break
+        right += 1
+        if re.search(r"[.!?…]\s*$", chunks[right].text):
+            break
+
+    sentence = re.sub(r"\s+", " ",
+                      " ".join(c.text for c in chunks[left:right + 1])).strip()
+    start = round(max(0.0, chunks[left].start - 0.5), 2)
+    end   = round(chunks[right].end + 0.5, 2)
+    return start, end, sentence
+
+
+# ─── БД ───────────────────────────────────────────────────────
+
+def ensure_columns(cur: sqlite3.Cursor) -> None:
+    cur.execute("PRAGMA table_info(words)")
+    existing = {row[1] for row in cur.fetchall()}
+    for col, typ in DEFAULT_COLUMNS.items():
+        if col not in existing:
+            cur.execute(f"ALTER TABLE words ADD COLUMN {col} {typ}")
+            print(f"  ✚ Добавлена колонка: {col}")
+
+
+def select_words(cur: sqlite3.Cursor, limit: int) -> list[tuple]:
+    placeholders = ",".join("?" * len(EMPTY_VALUES))
+    cur.execute(f"""
+        SELECT rowid, original, videoId FROM words
+        WHERE  COALESCE(videoId, '') != ''
+          AND  length(COALESCE(original,'')) >= 2
+          AND  (subtitleText IS NULL OR TRIM(subtitleText) IN ({placeholders}))
+        LIMIT  ?
+    """, (*EMPTY_VALUES, limit))
+    return cur.fetchall()
+
+
+# ─── Основной цикл ────────────────────────────────────────────
+
+def refine(args: argparse.Namespace) -> None:
+
+    # Инициализируем ротатор прокси
+    if args.tor:
+        rotator = ProxyRotator(
+            mode="tor",
+            tor_host=args.tor_host,
+            tor_port=args.tor_port,
+            tor_control_port=args.tor_control_port,
+            tor_password=args.tor_password,
+        )
+    elif args.proxy_list:
+        proxies = load_proxy_list(args.proxy_list)
+        if not proxies:
+            print("❌ Файл прокси пустой!")
+            return
+        rotator = ProxyRotator(mode="list", proxies=proxies)
+    elif args.proxy:
+        rotator = ProxyRotator(mode="list", proxies=[args.proxy])
+    else:
+        rotator = ProxyRotator(mode="none")
+
+    conn = sqlite3.connect(args.db)
+    cur  = conn.cursor()
+    ensure_columns(cur)
+    conn.commit()
+
+    rows = select_words(cur, args.limit)
+    if not rows:
+        print("✨ Нет слов для обработки.")
+        conn.close()
+        return
+
+    print(f"📋 Слов к обработке: {len(rows)}")
+    if rotator.current_proxy:
+        print(f"  🌐 Прокси: {rotator.current_proxy}")
+    if args.cookies_file:
+        print(f"  🍪 Cookies: {args.cookies_file}")
+    print()
+
+    ok = fail_count = 0
+
+    for idx, (rowid, word, video_id) in enumerate(rows, 1):
+        if not word or not video_id:
+            continue
+
+        print(f"[{idx}/{len(rows)}] 🔍 '{word}' ({video_id})", end=" ... ", flush=True)
+
+        # Пробуем загрузить субтитры — при 429 меняем IP и повторяем
+        max_retries = max(1, len(rotator.proxies) if rotator.mode == "list" else 3)
+        chunks = lang = None
+
+        for attempt in range(1, max_retries + 2):
+            try:
+                chunks, lang = fetch_chunks(video_id, rotator.current_proxy, args.cookies_file)
+                fail_count = 0
+                break
+
+            except KeyboardInterrupt:
+                print("\n⛔ Прервано.")
+                conn.close()
+                return
+
+            except Exception as exc:
+                msg = str(exc)
+                is_rate  = any(x in msg for x in ("429", "Too Many", "blocked", "Forbidden", "403"))
+                no_subs  = "не найдены" in msg or "no subtitle" in msg.lower() or "not found" in msg.lower()
+
+                if no_subs:
+                    print("⚠️  нет субтитров")
+                    cur.execute("UPDATE words SET subtitleText=? WHERE rowid=?",
+                                ("Check video for context", rowid))
+                    conn.commit()
+                    chunks = None
+                    break
+
+                if is_rate:
+                    print(f"❌ 429", end="")
+                    if attempt <= max_retries:
+                        print(f" — меняю IP (попытка {attempt})...", end=" ", flush=True)
+                        rotator.rotate()
+                        continue  # повторяем с новым IP
+                    else:
+                        print(f" — попытки исчерпаны")
+                        fail_count += 1
+
+                else:
+                    print(f"❌ {msg[:80]}")
+                    fail_count += 1
+
+                break
+
+        if fail_count >= args.max_consecutive_errors:
+            print(f"🛑 {fail_count} ошибок подряд — останавливаюсь.")
+            break
+
+        if chunks is None:
+            if idx < len(rows):
+                time.sleep(random.uniform(1, 3))
+            continue
+
+        # Ищем слово в субтитрах
+        result = find_sentence(chunks, word)
+        if result is None:
+            print("⚠️  слово не найдено в субтитрах")
+            cur.execute("UPDATE words SET subtitleText=? WHERE rowid=?",
+                        ("Check video for context", rowid))
+            conn.commit()
+        else:
+            start, end, sentence = result
+            now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            cur.execute("""
+                UPDATE words
+                SET startTime=?, endTime=?, subtitleText=?, subtitleLang=?, subtitleUpdatedAt=?
+                WHERE rowid=?
+            """, (start, end, sentence, lang, now_iso, rowid))
+            conn.commit()
+            preview = sentence[:70] + ("…" if len(sentence) > 70 else "")
+            print(f"✅ [{start}s–{end}s]  «{preview}»")
+            ok += 1
+
+        if idx < len(rows):
+            time.sleep(random.uniform(args.sleep_min, args.sleep_max))
+
+    conn.close()
+    print(f"\n🏁 Готово!  ✅ {ok}  ❌ {len(rows) - ok}")
+
+
+# ─── CLI ──────────────────────────────────────────────────────
+
+def main() -> None:
+    p = argparse.ArgumentParser(
+        description="Refine subtitle segments — с авто-сменой IP при 429",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Варианты запуска:
+
+  1. Tor (автосмена IP при каждом 429):
+     Сначала установи и запусти Tor:
+       pip install stem
+       Скачай tor.exe: https://www.torproject.org/download/tor/
+       Запусти tor.exe
+     Потом:
+       python refine_segments.py --db ./vocab.db --tor
+
+  2. Список прокси (файл proxies.txt, по одному на строку):
+     python refine_segments.py --db ./vocab.db --proxy-list ./proxies.txt
+     Формат строк: 192.168.1.1:1080  или  socks5://user:pass@host:port
+
+  3. Один прокси:
+     python refine_segments.py --db ./vocab.db --proxy "socks5://127.0.0.1:1080"
+
+  4. Только cookies (без смены IP):
+     python refine_segments.py --db ./vocab.db --cookies-file ./cookies.txt
+        """
+    )
+    p.add_argument("--db",            default="./vocab.db")
+    p.add_argument("--limit",         type=int,   default=100)
+    p.add_argument("--cookies-file",  default=None)
+
+    # Прокси
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--tor",        action="store_true", help="Использовать Tor с автосменой IP")
+    g.add_argument("--proxy-list", default=None,        help="Файл со списком прокси")
+    g.add_argument("--proxy",      default=None,        help="Один прокси URL")
+
+    # Tor настройки
+    p.add_argument("--tor-host",         default="127.0.0.1")
+    p.add_argument("--tor-port",         type=int, default=9050)
+    p.add_argument("--tor-control-port", type=int, default=9051)
+    p.add_argument("--tor-password",     default="",
+                   help="Пароль Tor контроллера (если задан в torrc)")
+
+    # Паузы и лимиты
+    p.add_argument("--sleep-min",             type=float, default=3.0)
+    p.add_argument("--sleep-max",             type=float, default=8.0)
+    p.add_argument("--max-consecutive-errors", type=int,  default=10)
+
+    args = p.parse_args()
+    args.sleep_max = max(args.sleep_min, args.sleep_max)
+    refine(args)
+
+
+if __name__ == "__main__":
+    main()
+
+
+    ============================
+        СОФТ КОТОРЫЙ ИЩЕТ ТАЙМКОДЫ (TOR)
+        ========================================
