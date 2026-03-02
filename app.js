@@ -1565,11 +1565,10 @@ function closeThemeModal() {
 }
 
 function openImportModal() {
-    if (!modal) return;
-    modal.style.display = 'flex';
-    if (importArea) {
-        setTimeout(() => importArea.focus(), 100);
-    }
+    const m = document.getElementById('import-modal');
+    if (!m) return;
+    m.style.display = 'flex';
+    // Не делаем auto-focus — на iOS это вызывает проблемы с клавиатурой
 }
 
 // ============================================================
