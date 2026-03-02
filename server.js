@@ -86,6 +86,87 @@ app.get('/favicon.ico', (req, res) => {
     });
 });
 
+
+// ============================================================
+// TATOEBA PROXY — примеры предложений (обходим CORS)
+// ============================================================
+app.get('/api/tatoeba', (req, res) => {
+    const word = req.query.word;
+    if (!word) return res.status(400).json({ error: 'word required' });
+
+    const options = {
+        hostname: 'tatoeba.org',
+        path: `/en/api_v0/search?from=eng&to=rus&query=${encodeURIComponent(word)}&limit=6`,
+        method: 'GET',
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120',
+            'Accept': 'application/json'
+        },
+        timeout: 8000
+    };
+
+    const proxyReq = https.request(options, (proxyRes) => {
+        let body = '';
+        proxyRes.on('data', chunk => body += chunk);
+        proxyRes.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                res.json(data);
+            } catch (e) {
+                res.status(500).json({ error: 'parse error' });
+            }
+        });
+    });
+
+    proxyReq.on('error', (e) => {
+        console.error('Tatoeba proxy error:', e.message);
+        res.status(502).json({ error: e.message });
+    });
+
+    proxyReq.on('timeout', () => {
+        proxyReq.destroy();
+        res.status(504).json({ error: 'timeout' });
+    });
+
+    proxyReq.end();
+});
+
+
+// ============================================================
+// UNSPLASH PROXY — картинки к словам
+// ============================================================
+app.get('/api/word-image', (req, res) => {
+    const word = req.query.word;
+    if (!word) return res.status(400).json({ error: 'word required' });
+
+    // Используем Picsum для демо (не требует API key)
+    // Для продакшна замените на Unsplash API с ключом
+    const seed = encodeURIComponent(word.toLowerCase().trim());
+    // Ищем через DuckDuckGo image API (публичный, без ключа)
+    const options = {
+        hostname: 'source.unsplash.com',
+        path: `/200x150/?${seed}`,
+        method: 'GET',
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        timeout: 6000
+    };
+
+    let responded = false;
+    const safeJson = (data) => { if (!responded) { responded = true; res.json(data); } };
+
+    const proxyReq = https.request(options, (proxyRes) => {
+        if (proxyRes.statusCode === 302 || proxyRes.statusCode === 301) {
+            const location = proxyRes.headers.location;
+            if (location) return safeJson({ url: location });
+        }
+        safeJson({ url: `https://source.unsplash.com/200x150/?${seed}` });
+    });
+
+    proxyReq.on('error', () => safeJson({ url: null }));
+    proxyReq.on('timeout', () => { proxyReq.destroy(); safeJson({ url: null }); });
+    proxyReq.end();
+});
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });

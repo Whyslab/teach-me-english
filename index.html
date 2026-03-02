@@ -14,1058 +14,1087 @@
     <link rel="apple-touch-icon" href="favicon.ico">
     <title>Легкий Словарь^^</title>
     <style>
+
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+        /* ══ DESIGN TOKENS ══════════════════════════════════════ */
         :root {
-    --accent-color: #00d2ff;
-    --accent-glow: rgba(0, 210, 255, 0.3);
-}
+            --bg:          #080810;
+            --bg-1:        #0e0e18;
+            --bg-2:        #14141f;
+            --bg-3:        #1c1c2a;
+            --bg-4:        #242436;
+            --border:      rgba(255,255,255,0.06);
+            --border-hi:   rgba(255,255,255,0.12);
+            --text:        #eeeef5;
+            --text-2:      #8888aa;
+            --text-3:      #44445a;
+            --text-inv:    #ffffff;
+            --accent:      #7c6af7;
+            --accent-2:    #a78bfa;
+            --accent-glow: rgba(124,106,247,0.25);
+            --accent-dim:  rgba(124,106,247,0.1);
+            --green:       #34d399;
+            --green-dim:   rgba(52,211,153,0.1);
+            --red:         #f87171;
+            --red-dim:     rgba(248,113,113,0.1);
+            --amber:       #fbbf24;
+            --amber-dim:   rgba(251,191,36,0.08);
+            --blue:        #60a5fa;
+            --blue-dim:    rgba(96,165,250,0.1);
+            --r-sm:  8px;
+            --r-md:  12px;
+            --r-lg:  18px;
+            --r-xl:  24px;
+            --r-2xl: 32px;
+        }
 
-.level-indicator {
-    color: var(--accent-color) !important;
-    background: var(--accent-glow) !important;
-}
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
 
-.stat-item {
-    border-bottom: 3px solid var(--accent-color) !important;
-}
-
-button#add-btn {
-    border: 1px solid var(--accent-color);
-    color: var(--accent-color);
-}
-
-mark {
-    background: var(--accent-glow) !important;
-}
         body {
-        background-color: #121212;
-        color: #ffffff;
-        font-family: 'Segoe UI', sans-serif;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin: 0;
-        padding: 0;
-    }
-        body.no-scroll {
-            overflow: hidden;
-            height: 100vh;
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 15px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
-        h1 { margin: 15px auto; font-size: 2.2em; width: 100%; max-width: 500px; text-align: center; }
-
-        .top-panel {
-            width: 100%;
-            max-width: 600px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-.header-bar {
-    width: 100%;
-    max-width: 800px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 20px;
-    box-sizing: border-box;
-    margin-bottom: 10px;
-}
-       #mute-btn {
-    all: unset;
-    width: 38px;
-    height: 38px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-#level-stats {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin: 25px auto;
-    max-width: 500px;
-    flex-wrap: wrap;
-}
-
-.stat-item {
-    transition: transform 0.2s ease;
-    text-align: center;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-
-.stat-item:hover {
-    transform: translateY(-3px);
-    background: rgba(255,255,255,0.08) !important;
-}
-       #mute-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-.theme-selector {
-    display: flex;
-    gap: 15px;
-    justify-content: center;
-    align-items: center;
-    padding: 0 20px;
-}
-
-  .theme-circle {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    cursor: pointer;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    transition: all 0.2s ease;
-}
-.theme-circle:hover {
-    transform: scale(1.2);
-    border-color: #fff;
-}
-       .settings-btn {
-        all: unset;
-        cursor: pointer;
-        color: #aaa;
-        font-size: 13px;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-        #main-ui {
-            width: 100%;
-            max-width: 1200px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+        /* Ambient background glow */
+        body::after {
+            content: '';
+            position: fixed;
+            top: -30vh;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80vw;
+            height: 60vh;
+            background: radial-gradient(ellipse, rgba(124,106,247,0.07) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
         }
 
-        .input-group { display: flex; gap: 8px; flex-direction: column; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 2px; }
+        ::selection { background: rgba(124,106,247,0.25); color: var(--accent-2); }
 
-        input {
-            width: 100%;
-            padding: 12px;
-            background: #1e1e1e;
-            border: 1px solid #333;
-            border-radius: 12px;
-            color: white;
-            font-size: 16px;
-            outline: none;
-            box-sizing: border-box;
+        /* ══ HEADER ══════════════════════════════════════════ */
+        .header-bar {
+            position: sticky; top: 0; z-index: 200;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 40px; height: 54px;
+            background: rgba(8,8,16,0.85);
+            backdrop-filter: blur(24px);
+            border-bottom: 1px solid var(--border);
+        }
+        .header-side { display: flex; align-items: center; gap: 10px; }
+
+        #mute-btn {
+            all: unset; width: 32px; height: 32px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: var(--r-sm); color: var(--text-3);
+            cursor: pointer; transition: all 0.15s; font-size: 15px;
+        }
+        #mute-btn:hover { background: var(--bg-3); color: var(--text-2); }
+
+        .theme-selector { display: flex; align-items: center; gap: 6px; }
+        .theme-circle {
+            width: 14px; height: 14px; border-radius: 50%;
+            cursor: pointer; transition: transform 0.15s, opacity 0.15s;
+            opacity: 0.5;
+        }
+        .theme-circle:hover { transform: scale(1.4); opacity: 1; }
+
+        .settings-btn {
+            all: unset; padding: 5px 12px; font-size: 12px; font-weight: 500;
+            color: var(--text-3); border: 1px solid var(--border);
+            border-radius: var(--r-sm); cursor: pointer; transition: all 0.15s;
+            font-family: 'Outfit', sans-serif; letter-spacing: 0.01em;
+        }
+        .settings-btn:hover { color: var(--text-2); border-color: var(--border-hi); background: var(--bg-2); }
+
+        /* ══ LAYOUT ══════════════════════════════════════════ */
+        main {
+            max-width: 1160px; margin: 0 auto;
+            padding: 48px 40px 100px;
+            position: relative; z-index: 1;
         }
 
-        input:focus { border-color: #00d2ff; }
 
-        .buttons-row {
+        /* ── THEME MODAL ── */
+        .theme-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 8px;
+            max-height: 65vh;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .theme-section-label {
+            grid-column: 1 / -1;
+            font-size: 10px; font-weight: 700; color: var(--text-3);
+            text-transform: uppercase; letter-spacing: 1px;
+            padding: 4px 0 2px;
+        }
+        .theme-card {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px; background: var(--bg-2);
+            border: 1px solid var(--border); border-radius: var(--r-md);
+            cursor: pointer; transition: all 0.15s; position: relative; overflow: hidden;
+        }
+        .theme-card:hover { border-color: var(--border-hi); background: var(--bg-3); }
+        .theme-card.active { border-color: var(--accent) !important; background: var(--accent-dim) !important; }
+        .theme-card.active::after { content:'✓'; position:absolute; top:8px; right:10px; font-size:13px; color:var(--accent); font-weight:700; }
+        .theme-swatch {
+            width: 36px; height: 36px; border-radius: var(--r-sm); flex-shrink: 0;
+            position: relative; overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
+        }
+        .theme-swatch-inner {
+            position: absolute; inset: 0;
+            display: grid; grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+        .theme-name { font-size: 13px; font-weight: 600; color: var(--text); }
+        .theme-desc { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+        body.training-mode { overflow: hidden; }
+
+        #main-title {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800; text-align: center;
+            letter-spacing: -0.04em; color: var(--text);
+            margin-bottom: 6px;
         }
 
-        .buttons-row button {
-            all: unset;
-            padding: 12px 5px;
-            border-radius: 10px;
-            font-weight: bold;
-            text-align: center;
-            cursor: pointer;
-            font-size: 12px;
-            text-transform: uppercase;
-            border: 2px solid transparent;
-            transition: 0.3s;
-            box-sizing: border-box;
+        /* ── Progress ── */
+        .progress-wrapper { margin: 16px auto 32px; max-width: 560px; }
+        .progress-info {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: var(--text-3); margin-bottom: 7px;
+            font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px;
+        }
+        .progress-container {
+            height: 3px; background: var(--bg-3); border-radius: 2px; overflow: hidden;
+        }
+        #progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            border-radius: 2px; transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
         }
 
-        #add-btn { border-color: #00d2ff; color: #00d2ff; }
-        #clear-all { border-color: #ff4d4d; color: #ff4d4d; }
-
-        #start-training-btn {
-            all: unset;
-            width: 100%;
-            padding: 15px;
-            background: #00bfff;
-            color: white;
-            border-radius: 12px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 16px;
-            cursor: pointer;
-            box-sizing: border-box;
-            margin-top: 5px;
+        /* ── Level stats ── */
+        .stats-grid {
+            display: flex; justify-content: center;
+            gap: 6px; flex-wrap: wrap; margin-bottom: 40px;
+        }
+        .stat-item {
+            background: var(--bg-2) !important;
+            border: 1px solid var(--border) !important;
+            border-bottom: none !important;
+            border-radius: var(--r-md) !important;
+            padding: 12px 16px !important;
+            min-width: 68px !important;
+            text-align: center; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .stat-item:hover {
+            background: var(--bg-3) !important;
+            border-color: var(--border-hi) !important;
+            transform: translateY(-2px);
+        }
+        .stat-item div:first-child {
+            font-family: 'Syne', sans-serif !important;
+            font-size: 20px !important; font-weight: 700 !important;
+            line-height: 1 !important;
+        }
+        .stat-item div:last-child {
+            font-size: 9px !important; color: var(--text-3) !important;
+            margin-top: 5px !important; text-transform: uppercase !important;
+            letter-spacing: 0.6px !important;
         }
 
-        .progress-wrapper { width: 100%; max-width: 500px; margin: 0 auto 15px; }
-        .progress-container { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-top: 8px; }
-        #progress-bar { height: 100%; background: #00d2ff; width: 0%; transition: 0.5s; }
+        /* ══ WORKSPACE ════════════════════════════════════════ */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 28px; align-items: start;
+        }
+        .workspace-left { display: flex; flex-direction: column; gap: 0; }
 
+        /* ── Inputs ── */
+        .input-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+
+        input[type="text"], textarea {
+            width: 100%; padding: 10px 14px;
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r-md); color: var(--text);
+            font-size: 14px; font-family: 'Outfit', sans-serif;
+            outline: none; transition: border-color 0.15s, background 0.15s;
+        }
+        input[type="text"]:focus, textarea:focus {
+            border-color: rgba(124,106,247,0.5); background: var(--bg-3);
+        }
+        input::placeholder, textarea::placeholder { color: var(--text-3); }
+
+        /* ── Buttons system ── */
+        .buttons-row {
+            display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;
+        }
+
+        /* Primary */
+        .action-btn {
+            all: unset; padding: 9px 18px;
+            background: var(--accent); color: #fff;
+            border-radius: var(--r-md); font-weight: 600;
+            font-size: 13px; cursor: pointer; transition: all 0.15s;
+            font-family: 'Outfit', sans-serif;
+        }
+        .action-btn:hover { background: var(--accent-2); box-shadow: 0 0 20px var(--accent-glow); transform: translateY(-1px); }
+
+        /* Ghost */
+        .outline-btn {
+            all: unset; padding: 8px 14px;
+            border: 1px solid var(--border); border-radius: var(--r-md);
+            font-size: 12px; font-weight: 500; cursor: pointer;
+            transition: all 0.15s; font-family: 'Outfit', sans-serif;
+            color: var(--text-3);
+        }
+        .outline-btn:hover { background: var(--bg-3); color: var(--text-2); border-color: var(--border-hi); }
+        .outline-btn.warning:hover { color: var(--amber); border-color: rgba(251,191,36,0.3); background: var(--amber-dim); }
+        .outline-btn.danger:hover  { color: var(--red);   border-color: rgba(248,113,113,0.3); background: var(--red-dim); }
+
+        /* Quick actions */
+        .quick-actions { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 18px; }
+        .quick-action-btn {
+            all: unset; padding: 5px 12px;
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: 100px; font-size: 11px; font-weight: 500;
+            color: var(--text-3); cursor: pointer; transition: all 0.15s;
+            font-family: 'Outfit', sans-serif;
+        }
+        .quick-action-btn:hover { background: var(--bg-3); color: var(--text-2); border-color: var(--border-hi); }
+
+        /* ── XP Bar ── */
+        .xp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+        #xp-level-icon { font-size: 14px; }
+        #xp-label { color: var(--text-3); font-size: 11px; font-weight: 500; letter-spacing: 0.02em; }
+        .xp-bar-wrap { height: 2px; background: var(--bg-3); border-radius: 1px; overflow: hidden; margin-bottom: 16px; }
+        #xp-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 1px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+
+        /* ── Weekly Challenge ── */
+        .weekly-challenge-card {
+            border: 1px solid var(--border);
+            border-radius: var(--r-md); padding: 12px 14px; margin-bottom: 12px;
+        }
+        .wc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .wc-title { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.6px; }
+        .wc-goal-btn {
+            all: unset; font-size: 10px; color: var(--text-3); cursor: pointer;
+            padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r-sm);
+            transition: all 0.15s; font-family: 'Outfit', sans-serif;
+        }
+        .wc-goal-btn:hover { color: var(--text-2); border-color: var(--border-hi); }
+        .wc-bar-wrap { height: 2px; background: var(--bg-3); border-radius: 1px; overflow: hidden; }
+        #weekly-challenge-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); border-radius: 1px; transition: width 0.4s; }
+        #weekly-challenge-label { font-size: 10px; color: var(--text-3); margin-top: 5px; text-align: right; }
+
+        /* ── Forecast ── */
+        .forecast-card {
+            border: 1px solid var(--border); border-radius: var(--r-md);
+            padding: 14px; margin-bottom: 16px;
+        }
+        .forecast-title { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; font-weight: 700; }
+        #forecast-chart { display: flex; gap: 5px; align-items: flex-end; height: 50px; }
+        .forecast-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; }
+        .forecast-val { font-size: 9px; color: var(--text-3); font-weight: 600; }
+        .forecast-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+        .forecast-bar-fill { width: 100%; border-radius: 2px 2px 0 0; min-height: 2px; transition: height 0.5s cubic-bezier(0.4,0,0.2,1); opacity: 0.8; }
+        .forecast-label { font-size: 9px; color: var(--text-3); font-weight: 600; }
+
+        /* ── Search ── */
+        #search-input { margin-bottom: 10px; }
+
+        /* ── Streak ── */
         .streak-wrapper {
-            background: #1e1e1e;
-            padding: 10px;
-            border-radius: 12px;
-            text-align: center;
-            font-size: 14px;
+            display: flex; align-items: center; gap: 6px;
+            padding: 9px 14px; background: var(--bg-2);
+            border: 1px solid var(--border); border-radius: var(--r-md);
+            font-size: 13px; color: var(--text-2); margin-bottom: 10px; font-weight: 500;
         }
 
-#training-section {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    padding-top: 10px;
-    width: 100%;
-    max-width: 500px;
-    min-height: auto;
-    margin: 0 auto;
-}
-
-#training-stats {
-    color: #888;
-    font-size: 13px;
-    margin-bottom: 10px;
-    margin-top: 20px;
-}
-
-#toggle-mode-btn {
-    all: unset;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 16px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 100px;
-    color: #00d2ff;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    transition: 0.3s;
-    backdrop-filter: blur(10px);
-    margin-top: 5px;
-    margin-bottom: 5px;
-}
-        #toggle-mode-btn.spelling-active {
-            background: #00d2ff;
-            color: #121212;
-            border-color: #00d2ff;
+        /* ── Start button ── */
+        #start-training-btn {
+            width: 100%; padding: 14px 24px;
+            background: var(--accent);
+            color: #fff; border: none;
+            border-radius: var(--r-lg);
+            font-size: 15px; font-weight: 700;
+            cursor: pointer; transition: all 0.2s;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: 0.01em; margin-bottom: 8px;
+            position: relative; overflow: hidden;
         }
-
-        .flashcard-container {
-            perspective: 1000px;
-            width: 280px;
-            margin: 10px 0;
+        #start-training-btn::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%);
+            pointer-events: none;
         }
-.flashcard {
-    width: 300px;
-    height: 200px;
-    perspective: 1000px;
-    cursor: pointer;
-    margin: 0 auto;
-    position: relative;
-}
-.flashcard-inner {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    text-align: center;
-    transition: transform 0.6s;
-    transform-style: preserve-3d;
-}
-.flashcard.is-flipped .flashcard-inner {
-    transform: rotateY(180deg);
-}
+        #start-training-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 28px var(--accent-glow); }
+        #start-training-btn:active { transform: none; }
 
-.flashcard-front, 
-.flashcard-back {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    border-radius: 25px;
-    background: #1e1e1e;
-    border: 1px solid rgba(255,255,255,0.1);
-    box-sizing: border-box;
-    text-align: center;
-}
-.flashcard-front {
-    font-size: 24px;
-    font-weight: bold;
-    transition: background 0.15s ease, box-shadow 0.15s ease;
-}
-
-.flashcard-back {
-    transform: rotateY(180deg);
-    font-size: 20px;
-    transition: background 0.15s ease, box-shadow 0.15s ease;
-}
-
-.flashcard-front.flash-correct,
-.flashcard-back.flash-correct {
-    background: rgba(40, 167, 69, 0.25) !important;
-    box-shadow: inset 0 0 0 2px rgba(40, 167, 69, 0.7), 0 0 24px rgba(40, 167, 69, 0.3);
-}
-
-.flashcard-front.flash-wrong,
-.flashcard-back.flash-wrong {
-    background: rgba(220, 53, 69, 0.25) !important;
-    box-shadow: inset 0 0 0 2px rgba(220, 53, 69, 0.7), 0 0 24px rgba(220, 53, 69, 0.3);
-}
-
-.header-side {
-    flex: 1;
-    display: flex;
-    align-items: center;
-}
-.header-right {
-    justify-content: flex-end;
-}
-
-#card-front, #card-back-text {
-    white-space: normal;
-    overflow-wrap: break-word;
-    word-break: keep-all;
-    padding: 0 10px;
-}
-        #spelling-area { width: 100%; margin-top: 5px; }
-        #spelling-input {
-            width: 100%;
-            padding: 10px;
-            border-radius: 12px;
-            text-align: center;
-            font-size: 16px;
+        /* ── Mode buttons ── */
+        .mode-btns-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+        .mode-btns-row button {
+            all: unset; flex: 1; min-width: 110px;
+            padding: 9px 10px; border-radius: var(--r-md);
+            font-weight: 600; font-size: 12px; text-align: center;
+            cursor: pointer; box-sizing: border-box;
+            transition: all 0.15s; font-family: 'Outfit', sans-serif;
+            border: 1px solid transparent;
         }
-        #card-example {
-    font-size: 0.85rem;
-    color: var(--accent-color);
-    margin-bottom: 4px;
-    line-height: 1.2;
-    word-wrap: break-word;
-}
+        #start-mistakes-btn { background: var(--red-dim);   color: var(--red);   border-color: rgba(248,113,113,0.15); }
+        #start-mistakes-btn:hover { border-color: var(--red); }
+        #start-marathon-btn { background: var(--green-dim); color: var(--green); border-color: rgba(52,211,153,0.15); }
+        #start-marathon-btn:hover { border-color: var(--green); }
+        #start-quiz-btn     { background: var(--amber-dim); color: var(--amber); border-color: rgba(251,191,36,0.15); }
+        #start-quiz-btn:hover { border-color: var(--amber); }
+        #start-video-btn    { background: var(--accent-dim); color: var(--accent-2); border-color: rgba(124,106,247,0.2); }
+        #start-video-btn:hover { border-color: var(--accent); }
 
-#card-example-translate {
-    font-size: 0.75rem;
-    color: #888;
-    font-style: italic;
-}
-
-#card-example-block {
-    margin-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding-top: 8px;
-    width: 100%;
-    display: block;
-    min-height: 40px;
-}
-        .training-buttons {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-            margin-top: 15px;
+        /* ── Sort bar ── */
+        .sort-bar { display: flex; align-items: center; gap: 3px; margin-bottom: 10px; flex-wrap: wrap; }
+        .sort-btn {
+            all: unset; padding: 4px 9px; border-radius: 100px; font-size: 11px;
+            font-weight: 500; color: var(--text-3); cursor: pointer;
+            transition: all 0.15s; font-family: 'Outfit', sans-serif;
         }
+        .sort-btn:hover, .sort-btn.active { color: var(--text-2); background: var(--bg-3); }
 
-        .training-buttons button {
-            all: unset;
-            flex: 1;
-            padding: 12px 0;
-            border-radius: 14px;
-            font-weight: bold;
-            text-align: center;
-            cursor: pointer;
-            color: white;
-            transition: 0.2s;
-            font-size: 14px;
-        }
-
-        #btn-know { background: #28a745; }
-        #btn-dont-know { background: #ff4d4d; }
-        #btn-back { background: #333; color: #888; }
-        #btn-back.full-width-btn { flex: 2; color: #fff; border: 1px solid #444; }
-
-.card.needs-review {
-    border-left: 5px solid var(--accent-color) !important;
-    box-shadow: 0 0 10px rgba(0, 210, 255, 0.1);
-    background: rgba(0, 210, 255, 0.02);
-}
-
-.card.needs-review .level-indicator {
-    box-shadow: 0 0 5px rgba(0, 210, 255, 0.5);
-}
-        .exit-btn {
-            all: unset;
-            margin-top: 15px;
-            color: #666;
-            font-size: 12px;
-            cursor: pointer;
-            text-decoration: underline;
-        }
-
-        #cards-container {
-    width: 100%;
-}
+        /* ── Word cards ── */
+        #cards-container { display: flex; flex-direction: column; gap: 3px; }
         .card {
-            background: #1e1e1e;
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid #333;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px; background: var(--bg-2);
+            border: 1px solid var(--border); border-radius: var(--r-md);
+            transition: all 0.12s; gap: 10px; position: relative;
         }
-.stat-item {
-    transition: all 0.2s ease;
-}
+        .card:hover { background: var(--bg-3); border-color: var(--border-hi); }
+        .card.needs-review::before {
+            content: ''; position: absolute; left: 0; top: 3px; bottom: 3px;
+            width: 2px; background: var(--accent); border-radius: 2px;
+        }
+        .bulk-selected { border-color: rgba(124,106,247,0.4) !important; background: var(--accent-dim) !important; }
 
-.stat-item:active {
-    transform: scale(0.95);
-    background: rgba(255,255,255,0.15) !important;
-}
+        .card-content { display: flex; align-items: center; flex: 1; gap: 8px; flex-wrap: wrap; min-width: 0; }
+        .level-indicator {
+            font-size: 9px !important; font-weight: 700 !important;
+            padding: 2px 6px !important; border-radius: 100px !important;
+            background: var(--bg-4) !important; color: var(--text-3) !important;
+            flex-shrink: 0; font-family: 'Outfit', sans-serif; letter-spacing: 0.3px;
+        }
+        .original { font-size: 14px; font-weight: 600; color: var(--text); outline: none; }
+        .arrow { color: var(--text-3); font-size: 11px; }
+        .translation { font-size: 14px; color: var(--text-2); outline: none; }
+        .translation.hidden { display: none; }
+        .word-tag { font-size: 10px; padding: 1px 7px; border-radius: 100px; background: var(--accent-dim); color: var(--accent-2); font-weight: 500; }
 
-.stat-item.active-filter {
-    background: rgba(0, 210, 255, 0.2) !important;
-    border-top: 1px solid rgba(0, 210, 255, 0.3);
-}
-mark {
-    background: rgba(0, 210, 255, 0.3);
-    color: #fff;
-    border-radius: 2px;
-    padding: 0 1px;
-    font-weight: bold;
-}
-#btn-next {
-    display: none;
-}
+        .actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+        .speak-btn, .delete-btn, .history-btn {
+            all: unset; width: 26px; height: 26px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: var(--r-sm); cursor: pointer; font-size: 12px;
+            color: var(--text-3); transition: all 0.12s;
+        }
+        .speak-btn:hover   { background: var(--bg-4); color: var(--blue); }
+        .history-btn:hover { background: var(--bg-4); color: var(--accent-2); }
+        .delete-btn:hover  { background: var(--red-dim); color: var(--red); }
 
-.full-width-btn {
-    width: 100% !important;
-}
-.card {
-    transition: opacity 0.2s ease;
-}
-        .hidden { display: none; }
+        /* ══ RIGHT SIDEBAR ════════════════════════════════════ */
+        .workspace-right { display: flex; flex-direction: column; gap: 16px; }
+        aside { display: flex; flex-direction: column; gap: 16px; }
+        .sidebar-section {
+            background: var(--bg-1); border: 1px solid var(--border);
+            border-radius: var(--r-lg); padding: 18px;
+        }
+        .sidebar-title {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--text-3); margin-bottom: 14px;
+        }
 
+        /* ══ TRAINING SECTION ═════════════════════════════════ */
+        #training-section {
+            display: none;
+            position: fixed;
+            inset: 0;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
+            gap: 0;
+            overflow: hidden;
+            z-index: 500;
+            background: var(--bg);
+        }
+
+        #marathon-badge {
+            display: none; align-items: center; gap: 6px;
+            padding: 4px 14px; background: var(--green-dim);
+            border: 1px solid rgba(52,211,153,0.2); border-radius: 100px;
+            font-size: 11px; font-weight: 600; color: var(--green); margin-bottom: 10px;
+        }
+
+        .mode-badge {
+            all: unset; display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 14px; background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: 100px; font-size: 12px; font-weight: 500;
+            color: var(--text-2); cursor: pointer; transition: all 0.15s;
+            margin-bottom: 10px; font-family: 'Outfit', sans-serif;
+        }
+        .mode-badge:hover { background: var(--bg-3); border-color: var(--border-hi); color: var(--text); }
+
+        #training-stats { font-size: 12px; color: var(--text-3); margin-bottom: 14px; font-weight: 500; }
+
+        /* ── Flashcard ── */
+        .flashcard-container { width: 100%; max-width: min(460px, 90vw); perspective: 1200px; margin-bottom: 20px; }
+        .flashcard {
+            width: 100%; height: min(220px, 28vh); position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.55s cubic-bezier(0.4,0,0.2,1);
+            cursor: pointer; border-radius: var(--r-xl);
+        }
+        .flashcard.is-flipped { transform: rotateY(180deg); }
+        .flashcard-inner {
+            position: relative; width: 100%; height: 100%;
+            transform-style: preserve-3d;
+        }
+        .flashcard-front, .flashcard-back {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; -webkit-backface-visibility: hidden;
+            border-radius: var(--r-xl);
+            display: flex; align-items: center; justify-content: center;
+            padding: 36px; text-align: center;
+            background: var(--bg-2); border: 1px solid var(--border);
+        }
+        .flashcard-front { flex-direction: column; gap: 6px; }
+        .flashcard-back { transform: rotateY(180deg); background: var(--bg-3); }
+
+        #card-front {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(1.8rem, 4vw, 2.6rem);
+            font-weight: 700; color: var(--text);
+            letter-spacing: -0.03em; transition: filter 0.3s;
+        }
+        #card-image { width:100%; max-height:80px; object-fit:cover; border-radius:var(--r-md); margin-bottom:8px; display:none; }
+        .card-back-wrapper { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+        #card-back-text { font-family: 'Syne', sans-serif; font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 700; color: var(--text); }
+        .example-hidden { display: none; }
+        #card-example { font-size: 13px; color: var(--text-2); font-style: italic; }
+        #card-example-translate { font-size: 12px; color: var(--text-3); }
+
+        .flash-correct .flashcard-front,
+        .flash-correct .flashcard-back { background: rgba(52,211,153,0.08) !important; border-color: rgba(52,211,153,0.3) !important; }
+        .flash-wrong .flashcard-front,
+        .flash-wrong .flashcard-back   { background: rgba(248,113,113,0.08) !important; border-color: rgba(248,113,113,0.3) !important; }
+
+        /* ── Spelling ── */
+        #spelling-area { width: 100%; max-width: min(460px, 90vw); margin-bottom: 10px; }
+        #spelling-input {
+            width: 100%; padding: 12px 16px;
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r-xl); color: var(--text);
+            font-size: 15px; font-weight: 600; text-align: center;
+            outline: none; transition: border-color 0.15s;
+            font-family: 'Outfit', sans-serif;
+        }
+        #spelling-input:focus { border-color: rgba(124,106,247,0.4); }
+        #spelling-feedback { text-align: center; font-size: 13px; margin-top: 8px; min-height: 20px; font-weight: 600; }
+
+        #spelling-extra-btns {
+            display: none; gap: 8px; justify-content: center; margin-top: 8px;
+        }
+        #spelling-extra-btns button {
+            all: unset; padding: 6px 14px; border: 1px solid var(--border);
+            border-radius: 100px; font-size: 12px; cursor: pointer;
+            color: var(--text-3); transition: all 0.15s;
+            font-family: 'Outfit', sans-serif; font-weight: 500;
+        }
+        #spelling-extra-btns button:hover { color: var(--text-2); border-color: var(--border-hi); background: var(--bg-2); }
+        #spelling-extra-btns .show-trans-btn { color: var(--accent-2); border-color: rgba(124,106,247,0.2); }
+        #spelling-extra-btns .show-trans-btn:hover { background: var(--accent-dim); border-color: var(--accent); }
+
+        /* ── Timer ── */
+        .timer-card {
+            position: fixed; bottom: 24px; right: 24px;
+            background: var(--bg-2); border: 1px solid var(--border-hi);
+            border-radius: var(--r-lg); padding: 14px 18px;
+            text-align: center; min-width: 110px;
+            cursor: grab; user-select: none; z-index: 600;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .timer-drag-handle { display: none; }
+        .timer-label { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 4px; }
+        #timer-display { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+        #add-time-btn {
+            all: unset; display: block; width: 100%;
+            padding: 5px; margin-top: 8px; background: var(--bg-3);
+            border-radius: var(--r-sm); font-size: 11px; font-weight: 600;
+            color: var(--text-3); cursor: pointer; text-align: center;
+            transition: all 0.15s; font-family: 'Outfit', sans-serif;
+        }
+        #add-time-btn:hover { background: var(--accent-dim); color: var(--accent-2); }
+        .timer-status { font-size: 9px; color: var(--text-3); margin-top: 4px; }
+
+        /* ── Training buttons ── */
+        .training-buttons {
+            display: flex; gap: 8px; justify-content: center;
+            flex-wrap: wrap; width: 100%; max-width: min(520px, 95vw); margin-bottom: 8px;
+        }
+        .training-buttons button {
+            flex: 1; min-width: 76px; padding: 12px 6px;
+            border: none; border-radius: var(--r-md);
+            font-size: 12px; font-weight: 700;
+            cursor: pointer; transition: all 0.15s;
+            font-family: 'Outfit', sans-serif; color: #fff;
+        }
+        .nav-btn { background: var(--bg-3) !important; color: var(--text-3) !important; flex: 0 0 auto !important; min-width: 66px !important; font-weight: 500 !important; }
+        .nav-btn:hover { background: var(--bg-4) !important; color: var(--text-2) !important; }
+
+        .sm2-again { background: rgba(248,113,113,0.75) !important; }
+        .sm2-again:hover { background: var(--red) !important; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(248,113,113,0.25); }
+        .sm2-hard  { background: rgba(251,191,36,0.75) !important; color: #1a1200 !important; }
+        .sm2-hard:hover  { background: var(--amber) !important; color: #000 !important; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(251,191,36,0.2); }
+        .sm2-good  { background: rgba(52,211,153,0.75) !important; color: #001a0d !important; }
+        .sm2-good:hover  { background: var(--green) !important; color: #000 !important; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(52,211,153,0.2); }
+        .sm2-easy  { background: rgba(96,165,250,0.75) !important; }
+        .sm2-easy:hover  { background: var(--blue) !important; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(96,165,250,0.2); }
+        .btn.secondary { background: var(--bg-3) !important; color: var(--text-2) !important; }
+
+        .sm2-label { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.2; }
+        .sm2-label .sm2-main { font-size: 12px; font-weight: 700; }
+        .sm2-label .sm2-sub  { font-size: 9px; opacity: 0.7; font-weight: 400; }
+
+        #audio-mode-row { display: flex; justify-content: center; margin-top: 6px; }
+        #btn-audio-mode {
+            all: unset; padding: 5px 14px; border: 1px solid var(--border);
+            border-radius: 100px; color: var(--text-3); font-size: 11px;
+            cursor: pointer; transition: all 0.15s; font-family: 'Outfit', sans-serif; font-weight: 500;
+        }
+        #btn-audio-mode:hover { color: var(--text-2); border-color: var(--border-hi); }
+
+        .exit-btn {
+            all: unset; margin-top: 24px; padding: 9px 22px;
+            border: 1px solid var(--border); border-radius: var(--r-md);
+            color: var(--text-3); font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.15s; font-family: 'Outfit', sans-serif;
+        }
+        .exit-btn:hover { color: var(--red); border-color: rgba(248,113,113,0.3); background: var(--red-dim); }
+
+        /* ── Quiz ── */
+        #quiz-area { width: 100%; max-width: 460px; }
+        #quiz-word { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 700; text-align: center; margin: 16px 0 24px; letter-spacing: -0.02em; }
+        #quiz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .quiz-option {
+            all: unset; padding: 14px 14px; background: var(--bg-2);
+            border: 1px solid var(--border); border-radius: var(--r-md);
+            font-size: 14px; font-weight: 500; cursor: pointer;
+            text-align: center; transition: all 0.15s;
+            font-family: 'Outfit', sans-serif; color: var(--text);
+        }
+        .quiz-option:hover { background: var(--bg-3); border-color: rgba(124,106,247,0.4); color: var(--accent-2); }
+        .quiz-option.correct { background: var(--green-dim) !important; border-color: rgba(52,211,153,0.4) !important; color: var(--green) !important; }
+        .quiz-option.wrong   { background: var(--red-dim) !important;   border-color: rgba(248,113,113,0.4) !important; color: var(--red) !important; }
+        #quiz-feedback { text-align: center; font-size: 13px; margin-top: 12px; min-height: 20px; font-weight: 600; }
+
+        #toggle-mode-btn { margin-bottom: 12px; }
+
+        /* ══ MODALS ════════════════════════════════════════════ */
         .modal {
-        display: none;
-        position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.8);
-        z-index: 1000;
-        justify-content: center;
-        align-items: center;
-    }
-        .modal-content { background: #1e1e1e; padding: 25px; border-radius: 20px; width: 90%; max-width: 500px; text-align: center; }
-        textarea { width: 100%; height: 100px; margin: 10px 0; background: #121212; color: white; border: 1px solid #333; border-radius: 8px; padding: 10px; box-sizing: border-box; }
-        .input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 15px;
-}
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75); z-index: 1000;
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(16px); padding: 20px;
+        }
+        .modal-content {
+            background: var(--bg-1); border: 1px solid var(--border-hi);
+            border-radius: var(--r-xl); padding: 28px; width: 100%;
+            max-width: 460px; max-height: 85vh; overflow-y: auto;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+        }
+        .close-modal { float: right; font-size: 18px; cursor: pointer; color: var(--text-3); transition: color 0.15s; }
+        .close-modal:hover { color: var(--text); }
+        .modal-content h3 { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+        .modal-content textarea { min-height: 130px; resize: vertical; margin-bottom: 10px; }
 
-.input-group input {
-    padding: 10px 15px;
-    font-size: 14px;
-}
-/* ===== ТАЙМЕР — DRAGGABLE ===== */
-.timer-card {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: rgba(18, 18, 18, 0.9);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    padding: 10px 16px 12px;
-    border-radius: 18px;
-    z-index: 999;
-    text-align: center;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    cursor: grab;
-    touch-action: none;
-    user-select: none;
-    min-width: 110px;
-    transition: box-shadow 0.2s, transform 0.15s;
-}
-.timer-card:active { cursor: grabbing; transform: scale(1.04); }
-.timer-drag-handle {
-    width: 28px;
-    height: 3px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 2px;
-    margin: 0 auto 8px;
-}
-#timer-display {
-    font-size: 2rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    color: #fff;
-    letter-spacing: 1px;
-    line-height: 1;
-    margin: 2px 0 4px;
-}
-.timer-label {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    opacity: 0.45;
-    margin-bottom: 2px;
-}
-.timer-status { font-size: 0.65rem; color: #00ffcc; margin-top: 2px; }
-.timer-low { color: #ff4d4d !important; animation: pulse 1s infinite; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .generic-modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75); z-index: 5000;
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(16px); padding: 16px; box-sizing: border-box;
+        }
+        .generic-modal-inner {
+            width: 100%; max-width: 480px; background: var(--bg-1);
+            border: 1px solid var(--border-hi); border-radius: var(--r-xl);
+            padding: 24px; display: flex; flex-direction: column; gap: 12px;
+            max-height: 85vh; overflow-y: auto;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+            animation: modalIn 0.2s cubic-bezier(0.4,0,0.2,1);
+        }
+        @keyframes modalIn { from { opacity:0; transform: scale(0.97) translateY(6px); } to { opacity:1; transform:none; } }
+        .generic-modal-title {
+            font-size: 15px; font-weight: 700; color: var(--text);
+            display: flex; justify-content: space-between; align-items: center;
+            font-family: 'Syne', sans-serif;
+        }
+        .generic-modal-close {
+            all: unset; cursor: pointer; color: var(--text-3); font-size: 17px;
+            padding: 3px 7px; border-radius: var(--r-sm); transition: all 0.15s;
+        }
+        .generic-modal-close:hover { color: var(--text); background: var(--bg-3); }
 
-/* ===== TOAST ===== */
-#toast-container {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 9998;
-    pointer-events: none;
-    align-items: center;
-}
-#toast-container > * { pointer-events: all; }
+        /* ══ TOASTS ════════════════════════════════════════════ */
+        .toast-container { position: fixed; bottom: 80px; right: 24px; z-index: 9000; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+        .toast {
+            padding: 10px 16px; border-radius: var(--r-md); font-size: 13px; font-weight: 500;
+            max-width: 300px; pointer-events: all; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px); animation: toastIn 0.2s; cursor: pointer;
+            border: 1px solid var(--border); background: var(--bg-2); color: var(--text);
+        }
+        @keyframes toastIn { from { opacity:0; transform: translateX(12px); } to { opacity:1; transform:none; } }
 
-@keyframes toastIn {
-    from { opacity: 0; transform: translateY(12px) scale(0.95); }
-    to   { opacity: 1; transform: translateY(0)    scale(1); }
-}
-@keyframes toastOut {
-    from { opacity: 1; transform: translateY(0)    scale(1); }
-    to   { opacity: 0; transform: translateY(8px)  scale(0.95); }
-}
+        #combo-display { font-family: 'Syne', sans-serif; font-weight: 800; }
+        @keyframes comboPop { 0% { transform: scale(1.4); } 100% { transform: scale(1); } }
 
-.buttons-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-}
+        #achievement-toast {
+            position: fixed; top: 64px; left: 50%; transform: translateX(-50%);
+            background: var(--bg-2); border: 1px solid var(--border-hi);
+            border-radius: var(--r-lg); padding: 14px 20px;
+            display: none; gap: 12px; align-items: center;
+            z-index: 9999; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+            min-width: 250px; animation: toastIn 0.25s;
+        }
+        #ach-icon { font-size: 26px; }
+        #ach-title { font-size: 13px; font-weight: 700; color: var(--text); font-family: 'Syne', sans-serif; }
+        #ach-desc  { font-size: 11px; color: var(--text-3); }
 
-.sort-bar {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex-wrap: wrap;
-}
-.sort-btn {
-    all: unset;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    cursor: pointer;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #aaa;
-    transition: all 0.2s;
-    box-sizing: border-box;
-}
-.sort-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+        /* Confirm */
+        .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(16px); padding: 20px; }
+        .confirm-box { background: var(--bg-1); border: 1px solid var(--border-hi); border-radius: var(--r-xl); padding: 28px; max-width: 360px; width: 100%; text-align: center; box-shadow: 0 24px 64px rgba(0,0,0,0.6); animation: modalIn 0.2s; }
+        .confirm-box p { font-size: 15px; color: var(--text); margin-bottom: 24px; line-height: 1.6; }
+        .confirm-actions { display: flex; gap: 8px; justify-content: center; }
+        .confirm-ok { all: unset; padding: 10px 22px; background: var(--accent); color: #fff; border-radius: var(--r-md); font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.15s; }
+        .confirm-ok:hover { background: var(--accent-2); }
+        .confirm-cancel { all: unset; padding: 10px 22px; border: 1px solid var(--border); color: var(--text-3); border-radius: var(--r-md); font-size: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.15s; }
+        .confirm-cancel:hover { background: var(--bg-3); color: var(--text); }
 
-@keyframes comboPop {
-    0%   { transform: scale(1.5); opacity: 0.5; }
-    100% { transform: scale(1);   opacity: 1; }
-}
-#combo-display { animation: comboPop 0.3s ease; }
+        /* Undo */
+        #undo-toast { display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--bg-2); border:1px solid var(--border-hi); border-radius:100px; padding:9px 20px; z-index:3000; box-shadow:0 8px 24px rgba(0,0,0,0.4); align-items:center; gap:12px; white-space:nowrap; }
+        #undo-text { font-size:12px; color:var(--text-2); }
+        #undo-btn { all:unset; color:var(--accent-2); font-weight:700; font-size:12px; cursor:pointer; font-family:'Outfit',sans-serif; }
 
-@keyframes slideUp {
-    from { transform: translateX(-50%) translateY(20px); opacity: 0; }
-    to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
-}
+        /* Results */
+        #results-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(20px); padding:20px; overflow-y:auto; }
+        #results-content {
+            background: var(--bg-1); border: 1px solid var(--border-hi);
+            border-radius: var(--r-xl); padding: 32px 28px;
+            max-width: 480px; width: 100%; text-align: center;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 60px var(--accent-glow);
+            animation: modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+            position: relative;
+        }
+        #results-emoji { font-size: 3rem; margin-bottom: 10px; display: block; animation: resultsBounce 0.5s 0.2s both; }
+        @keyframes resultsBounce { from { transform: scale(0) rotate(-20deg); } to { transform: scale(1) rotate(0deg); } }
+        #results-content h2 {
+            font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;
+            margin-bottom: 24px; letter-spacing: -0.03em; color: var(--text);
+        }
+        .results-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 8px; margin-bottom: 20px;
+        }
+        .result-card {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r-md); padding: 16px 10px;
+            transition: border-color 0.15s;
+        }
+        .rc-value {
+            font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800;
+            line-height: 1; letter-spacing: -0.02em;
+        }
+        .rc-label {
+            font-size: 10px; color: var(--text-3); margin-top: 6px;
+            text-transform: uppercase; letter-spacing: 0.7px; font-weight: 600;
+        }
+        .results-hard-block {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--r-md); padding: 14px 16px; margin-bottom: 20px; text-align: left;
+        }
+        .results-hard-title {
+            font-size: 10px; color: var(--text-3); text-transform: uppercase;
+            letter-spacing: 1px; font-weight: 700; margin-bottom: 10px;
+        }
+        .results-hard-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+        }
+        .results-hard-item:last-child { border-bottom: none; }
+        .results-hard-word { color: var(--text); font-weight: 500; }
+        .results-hard-cnt  { color: var(--red); font-weight: 700; font-size: 12px; }
+        .close-results {
+            all: unset; padding: 13px 40px; background: var(--accent); color: #fff;
+            border-radius: var(--r-lg); font-weight: 700; font-size: 15px; cursor: pointer;
+            transition: all 0.2s; font-family: 'Outfit', sans-serif;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+        .close-results:hover { background: var(--accent-2); transform: translateY(-1px); box-shadow: 0 8px 28px var(--accent-glow); }
 
-.result-card {
-    background: rgba(255,255,255,0.05);
-    border-radius: 12px;
-    padding: 12px 8px;
-    text-align: center;
-}
-.result-card .rc-value { font-size: 1.8rem; font-weight: 800; line-height: 1; }
-.result-card .rc-label { font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        /* ══ STATS / SIDEBAR ════════════════════════════════════ */
+        .fst-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+        .fst-card { background:var(--bg-2); border:1px solid var(--border); border-radius:var(--r-md); padding:12px; text-align:center; }
+        .fst-val { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; color:var(--accent-2); line-height:1; }
+        .fst-label { font-size:10px; color:var(--text-3); margin-top:4px; }
+        .fst-section-title { font-size:10px; font-weight:700; color:var(--text-3); margin:12px 0 8px; text-transform:uppercase; letter-spacing:0.6px; }
+        .fst-schedule { display:flex; flex-direction:column; gap:5px; }
+        .fst-bar-row { display:flex; align-items:center; gap:8px; }
+        .fst-bar-label { font-size:11px; color:var(--text-3); width:65px; flex-shrink:0; }
+        .fst-bar-wrap { flex:1; height:4px; background:var(--bg-3); border-radius:2px; overflow:hidden; }
+        .fst-bar-fill { height:100%; border-radius:2px; transition:width 0.5s; }
+        .fst-bar-count { font-size:11px; color:var(--text-3); width:28px; text-align:right; }
+        .fst-hard-list { display:flex; flex-direction:column; gap:5px; max-height:220px; overflow-y:auto; }
+        .fst-hard-item { display:flex; justify-content:space-between; align-items:center; padding:7px 10px; background:var(--bg-2); border-radius:var(--r-sm); }
+        .fst-word { font-size:13px; font-weight:600; color:var(--text); margin-right:6px; }
+        .fst-trans { font-size:12px; color:var(--text-3); }
+        .fst-tag { font-size:10px; padding:2px 7px; background:var(--bg-3); border-radius:100px; }
 
-.quiz-option {
-    all: unset;
-    padding: 14px 10px;
-    border-radius: 14px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
-    text-align: center;
-    cursor: pointer;
-    box-sizing: border-box;
-    transition: background 0.15s, border-color 0.15s;
-}
-.quiz-option:hover { background: rgba(255,255,255,0.1); }
-.quiz-option.correct { background: rgba(40,167,69,0.25) !important; border-color: #28a745 !important; }
-.quiz-option.wrong   { background: rgba(220,53,69,0.25)  !important; border-color: #ff4d4d !important; }
-.quiz-option:disabled { cursor: default; }
+        /* Tatoeba */
+        .tatoeba-item { padding:10px 12px; background:var(--bg-2); border-radius:var(--r-md); margin-bottom:5px; cursor:pointer; transition:all 0.12s; border:1px solid transparent; }
+        .tatoeba-item:hover { background:var(--accent-dim); border-color:rgba(124,106,247,0.25); }
+        .tatoeba-en { font-size:14px; color:var(--text); margin-bottom:3px; font-weight:500; }
+        .tatoeba-ru { font-size:12px; color:var(--text-3); }
+        .tatoeba-use { font-size:11px; color:var(--accent-2); margin-top:4px; }
 
-.tag-chip {
-    all: unset;
-    padding: 4px 12px;
-    border-radius: 100px;
-    font-size: 12px;
-    cursor: pointer;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-    color: #aaa;
-    transition: all 0.15s;
-    box-sizing: border-box;
-}
-.tag-chip:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
-.tag-chip.active {
-    background: rgba(0,210,255,0.15);
-    border-color: var(--accent-color);
-    color: var(--accent-color);
-}
+        /* Export */
+        .export-option { display:flex; align-items:center; gap:14px; padding:13px 14px; background:var(--bg-2); border-radius:var(--r-md); cursor:pointer; border:1px solid var(--border); transition:all 0.12s; margin-bottom:7px; }
+        .export-option:hover { border-color:rgba(124,106,247,0.35); background:var(--accent-dim); }
+        .export-option-icon { font-size:22px; }
+        .export-option-title { font-size:13px; font-weight:600; color:var(--text); }
+        .export-option-desc { font-size:11px; color:var(--text-3); margin-top:2px; }
 
-.word-tag {
-    display: inline-block;
-    padding: 1px 7px;
-    border-radius: 100px;
-    font-size: 10px;
-    background: rgba(255,255,255,0.07);
-    color: #888;
-    border: 1px solid rgba(255,255,255,0.1);
-    margin-right: 3px;
-}
+        /* Word history */
+        .wh-timeline { display:flex; flex-direction:column; gap:4px; max-height:190px; overflow-y:auto; }
+        .wh-item { display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg-2); border-radius:var(--r-sm); }
 
-.hotkey-hint {
-    display: none;
-    position: absolute;
-    bottom: -22px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 10px;
-    color: #444;
-    white-space: nowrap;
-    pointer-events: none;
-}
-@media (hover: hover) {
-    #flashcard:hover .hotkey-hint { display: block; }
-    .flashcard-container { position: relative; }
-}
+        /* Bulk */
+        #bulk-actions-panel { display:none; position:sticky; top:55px; z-index:100; background:var(--bg-1); border:1px solid var(--border-hi); border-radius:var(--r-md); padding:9px 12px; margin-bottom:8px; align-items:center; gap:6px; flex-wrap:wrap; }
+        #bulk-count { font-size:12px; color:var(--accent-2); font-weight:600; flex:1; }
+        .bulk-action-btn { all:unset; padding:4px 10px; border-radius:100px; font-size:11px; cursor:pointer; border:1px solid var(--border); color:var(--text-3); transition:all 0.12s; font-family:'Outfit',sans-serif; }
+        .bulk-action-btn:hover { background:var(--bg-3); color:var(--text-2); }
+        .bulk-action-btn.danger { color:var(--red); border-color:rgba(248,113,113,0.2); }
+        .bulk-action-btn.danger:hover { background:var(--red-dim); }
 
-#add-time-btn {
-    all: unset;
-    display: block;
-    width: 100%;
-    margin-top: 8px;
-    padding: 5px 0;
-    background: rgba(0,210,255,0.12);
-    border: 1px solid rgba(0,210,255,0.3);
-    border-radius: 8px;
-    color: var(--accent-color);
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-    letter-spacing: 0.5px;
-    transition: background 0.2s;
-    box-sizing: border-box;
-}
-#add-time-btn:hover { background: rgba(0,210,255,0.22); }
+        /* Tooltips */
+        .has-tooltip { position:relative; }
+        .has-tooltip::after { content:attr(data-tip); position:absolute; bottom:calc(100% + 7px); left:50%; transform:translateX(-50%); background:var(--bg-4); color:var(--text-2); font-size:10px; padding:4px 10px; border-radius:var(--r-sm); white-space:nowrap; pointer-events:none; opacity:0; transition:opacity 0.12s; border:1px solid var(--border); z-index:100; font-family:'Outfit',sans-serif; font-weight:400; }
+        .has-tooltip:hover::after { opacity:1; }
 
-#training-section {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    user-select: none;
-}
-#flashcard, .card-content { cursor: pointer; }
-#spelling-input {
-    user-select: text !important;
-    -webkit-user-select: text !important;
-    cursor: text;
-}
+        /* YouGlish */
+        #youglish-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:5000; justify-content:center; align-items:center; backdrop-filter:blur(16px); padding:16px; box-sizing:border-box; }
+        .yg-inner { width:100%; max-width:540px; background:var(--bg-1); border:1px solid var(--border-hi); border-radius:var(--r-xl); padding:24px; box-shadow:0 24px 64px rgba(0,0,0,0.6); display:flex; flex-direction:column; gap:14px; animation:modalIn 0.2s; }
+        .yg-header { display:flex; justify-content:space-between; align-items:center; }
+        .yg-title { font-size:16px; font-weight:700; color:var(--accent-2); font-family:'Syne',sans-serif; }
+        .yg-word-badge { font-size:12px; color:var(--text); background:var(--accent-dim); border:1px solid rgba(124,106,247,0.25); border-radius:100px; padding:2px 12px; font-weight:600; }
+        .yg-close { all:unset; cursor:pointer; color:var(--text-3); font-size:17px; padding:3px 7px; border-radius:var(--r-sm); transition:all 0.15s; }
+        .yg-close:hover { color:var(--text); background:var(--bg-3); }
+        .yg-desc { font-size:12px; color:var(--text-3); text-align:center; }
+        .yg-search-row { display:flex; gap:8px; }
+        .yg-search-row input { flex:1; }
+        .yg-search-btn { all:unset; padding:10px 18px; background:var(--accent); color:#fff; border-radius:var(--r-md); font-weight:700; font-size:13px; cursor:pointer; transition:all 0.15s; white-space:nowrap; font-family:'Outfit',sans-serif; }
+        .yg-search-btn:hover { background:var(--accent-2); }
+        .yg-section-label { font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:1px; font-weight:700; }
+        .yg-pills-wrap { display:flex; flex-wrap:wrap; gap:5px; max-height:170px; overflow-y:auto; }
+        .yg-pill { all:unset; padding:4px 12px; border-radius:100px; font-size:12px; cursor:pointer; background:var(--bg-2); border:1px solid var(--border); color:var(--text-2); transition:all 0.12s; white-space:nowrap; font-family:'Outfit',sans-serif; }
+        .yg-pill:hover { background:var(--accent-dim); border-color:rgba(124,106,247,0.35); color:var(--accent-2); }
+        .yg-footer-hint { font-size:10px; color:var(--text-3); text-align:center; }
+        .yg-footer-hint a { color:var(--text-3); }
 
-@media (max-width: 600px) {
-    .header-bar { padding: 10px 14px; }
-    h1 { font-size: 1.5em; margin: 10px auto; }
-    .progress-wrapper { padding: 0 14px; }
-    #level-stats { gap: 6px; margin: 12px auto; }
+        /* Tags */
+        .tag-chip { all:unset; padding:3px 11px; border:1px solid var(--border); border-radius:100px; font-size:11px; cursor:pointer; color:var(--text-3); transition:all 0.12s; font-family:'Outfit',sans-serif; font-weight:500; }
+        .tag-chip:hover, .tag-chip.active { background:var(--accent-dim); border-color:rgba(124,106,247,0.3); color:var(--accent-2); }
+        #tag-filter-bar { margin-bottom:10px; }
 
-    #training-section {
-        padding: 8px 14px 100px;
-        max-width: 100%;
-        box-sizing: border-box;
-    }
-    .flashcard-container { width: 100%; }
-    .flashcard { width: 100%; height: 185px; }
+        /* Confetti */
+        .confetti-piece { position:fixed; top:-10px; width:7px; height:7px; border-radius:2px; animation:confettiFall linear forwards; pointer-events:none; z-index:99999; }
+        @keyframes confettiFall { to { transform:translateY(105vh) rotate(720deg); opacity:0; } }
 
-    .training-buttons { gap: 8px; margin-top: 12px; }
-    .training-buttons button { padding: 16px 0; font-size: 13px; border-radius: 16px; }
+        /* ══ RESPONSIVE ═══════════════════════════════════════ */
+        /* ═══════════════════════════════════════════════════
+           RESPONSIVE — TABLET & MOBILE
+        ═══════════════════════════════════════════════════ */
 
-    .exit-btn { font-size: 13px; margin-top: 20px; }
-    #spelling-input { font-size: 18px; padding: 14px; }
-    #training-stats { font-size: 12px; margin-top: 12px; }
-    #toggle-mode-btn { font-size: 12px; padding: 5px 12px; }
+        /* Tablet */
+        @media (max-width: 900px) {
+            .workspace-grid { grid-template-columns: 1fr; }
+            .workspace-right { display: none; }
+            main { padding: 24px 20px 80px; }
+        }
 
-    .timer-card {
-        position: fixed;
-        bottom: 16px;
-        top: auto !important;
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 12px;
-        padding: 10px 20px;
-        border-radius: 100px;
-        min-width: unset;
-    }
-    .timer-drag-handle { display: none; }
-    .timer-label { display: none; }
-    .timer-status { display: none; }
-    #timer-display { font-size: 1.3rem; margin: 0; }
-    #add-time-btn { margin-top: 0; padding: 6px 14px; width: auto; border-radius: 100px; }
+        /* Mobile */
+        @media (max-width: 640px) {
 
-    /* FIX: результаты на мобиле */
-    #results-modal > div {
-        padding: 16px 14px !important;
-        border-radius: 18px !important;
-    }
-    .result-card .rc-value { font-size: 1.4rem !important; }
-}
-    
-.visual-progress {
-    margin: 14px 0 18px;
-    display: grid;
-    gap: 12px;
-}
-.viz-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 12px;
-}
-.viz-title {
-    font-size: 13px;
-    color: #bbb;
-    margin-bottom: 8px;
-}
-.level-bars {
-    display: grid;
-    gap: 7px;
-}
-.level-row {
-    display: grid;
-    grid-template-columns: 44px 1fr 38px;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-}
-.level-fill-wrap {
-    height: 8px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.08);
-    overflow: hidden;
-}
-.level-fill {
-    height: 100%;
-    width: 0;
-    background: var(--accent-color, #00d2ff);
-}
-.heatmap-grid {
-    display: grid;
-    grid-template-columns: repeat(21, 1fr);
-    gap: 4px;
-}
-.heat-cell {
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    border-radius: 3px;
-    background: rgba(255,255,255,0.08);
-}
-.weekly-canvas {
-    width: 100%;
-    height: 130px;
-    display: block;
-}
- 
-.workspace-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
-    gap: 16px;
-    align-items: start;
-}
-.workspace-left,
-.workspace-right {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-.quick-actions {
-    display: none;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-}
-.quick-action-btn {
-    all: unset;
-    box-sizing: border-box;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.14);
-    color: #fff;
-    border-radius: 10px;
-    text-align: center;
-    padding: 10px 6px;
-    font-size: 12px;
-    cursor: pointer;
-}
-@media (max-width: 900px) {
-    #main-ui { max-width: 100%; }
-    .workspace-grid { grid-template-columns: 1fr; }
-    .workspace-right { order: 2; }
-    .workspace-left { order: 1; }
-    .quick-actions { display: grid; }
-    .buttons-row { display: none; }
-}
+            /* ── Base ── */
+            main { padding: 16px 14px 100px; }
+            #main-title { font-size: 1.6rem; letter-spacing: -0.02em; }
+
+            /* ── Header ── */
+            .header-bar { padding: 0 14px; height: 50px; }
+            .settings-btn { font-size: 11px; padding: 4px 10px; }
+            .theme-selector .settings-btn { display: none; } /* скрыть текст кнопки — показать иконку */
+
+            /* ── Progress ── */
+            .progress-wrapper { margin: 12px auto 20px; }
+
+            /* ── Level stats ── */
+            .stats-grid { gap: 5px; margin-bottom: 24px; }
+            .stat-item { padding: 10px 12px !important; min-width: 56px !important; }
+            .stat-item div:first-child { font-size: 17px !important; }
+            .stat-item div:last-child  { font-size: 8px !important; }
+
+            /* ── Inputs ── */
+            input[type="text"], textarea { font-size: 16px; } /* prevent iOS zoom */
+            .input-group { gap: 7px; }
+
+            /* ── Buttons row ── */
+            .buttons-row { gap: 5px; }
+            .outline-btn { padding: 7px 10px; font-size: 11px; }
+
+            /* ── Quick actions ── */
+            .quick-actions { gap: 5px; }
+            .quick-action-btn { padding: 5px 10px; font-size: 11px; }
+
+            /* ── Mode buttons ── */
+            .mode-btns-row { gap: 5px; }
+            .mode-btns-row button { padding: 9px 6px; font-size: 11px; min-width: 0; }
+
+            /* ── Sort bar ── */
+            .sort-btn { padding: 3px 7px; font-size: 10px; }
+
+            /* ── Word cards ── */
+            .card { padding: 9px 10px; }
+            .original, .translation { font-size: 13px; }
+            .level-indicator { font-size: 8px !important; }
+
+            /* ── Start button ── */
+            .start-btn { padding: 13px; font-size: 14px; }
+
+            /* ── XP / Challenge / Forecast ── */
+            .xp-section { margin-bottom: 10px; }
+            .weekly-challenge-card { padding: 10px 12px; }
+            .forecast-card { padding: 10px 12px; }
+
+            /* ── Streak ── */
+            .streak-wrapper { font-size: 12px; padding: 8px 12px; }
+
+            /* ── Modals ── */
+            .modal-content { padding: 20px 16px; border-radius: var(--r-lg); }
+            .generic-modal-inner { padding: 18px 16px; border-radius: var(--r-lg); }
+            .theme-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+            .theme-card { padding: 10px 10px; gap: 8px; }
+            .theme-name { font-size: 12px; }
+            .theme-desc { font-size: 10px; }
+
+            /* ── Training ── */
+            #training-section { padding: 0 12px; gap: 0; justify-content: center; }
+
+            #marathon-badge { font-size: 10px; padding: 3px 10px; margin-bottom: 6px; }
+
+            .mode-badge { font-size: 11px; padding: 4px 12px; margin-bottom: 8px; }
+
+            #training-stats { font-size: 11px; margin-bottom: 10px; }
+
+            /* ── Flashcard ── */
+            .flashcard-container { max-width: 100%; margin-bottom: 14px; }
+            .flashcard { height: min(180px, 26vh); }
+            .flashcard-front, .flashcard-back { padding: 20px 16px; }
+            #card-front { font-size: clamp(1.4rem, 6vw, 2rem); }
+            #card-back-text { font-size: clamp(1.2rem, 5vw, 1.7rem); }
+            #card-example { font-size: 12px; }
+            #card-example-translate { font-size: 11px; }
+
+            /* ── Spelling ── */
+            #spelling-area { max-width: 100%; }
+            #spelling-input { font-size: 15px; padding: 11px 14px; }
+            #spelling-extra-btns button { font-size: 11px; padding: 5px 10px; }
+
+            /* ── SM-2 buttons ── */
+            .training-buttons { gap: 5px; max-width: 100%; margin-bottom: 6px; }
+            .training-buttons button { padding: 10px 4px; font-size: 11px; min-width: 0; border-radius: var(--r-md); }
+            .sm2-label .sm2-sub { display: none; }
+            .nav-btn { min-width: 52px !important; padding: 10px 4px !important; }
+
+            /* ── Timer ── */
+            .timer-card {
+                bottom: 12px; right: 12px;
+                padding: 10px 12px; min-width: 90px;
+                border-radius: var(--r-md);
+            }
+            #timer-display { font-size: 20px; }
+            .timer-label { font-size: 8px; }
+            #add-time-btn { font-size: 10px; padding: 4px; }
+
+            /* ── Audio mode ── */
+            #btn-audio-mode { font-size: 10px; padding: 4px 12px; }
+
+            /* ── Quiz ── */
+            #quiz-word { font-size: 1.5rem; margin: 10px 0 16px; }
+            #quiz-options { gap: 7px; }
+            .quiz-option { padding: 12px 10px; font-size: 13px; }
+
+            /* ── Results ── */
+            #results-content { padding: 24px 16px; border-radius: var(--r-lg); }
+            #results-content h2 { font-size: 22px; }
+            .results-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+            .rc-value { font-size: 20px; }
+            .rc-label { font-size: 9px; }
+            .close-results { padding: 12px 32px; font-size: 14px; }
+
+            /* ── Exit button ── */
+            .exit-btn { margin-top: 14px; padding: 8px 20px; font-size: 12px; }
+        }
+
+        /* Extra small phones */
+        @media (max-width: 380px) {
+            .results-grid { grid-template-columns: repeat(2, 1fr); }
+            .mode-btns-row button { font-size: 10px; }
+            .training-buttons button { font-size: 10px; }
+            .stat-item { min-width: 48px !important; padding: 8px 8px !important; }
+        }
 
 
-/* ===== FIX: ИТОГИ ТРЕНИРОВКИ — помещается в экран ===== */
-#results-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.85);
-    z-index: 2000;
-    justify-content: center;
-    align-items: flex-start;
-    overflow-y: auto;
-    padding: 16px;
-    box-sizing: border-box;
-}
+        /* ── MOBILE BOTTOM NAV ── */
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: 60px;
+            background: rgba(var(--bg-rgb, 8,8,16), 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
+            z-index: 300;
+            align-items: center;
+            justify-content: space-around;
+            padding: 0 4px;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .mobile-nav-btn {
+            all: unset;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 2px; flex: 1; height: 100%; cursor: pointer;
+            border-radius: var(--r-sm); transition: opacity 0.15s;
+            padding: 6px 4px;
+        }
+        .mobile-nav-btn:active { opacity: 0.6; }
+        .mnav-icon  { font-size: 20px; line-height: 1; }
+        .mnav-label { font-size: 9px; font-weight: 600; color: var(--text-3); letter-spacing: 0.3px; font-family: 'Outfit', sans-serif; }
 
-#results-modal > div {
-    margin: auto;
-    max-height: none;
-}
+        @media (max-width: 640px) {
+            .mobile-nav { display: flex; }
+            /* Скрываем quick-actions на мобиле — они в bottom nav */
+            .quick-actions { display: none; }
+            /* Добавляем отступ снизу чтобы контент не прятался за nav */
+            main { padding-bottom: 80px !important; }
+        }
 
-/* ===== YOUGLISH ПИКЕР ===== */
-#youglish-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.75);
-    z-index: 5000;
-    justify-content: center;
-    align-items: center;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    padding: 16px;
-    box-sizing: border-box;
-}
-.yg-inner {
-    width: 100%;
-    max-width: 560px;
-    background: #1a1a1a;
-    border: 1px solid rgba(176,132,247,0.25);
-    border-radius: 20px;
-    padding: 22px 20px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.7);
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    animation: toastIn 0.2s ease;
-}
-.yg-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.yg-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #b084f7;
-}
-.yg-word-badge {
-    font-size: 12px;
-    color: #fff;
-    background: rgba(176,132,247,0.2);
-    border: 1px solid rgba(176,132,247,0.4);
-    border-radius: 100px;
-    padding: 2px 12px;
-    margin-left: 8px;
-    font-weight: 600;
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.yg-close {
-    all: unset;
-    cursor: pointer;
-    color: #666;
-    font-size: 18px;
-    padding: 4px 8px;
-    border-radius: 8px;
-    transition: color 0.15s;
-}
-.yg-close:hover { color: #fff; }
-.yg-desc {
-    font-size: 13px;
-    color: #666;
-    line-height: 1.5;
-    text-align: center;
-    padding: 4px 0;
-}
-.yg-desc strong { color: #b084f7; }
-.yg-search-row {
-    display: flex;
-    gap: 8px;
-}
-.yg-search-row input {
-    flex: 1;
-    padding: 10px 14px;
-    background: #111;
-    border: 2px solid rgba(176,132,247,0.25);
-    border-radius: 12px;
-    color: #fff;
-    font-size: 14px;
-    outline: none;
-    box-sizing: border-box;
-}
-.yg-search-row input:focus { border-color: #b084f7; }
-.yg-search-btn {
-    all: unset;
-    padding: 10px 20px;
-    background: #b084f7;
-    color: #fff;
-    border-radius: 12px;
-    font-weight: 700;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-}
-.yg-search-btn:hover { background: #9b59b6; }
-.yg-section-label {
-    font-size: 11px;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: -6px;
-}
-.yg-pills-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    max-height: 180px;
-    overflow-y: auto;
-    padding-right: 4px;
-}
-.yg-pills-wrap::-webkit-scrollbar { width: 4px; }
-.yg-pills-wrap::-webkit-scrollbar-track { background: transparent; }
-.yg-pills-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-.yg-pill {
-    all: unset;
-    padding: 5px 12px;
-    border-radius: 100px;
-    font-size: 12px;
-    cursor: pointer;
-    background: rgba(176,132,247,0.06);
-    border: 1px solid rgba(176,132,247,0.2);
-    color: #b084f7;
-    transition: all 0.15s;
-    white-space: nowrap;
-}
-.yg-pill:hover {
-    background: rgba(176,132,247,0.18);
-    border-color: #b084f7;
-    color: #fff;
-    transform: translateY(-1px);
-}
-.yg-footer-hint {
-    font-size: 11px;
-    color: #444;
-    text-align: center;
-}
-.yg-footer-hint a { color: #666; }
-@media (max-width: 600px) {
-    .yg-inner { padding: 16px 14px; }
-    .yg-pills-wrap { max-height: 130px; }
-}
+
+        @media (max-width: 640px) {
+            /* Header theme button — только иконка */
+            .theme-selector .settings-btn::before { content: '🎨'; }
+            .theme-selector .settings-btn { font-size: 0; padding: 6px 8px; }
+            .theme-selector .settings-btn::before { font-size: 16px; }
+
+            /* Мут кнопка чуть крупнее для тапа */
+            #mute-btn { width: 38px; height: 38px; }
+        }
+
+
+        /* ── SIDEBAR VISUALIZATIONS ── */
+        .viz-card { margin-bottom: 18px; }
+        .viz-card:last-child { margin-bottom: 0; }
+        .viz-title {
+            font-size: 10px; color: var(--text-3); text-transform: uppercase;
+            letter-spacing: 0.8px; font-weight: 700; margin-bottom: 10px;
+        }
+        .weekly-canvas { width: 100%; }
+
+        /* ── LEARNING CURVE ── */
+        .level-bars { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .level-row  { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+        .level-row span   { width: 36px; color: var(--text-3); flex-shrink: 0; font-weight: 500; }
+        .level-row strong { width: 36px; text-align: right; color: var(--text); font-size: 13px; font-weight: 700; }
+        .level-fill-wrap  { flex: 1; height: 6px; background: var(--bg-3); border-radius: 3px; overflow: hidden; }
+        .level-fill       { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+
+        /* ── ACTIVITY HEATMAP ── */
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 3px;
+            width: 100%;
+        }
+        .heat-cell {
+            aspect-ratio: 1;
+            border-radius: 3px;
+            cursor: default;
+            transition: opacity 0.15s;
+        }
+        .heat-cell:hover { opacity: 0.6; }
 
     </style>
 </head>
 <body>
 
+<!-- ── HEADER ───────────────────────────────────────────── -->
 <header class="header-bar">
     <div class="header-side header-left">
-        <button id="mute-btn"><span id="mute-icon">🔊</span></button>
+        <button id="mute-btn" title="Звук"><span id="mute-icon">🔊</span></button>
     </div>
-
     <div class="theme-selector">
-        <div class="theme-circle" onclick="setTheme('#00d2ff')" style="background: #00d2ff;"></div>
-        <div class="theme-circle" onclick="setTheme('#2ecc71')" style="background: #2ecc71;"></div>
-        <div class="theme-circle" onclick="setTheme('#f39c12')" style="background: #f39c12;"></div>
-        <div class="theme-circle" onclick="setTheme('#e74c3c')" style="background: #e74c3c;"></div>
+        <button class="settings-btn" onclick="openThemeModal()" title="Сменить тему">🎨 Тема</button>
     </div>
-
     <div class="header-side header-right">
-        <button id="open-import-btn" class="settings-btn">⚙️ Импорт слов</button>
+        <!-- импорт доступен через панель кнопок -->
     </div>
 </header>
 
+<!-- ── IMPORT MODAL ──────────────────────────────────────── -->
 <div id="import-modal" class="modal">
     <div class="modal-content">
         <span class="close-modal">&times;</span>
         <h3>Импорт списка слов</h3>
-
-        <div style="margin-bottom: 10px;">
-            <label for="file-upload" style="
-                display: inline-block;
-                padding: 10px 20px;
-                background: rgba(0, 210, 255, 0.1);
-                border: 1px dashed #00d2ff;
-                border-radius: 10px;
-                color: #00d2ff;
-                cursor: pointer;
-                font-size: 14px;
-                width: 100%;
-                box-sizing: border-box;
-                text-align: center;
-            ">📂 Выбрать .txt файл</label>
-            <input type="file" id="file-upload" accept=".txt" style="display: none;">
-            <div id="file-name" style="font-size: 12px; color: #666; margin-top: 5px; text-align: center;"></div>
+        <div style="margin-bottom:12px">
+            <label for="file-upload" class="import-file-label">📂 Выбрать .txt файл</label>
+            <input type="file" id="file-upload" accept=".txt" style="display:none">
+            <div id="file-name" class="import-file-name"></div>
         </div>
-
-        <div style="text-align: center; color: #555; font-size: 12px; margin-bottom: 8px;">— или вставь текст вручную —</div>
-
+        <div class="import-divider">— или вставь текст вручную —</div>
         <textarea id="import-area" placeholder="apple|яблоко&#10;banana|банан&#10;&#10;Формат: слово|перевод|пример|перевод примера"></textarea>
-        <button id="import-btn" class="primary-btn" style="
-            all: unset;
-            display: block;
-            width: 100%;
-            padding: 12px;
-            background: #00bfff;
-            color: white;
-            border-radius: 10px;
-            text-align: center;
-            font-weight: bold;
-            cursor: pointer;
-            box-sizing: border-box;
-            margin-top: 8px;
-        ">Загрузить в словарь</button>
+        <button id="import-btn" class="action-btn" style="width:100%;margin-top:8px;justify-content:center;">Загрузить в словарь</button>
     </div>
 </div>
 
+<!-- ── MAIN ──────────────────────────────────────────────── -->
 <main id="main-content">
-    <h1 id="main-title">Легкий Словарь^^</h1>
+    <h1 id="main-title">Легкий Словарь</h1>
 
     <div class="progress-wrapper" id="progress-section">
         <div class="progress-info">
-            <span>Ваш прогресс: <span id="progress-percent">0%</span></span>
-            <span id="progress-stat">0 / 0 опыта</span>
+            <span>Прогресс <span id="progress-percent">0%</span></span>
+            <span id="progress-stat">0 / 0 XP</span>
         </div>
         <div class="progress-container"><div id="progress-bar"></div></div>
     </div>
@@ -1074,103 +1103,166 @@ mark {
 
     <div id="main-ui">
         <div class="workspace-grid">
+
+            <!-- LEFT COLUMN -->
             <section class="workspace-left">
+
+                <!-- Add word form -->
                 <div class="input-group">
-                    <input type="text" placeholder="английское слово" id="input-en">
+                    <div class="en-row">
+                        <input type="text" placeholder="английское слово" id="input-en">
+                        <button id="tatoeba-fetch-btn" class="tatoeba-btn" onclick="openTatoebaModal(document.getElementById('input-en').value.trim())" style="display:none">📖 Примеры</button>
+                    </div>
                     <input type="text" placeholder="русский перевод" id="input-ru">
                     <input type="text" placeholder="пример предложения (необязательно)" id="input-example">
                     <input type="text" placeholder="перевод предложения" id="input-ex-ru">
-                    <input type="text" placeholder="теги через запятую: работа, путешествия" id="input-tags">
+                    <input type="text" placeholder="теги: работа, путешествия" id="input-tags">
                 </div>
 
+                <button id="add-word-btn" class="action-btn add-word-btn">+ Добавить слово</button>
+
                 <div class="buttons-row">
-                    <button id="add-btn" class="action-btn">Добавить слово</button>
                     <button id="reset-learned-btn" class="outline-btn warning">Сбросить прогресс</button>
-                    <button id="export-btn" class="outline-btn secondary">Скачать .txt</button>
+                    <button id="export-btn" onclick="showExportModal()" class="outline-btn">📤 Экспорт / Бэкап</button>
+                    <button id="bulk-select-btn" class="outline-btn" onclick="toggleBulkSelectMode()">☑ Выбрать</button>
                     <button id="clear-all" class="outline-btn danger">Очистить всё</button>
-                    <button id="backup-btn" class="outline-btn secondary">💾 Бэкап JSON</button>
-                    <button id="restore-btn" class="outline-btn secondary">📂 Восстановить</button>
+                    <button id="backup-btn" style="display:none"></button>
+                    <button id="restore-btn" class="outline-btn">📂 Восстановить</button>
+                    <button id="add-btn" style="display:none"></button>
+                    <button id="backup-btn" style="display:none"></button>
                     <input type="file" id="restore-input" accept=".json" style="display:none">
                 </div>
 
                 <div class="quick-actions">
-                    <button class="quick-action-btn" onclick="document.getElementById('add-btn').click()">➕ Добавить</button>
-                    <button class="quick-action-btn" onclick="document.getElementById('start-training-btn').click()">🎯 Трен</button>
+                    <button class="quick-action-btn" onclick="document.getElementById('start-training-btn').click()">🎯 Тренировка</button>
+                    <button class="quick-action-btn" onclick="openThemeModal()">🎨 Тема</button>
+                    <button class="quick-action-btn" onclick="showExportModal()">📤 Экспорт</button>
+                    <button class="quick-action-btn" onclick="showForgettingStats()">📊 Статистика</button>
                     <button class="quick-action-btn" onclick="document.getElementById('open-import-btn').click()">📥 Импорт</button>
-                    <button class="quick-action-btn" onclick="document.getElementById('export-btn').click()">📤 Экспорт</button>
                 </div>
 
+                <!-- XP -->
+                <div class="xp-section">
+                    <div class="xp-row">
+                        <span id="xp-level-icon">🌱</span>
+                        <span id="xp-label">Новичок · 0 / 200 XP</span>
+                    </div>
+                    <div class="xp-bar-wrap"><div id="xp-bar-fill"></div></div>
+                </div>
+
+                <!-- Weekly challenge -->
+                <div class="weekly-challenge-card">
+                    <div class="wc-header">
+                        <span class="wc-title">Недельный челлендж</span>
+                        <button class="wc-goal-btn" onclick="const v=prompt('Цель на неделю:',weeklyChallenge.goal);if(v)setWeeklyGoal(v)">Изменить</button>
+                    </div>
+                    <div class="wc-bar-wrap"><div id="weekly-challenge-bar"></div></div>
+                    <div id="weekly-challenge-label">0 / 50 повторений</div>
+                </div>
+
+                <!-- Forecast -->
+                <div class="forecast-card">
+                    <div class="forecast-title">Прогноз повторений</div>
+                    <div id="forecast-chart"></div>
+                </div>
+
+                <!-- Search -->
                 <input type="text" id="search-input" placeholder="Найти слово в словаре...">
 
+                <!-- Streak -->
                 <div id="streak-container" class="streak-wrapper">
-                    🔥 <span id="streak-count">0</span> дней подряд | Сегодня: <span id="daily-count">0</span> / 10
+                    🔥 <span id="streak-count">0</span> дней подряд · Сегодня: <span id="daily-count">0</span> / 10
                 </div>
 
+                <!-- Start training -->
                 <button id="start-training-btn" class="start-btn">Начать тренировку</button>
 
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    <button onclick="startTraining('mistakes')" id="start-mistakes-btn" style="all:unset;flex:1;padding:10px;background:rgba(255,77,77,0.12);border:1px solid rgba(255,77,77,0.3);border-radius:10px;color:#ff4d4d;font-weight:600;font-size:13px;text-align:center;cursor:pointer;box-sizing:border-box;">🔴 Только ошибки</button>
-                    <button onclick="startQuizMode()" id="start-quiz-btn" style="all:unset;flex:1;padding:10px;background:rgba(243,156,18,0.12);border:1px solid rgba(243,156,18,0.3);border-radius:10px;color:#f39c12;font-weight:600;font-size:13px;text-align:center;cursor:pointer;box-sizing:border-box;">🎮 Угадай из 4</button>
-                    <button onclick="openYouglish()" id="start-video-btn" style="all:unset;flex:1;padding:10px;background:rgba(155,89,182,0.12);border:1px solid rgba(155,89,182,0.35);border-radius:10px;color:#b084f7;font-weight:600;font-size:13px;text-align:center;cursor:pointer;box-sizing:border-box;">🎬 YouGlish</button>
+                <!-- Mode buttons -->
+                <div class="mode-btns-row">
+                    <button onclick="startTraining('mistakes')" id="start-mistakes-btn">Ошибки</button>
+                    <button onclick="startMarathon()" id="start-marathon-btn">Марафон</button>
+                    <button onclick="startQuizMode()" id="start-quiz-btn">Угадай из 4</button>
+                    <button onclick="openYouglish()" id="start-video-btn">YouGlish</button>
                 </div>
 
-                <div id="tag-filter-bar" style="display:none;">
-                    <div style="font-size:11px;color:#666;margin-bottom:5px;">Фильтр по тегу:</div>
-                    <div id="tag-chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+                <!-- Tags -->
+                <div id="tag-filter-bar" style="display:none">
+                    <div class="tag-filter-label">Фильтр по тегу:</div>
+                    <div id="tag-chips" class="tag-chips-row"></div>
                 </div>
 
+                <!-- Sort -->
                 <div class="sort-bar">
-                    <span style="font-size:11px;color:#666;margin-right:4px;">Сортировка:</span>
-                    <button class="sort-btn" data-sort="default"  onclick="setSortMode('default')" >По умолч.</button>
-                    <button class="sort-btn" data-sort="level-asc" onclick="setSortMode('level-asc')">Ур. ↑</button>
+                    <span class="sort-label">Порядок:</span>
+                    <button class="sort-btn" data-sort="default"    onclick="setSortMode('default')">По умолч.</button>
+                    <button class="sort-btn" data-sort="level-asc"  onclick="setSortMode('level-asc')">Ур. ↑</button>
                     <button class="sort-btn" data-sort="level-desc" onclick="setSortMode('level-desc')">Ур. ↓</button>
-                    <button class="sort-btn" data-sort="alpha"     onclick="setSortMode('alpha')"    >А–Я</button>
-                    <button class="sort-btn" data-sort="review"    onclick="setSortMode('review')"   >Повтор</button>
+                    <button class="sort-btn" data-sort="alpha"      onclick="setSortMode('alpha')">А–Я</button>
+                    <button class="sort-btn" data-sort="review"     onclick="setSortMode('review')">Повтор</button>
+                </div>
+
+                <!-- Bulk panel -->
+                <div id="bulk-actions-panel">
+                    <span id="bulk-count">Выбери слова</span>
+                    <button class="bulk-action-btn" onclick="selectAllWords()">Все</button>
+                    <button class="bulk-action-btn" onclick="deselectAllWords()">Снять</button>
+                    <button class="bulk-action-btn" onclick="showBulkTagModal()">Тег</button>
+                    <button class="bulk-action-btn" onclick="bulkResetLevel()">Сбросить уровень</button>
+                    <button class="bulk-action-btn danger" onclick="bulkDelete()">Удалить</button>
                 </div>
 
                 <div id="cards-container"></div>
             </section>
 
+            <!-- RIGHT SIDEBAR -->
             <aside class="workspace-right">
-                <div id="visual-progress" class="visual-progress">
+                <div id="visual-progress">
                     <div class="viz-card">
-                        <div class="viz-title">Кривая обучения (уровни 0–5)</div>
+                        <div class="viz-title">Кривая обучения</div>
                         <div id="learning-curve" class="level-bars"></div>
                     </div>
                     <div class="viz-card">
-                        <div class="viz-title">Активность (последние 3 месяца)</div>
+                        <div class="viz-title">Активность (3 месяца)</div>
                         <div id="activity-heatmap" class="heatmap-grid"></div>
                     </div>
                     <div class="viz-card">
-                        <div class="viz-title">Ежедневный прогресс (7 дней)</div>
+                        <div class="viz-title">Прогресс (7 дней)</div>
                         <canvas id="weekly-progress-chart" class="weekly-canvas" width="900" height="130"></canvas>
                     </div>
                 </div>
             </aside>
+
         </div>
     </div>
 
-    <div id="training-section" style="display: none;">
-        <button id="toggle-mode-btn" class="mode-badge"><span>🎴</span> Режим: Карточки</button>
+    <!-- ── TRAINING SECTION ────────────────────────────────── -->
+    <div id="training-section">
+        <div id="marathon-badge">🏃 Марафон</div>
+        <button id="toggle-mode-btn" class="mode-badge"><span>🎴</span> Карточки</button>
 
         <div id="training-stats">
-            Осталось: <span id="total-remaining">0</span> | Пачка: <span id="current-pool-count">0/0</span>
-            &nbsp;·&nbsp; <span id="session-counter"><span style="color:#28a745">✓ 0</span> &nbsp; <span style="color:#ff4d4d">✗ 0</span></span>
-            &nbsp; <span id="combo-display" style="display:none;font-weight:700;color:#f39c12;font-size:15px;"></span>
+            Осталось: <span id="total-remaining">0</span> &nbsp;·&nbsp;
+            Пачка: <span id="current-pool-count">0/0</span> &nbsp;·&nbsp;
+            <span id="session-counter">
+                <span class="stat-correct">✓ 0</span>
+                <span class="stat-wrong">✗ 0</span>
+            </span>
+            <span id="combo-display"></span>
         </div>
 
         <div class="flashcard-container">
             <div class="flashcard" id="flashcard">
                 <div class="flashcard-inner">
                     <div class="flashcard-front">
+                        <img id="card-image" src="" alt="">
                         <div id="card-front">Слово</div>
                     </div>
                     <div class="flashcard-back">
                         <div class="card-back-wrapper">
                             <div id="card-back-text">Перевод</div>
                             <div id="card-example-block" class="example-hidden">
-                                <div id="card-example">Пример...</div>
-                                <div id="card-example-translate">Перевод примера...</div>
+                                <div id="card-example"></div>
+                                <div id="card-example-translate"></div>
                             </div>
                         </div>
                     </div>
@@ -1178,99 +1270,219 @@ mark {
             </div>
         </div>
 
-        <div id="spelling-area" style="display: none;">
+        <div id="spelling-area" style="display:none">
             <input type="text" id="spelling-input" placeholder="Введите перевод..." autocomplete="off">
             <div id="spelling-feedback"></div>
         </div>
 
         <div id="timer-container" class="timer-card">
             <div class="timer-drag-handle"></div>
-            <div class="timer-label">Осталось времени</div>
+            <div class="timer-label">Осталось</div>
             <div id="timer-display">60:00</div>
             <button id="add-time-btn">+5 мин</button>
             <div class="timer-status" id="timer-status">В ожидании</div>
         </div>
 
         <div class="training-buttons">
-            <button id="btn-back" class="nav-btn">← Назад</button>
-            <button id="btn-dont-know" class="status-btn error">Не знаю</button>
-            <button id="btn-know" class="status-btn success">Знаю!</button>
-            <button id="btn-next" class="btn secondary">Вперед →</button>
+            <button id="btn-back" class="nav-btn has-tooltip" data-tip="Отменить последний ответ">
+                <div class="sm2-label"><span class="sm2-main">← Назад</span></div>
+            </button>
+            <button id="btn-dont-know" class="status-btn sm2-again has-tooltip" data-tip="Повторить через 10 минут">
+                <div class="sm2-label"><span class="sm2-main">🔄 Снова</span><span class="sm2-sub">через 10 мин</span></div>
+            </button>
+            <button id="btn-hard" class="status-btn sm2-hard has-tooltip" data-tip="Интервал сокращается вдвое">
+                <div class="sm2-label"><span class="sm2-main">😅 Сложно</span><span class="sm2-sub">интервал ÷2</span></div>
+            </button>
+            <button id="btn-know" class="status-btn sm2-good has-tooltip" data-tip="Стандартный интервал">
+                <div class="sm2-label"><span class="sm2-main">👍 Хорошо</span><span class="sm2-sub">обычный ритм</span></div>
+            </button>
+            <button id="btn-easy" class="status-btn sm2-easy has-tooltip" data-tip="Интервал увеличивается на 30%">
+                <div class="sm2-label"><span class="sm2-main">⚡ Легко</span><span class="sm2-sub">интервал ×1.3</span></div>
+            </button>
+            <button id="btn-next" class="btn secondary" style="display:none">
+                <div class="sm2-label"><span class="sm2-main">→ Далее</span></div>
+            </button>
         </div>
 
-        <div id="quiz-area" style="display:none;width:100%;">
-            <div id="quiz-word" style="font-size:1.6rem;font-weight:800;text-align:center;margin:12px 0 20px;min-height:40px;"></div>
-            <div id="quiz-options" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;"></div>
-            <div id="quiz-feedback" style="text-align:center;font-size:14px;margin-top:12px;min-height:20px;"></div>
+        <div id="spelling-extra-btns">
+            <button onclick="revealTranslation()" class="show-trans-btn">👁 Показать перевод</button>
+            <button onclick="if(!isMuted){window.speechSynthesis.cancel();speak(activePool[currentWordIndex]?.original||'')}">🔊 Прослушать</button>
+        </div>
+
+        <div id="audio-mode-row">
+            <button id="btn-audio-mode" onclick="toggleAudioMode()">🔊 Авто-озвучка: ВЫКЛ</button>
+        </div>
+
+        <div id="quiz-area" style="display:none">
+            <div id="quiz-word"></div>
+            <div id="quiz-options"></div>
+            <div id="quiz-feedback"></div>
         </div>
 
         <button onclick="stopTraining()" id="stop-training" class="exit-btn">Завершить тренировку</button>
     </div>
 
-    <!-- UNDO TOAST -->
-    <div id="undo-toast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e1e1e;border:1px solid rgba(255,255,255,0.15);border-radius:100px;padding:10px 18px;z-index:3000;box-shadow:0 8px 24px rgba(0,0,0,0.5);align-items:center;gap:12px;white-space:nowrap;">
-        <span id="undo-text" style="font-size:13px;color:#ccc;"></span>
-        <button id="undo-btn" style="all:unset;color:#00d2ff;font-weight:700;font-size:13px;cursor:pointer;">Отменить</button>
-    </div>
-
-    <!-- ИТОГИ ТРЕНИРОВКИ — FIX: убран inline style display:none, управляется через CSS класс -->
-    <div id="results-modal">
-        <div style="background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:24px 20px;max-width:360px;width:100%;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.6);box-sizing:border-box;">
-            <div style="font-size:2.2rem;margin-bottom:6px;" id="results-emoji">🎉</div>
-            <h2 style="margin:0 0 16px;font-size:1.2rem;">Итоги тренировки</h2>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;" id="results-grid"></div>
-            <div id="results-hardest" style="background:rgba(255,255,255,0.04);border-radius:12px;padding:10px;margin-bottom:14px;text-align:left;font-size:13px;display:none;">
-                <div style="color:#888;margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Сложные слова</div>
-                <div id="results-hardest-list"></div>
-            </div>
-            <button onclick="closeResults()" style="all:unset;display:block;width:100%;padding:13px;background:#00bfff;color:#fff;border-radius:12px;font-weight:700;cursor:pointer;box-sizing:border-box;font-size:15px;">Готово</button>
-        </div>
-    </div>
-
-    <!-- ДОСТИЖЕНИЯ TOAST -->
-    <div id="achievement-toast" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#1a1a1a,#242424);border:1px solid rgba(255,215,0,0.3);border-radius:16px;padding:12px 20px;z-index:3000;box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:260px;text-align:center;animation:slideUp 0.4s ease;">
-        <div style="font-size:1.6rem;" id="ach-icon">🏆</div>
-        <div style="font-weight:700;color:#ffd700;font-size:14px;margin-top:4px;" id="ach-title">Достижение!</div>
-        <div style="font-size:12px;color:#aaa;margin-top:2px;" id="ach-desc"></div>
-    </div>
-
-    <!-- ===== YOUGLISH ПИКЕР ===== -->
-    <div id="youglish-modal" onclick="if(event.target===this)closeYouglish()">
-        <div class="yg-inner">
-
-            <div class="yg-header">
-                <div style="display:flex;align-items:center;gap:4px;">
-                    <span class="yg-title">🎬 YouGlish</span>
-                    <span class="yg-word-badge" id="youglish-word-badge"></span>
-                </div>
-                <button class="yg-close" onclick="closeYouglish()">✕</button>
-            </div>
-
-            <div class="yg-desc">
-                Открывает <strong>YouGlish.com</strong> — реальные люди произносят слово в живом контексте.<br>
-                Выбери слово из словаря или введи своё.
-            </div>
-
-            <div class="yg-search-row">
-                <input type="text" id="youglish-search-input"
-                    placeholder="Введи любое слово..."
-                    autocomplete="off" autocorrect="off" spellcheck="false"
-                    onkeydown="youglishSearchEnter(event)"
-                    oninput="renderYouglishWordPills(this.value)">
-                <button class="yg-search-btn" onclick="youglishSearch()">▶ Открыть</button>
-            </div>
-
-            <div class="yg-section-label">Слова из вашего словаря</div>
-            <div class="yg-pills-wrap" id="youglish-word-pills"></div>
-
-            <div class="yg-footer-hint">
-                Откроется в отдельном окне · <a href="https://youglish.com" target="_blank" rel="noopener">youglish.com</a>
-            </div>
-
-        </div>
-    </div>
-
 </main>
+
+<!-- ── UNDO TOAST ────────────────────────────────────────── -->
+<div id="undo-toast">
+    <span id="undo-text"></span>
+    <button id="undo-btn">Отменить</button>
+</div>
+
+<!-- ── RESULTS MODAL ─────────────────────────────────────── -->
+<div id="results-modal">
+    <div id="results-content">
+        <div id="results-emoji" style="font-size:2.5rem;margin-bottom:8px">🎉</div>
+        <h2>Итоги тренировки</h2>
+        <div class="results-grid" id="results-grid"></div>
+        <div id="results-hardest" style="display:none;background:var(--bg-2);border-radius:var(--r-md);padding:12px;margin-bottom:16px;text-align:left">
+            <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Сложные слова</div>
+            <div id="results-hardest-list"></div>
+        </div>
+        <button onclick="closeResults()" class="close-results">Готово</button>
+    </div>
+</div>
+
+<!-- ── ACHIEVEMENT TOAST ──────────────────────────────────── -->
+<div id="achievement-toast">
+    <div id="ach-icon">🏆</div>
+    <div>
+        <div id="ach-title">Достижение!</div>
+        <div id="ach-desc"></div>
+    </div>
+</div>
+
+<!-- ── YOUGLISH MODAL ────────────────────────────────────── -->
+<div id="youglish-modal" onclick="if(event.target===this)closeYouglish()">
+    <div class="yg-inner">
+        <div class="yg-header">
+            <div style="display:flex;align-items:center;gap:8px">
+                <span class="yg-title">YouGlish</span>
+                <span class="yg-word-badge" id="youglish-word-badge"></span>
+            </div>
+            <button class="yg-close" onclick="closeYouglish()">✕</button>
+        </div>
+        <div class="yg-desc">Реальные люди произносят слово в живом контексте</div>
+        <div class="yg-search-row">
+            <input type="text" id="youglish-search-input" placeholder="Введи любое слово..." autocomplete="off" onkeydown="youglishSearchEnter(event)" oninput="renderYouglishWordPills(this.value)">
+            <button class="yg-search-btn" onclick="youglishSearch()">Открыть →</button>
+        </div>
+        <div class="yg-section-label">Из вашего словаря</div>
+        <div class="yg-pills-wrap" id="youglish-word-pills"></div>
+        <div class="yg-footer-hint">Откроется в отдельном окне · <a href="https://youglish.com" target="_blank">youglish.com</a></div>
+    </div>
+</div>
+
+<!-- ── FORGETTING STATS ──────────────────────────────────── -->
+<div id="forgetting-stats-modal" class="generic-modal-overlay" onclick="if(event.target===this)closeForgettingStats()">
+    <div class="generic-modal-inner">
+        <div class="generic-modal-title">
+            Статистика забываемости
+            <button class="generic-modal-close" onclick="closeForgettingStats()">✕</button>
+        </div>
+        <div id="forgetting-stats-content"></div>
+    </div>
+</div>
+
+<!-- ── EXPORT MODAL ──────────────────────────────────────── -->
+<div id="export-modal" class="generic-modal-overlay" onclick="if(event.target===this)closeExportModal()">
+    <div class="generic-modal-inner">
+        <div class="generic-modal-title">
+            Экспорт словаря
+            <button class="generic-modal-close" onclick="closeExportModal()">✕</button>
+        </div>
+        <div class="export-option" onclick="exportCSV();closeExportModal()">
+            <div class="export-option-icon">📊</div>
+            <div><div class="export-option-title">CSV таблица</div><div class="export-option-desc">Excel, Google Sheets</div></div>
+        </div>
+        <div class="export-option" onclick="exportAnki();closeExportModal()">
+            <div class="export-option-icon">🎴</div>
+            <div><div class="export-option-title">Anki импорт</div><div class="export-option-desc">Готовый файл для Anki</div></div>
+        </div>
+        <div class="export-option" onclick="document.getElementById('backup-btn').click();closeExportModal()">
+            <div class="export-option-icon">💾</div>
+            <div><div class="export-option-title">JSON бэкап</div><div class="export-option-desc">Полный бэкап с прогрессом</div></div>
+        </div>
+        <div class="export-option" onclick="(()=>{const t=myWords.map(w=>w.original+'|'+w.translate).join('\n');const b=new Blob([t],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='words.txt';a.click();})();closeExportModal()">
+            <div class="export-option-icon">📝</div>
+            <div><div class="export-option-title">TXT простой</div><div class="export-option-desc">слово|перевод для импорта</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── TATOEBA MODAL ─────────────────────────────────────── -->
+<div id="tatoeba-modal" class="generic-modal-overlay" onclick="if(event.target===this)closeTatoebaModal()">
+    <div class="generic-modal-inner">
+        <div class="generic-modal-title">
+            Примеры: <span id="tatoeba-word-title" style="color:var(--accent-2);margin-left:6px"></span>
+            <button class="generic-modal-close" onclick="closeTatoebaModal()">✕</button>
+        </div>
+        <div style="font-size:12px;color:var(--text-3)">Нажми на пример — он добавится в форму</div>
+        <div id="tatoeba-results"></div>
+    </div>
+</div>
+
+<!-- ── BULK TAG MODAL ────────────────────────────────────── -->
+<div id="bulk-tag-modal" class="generic-modal-overlay" onclick="if(event.target===this)closeBulkTagModal()">
+    <div class="generic-modal-inner">
+        <div class="generic-modal-title">
+            Добавить тег
+            <button class="generic-modal-close" onclick="closeBulkTagModal()">✕</button>
+        </div>
+        <input type="text" id="bulk-tag-input" placeholder="Название тега...">
+        <button onclick="applyBulkTag()" class="action-btn" style="width:100%;justify-content:center;margin-top:8px">Применить</button>
+    </div>
+</div>
+
+<!-- ── WORD HISTORY MODAL ───────────────────────────────── -->
+<div id="word-history-modal" class="generic-modal-overlay" onclick="if(event.target===this)closeWordHistory()">
+    <div class="generic-modal-inner">
+        <div class="generic-modal-title">
+            <div>📈 <span id="wh-title"></span> <span id="wh-translate" style="color:var(--text-3);font-size:13px;font-weight:400"></span></div>
+            <button class="generic-modal-close" onclick="closeWordHistory()">✕</button>
+        </div>
+        <div id="wh-content"></div>
+    </div>
+</div>
+
+<!-- ── THEME MODAL ──────────────────────────────────────── -->
+<div id="theme-modal" class="generic-modal-overlay" onclick="if(event.target===this)closeThemeModal()">
+    <div class="generic-modal-inner" style="max-width:420px">
+        <div class="generic-modal-title">
+            Выбрать тему
+            <button class="generic-modal-close" onclick="closeThemeModal()">✕</button>
+        </div>
+        <div id="theme-grid" class="theme-grid"></div>
+    </div>
+</div>
+
+
+<!-- ── MOBILE BOTTOM NAV ─────────────────────────────────── -->
+<nav class="mobile-nav" id="mobile-nav">
+    <button class="mobile-nav-btn" onclick="document.getElementById('start-training-btn').click()">
+        <span class="mnav-icon">🎯</span>
+        <span class="mnav-label">Тренировка</span>
+    </button>
+    <button class="mobile-nav-btn" onclick="openThemeModal()">
+        <span class="mnav-icon">🎨</span>
+        <span class="mnav-label">Тема</span>
+    </button>
+    <button class="mobile-nav-btn" onclick="showExportModal()">
+        <span class="mnav-icon">📤</span>
+        <span class="mnav-label">Экспорт</span>
+    </button>
+    <button class="mobile-nav-btn" onclick="showForgettingStats()">
+        <span class="mnav-icon">📊</span>
+        <span class="mnav-label">Статистика</span>
+    </button>
+    <button class="mobile-nav-btn" onclick="document.getElementById('open-import-btn').click()">
+        <span class="mnav-icon">📥</span>
+        <span class="mnav-label">Импорт</span>
+    </button>
+</nav>
+
+
 <script src="app.js"></script>
 </body>
 </html>
