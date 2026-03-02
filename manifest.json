@@ -1,17 +1,31 @@
 {
   "name": "Легкий Словарь",
   "short_name": "Словарь",
-  "description": "Приложение для изучения английских слов",
+  "description": "Изучай английские слова с интервальным повторением",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#121212",
-  "theme_color": "#121212",
+  "background_color": "#080810",
+  "theme_color": "#080810",
   "orientation": "any",
-  "icons": [
+  "lang": "ru",
+  "categories": ["education", "productivity"],
+  "shortcuts": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='24' fill='%23121212'/><text y='130' x='24' font-size='120' font-family='serif'>📚</text></svg>",
-      "sizes": "192x192",
-      "type": "image/svg+xml"
+      "name": "Тренировка",
+      "short_name": "Тренировка",
+      "description": "Начать тренировку сразу",
+      "url": "/?action=train",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
     }
+  ],
+  "icons": [
+    { "src": "/icon-72.png",  "sizes": "72x72",  "type": "image/png", "purpose": "any" },
+    { "src": "/icon-96.png",  "sizes": "96x96",  "type": "image/png", "purpose": "any" },
+    { "src": "/icon-128.png", "sizes": "128x128","type": "image/png", "purpose": "any" },
+    { "src": "/icon-144.png", "sizes": "144x144","type": "image/png", "purpose": "any" },
+    { "src": "/icon-152.png", "sizes": "152x152","type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192","type": "image/png", "purpose": "any" },
+    { "src": "/icon-384.png", "sizes": "384x384","type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512","type": "image/png", "purpose": "any maskable" }
   ]
 }

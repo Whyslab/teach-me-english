@@ -9,7 +9,23 @@ const PORT = 3000;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname), {
+    setHeaders: (res, filePath) => {
+        // Service Worker — no cache, чтобы всегда получать свежую версию
+        if (filePath.endsWith('sw.js')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Service-Worker-Allowed', '/');
+        }
+        // Манифест — короткий кеш
+        else if (filePath.endsWith('manifest.json')) {
+            res.setHeader('Cache-Control', 'max-age=86400');
+        }
+        // Иконки — долгий кеш
+        else if (filePath.match(/icon-\d+\.png$/)) {
+            res.setHeader('Cache-Control', 'max-age=604800, immutable');
+        }
+    }
+}));
 
 const db = new sqlite3.Database('./vocab.db', (err) => {
     if (err) console.error('Ошибка БД:', err.message);
@@ -80,6 +96,14 @@ db.serialize(() => {
 });
 
 // Явный маршрут для favicon (express.static иногда не подхватывает)
+// SW — явный маршрут с правильным Content-Type и заголовками
+app.get('/sw.js', (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.sendFile(path.join(__dirname, 'sw.js'));
+});
+
 app.get('/favicon.ico', (req, res) => {
     res.sendFile(path.join(__dirname, 'favicon.ico'), (err) => {
         if (err) res.status(204).end(); // No content если файл не найден

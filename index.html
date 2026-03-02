@@ -4,11 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#121212">
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Словарь">
-    <link rel="canonical" href="https://whyslab.github.io/teach-me-english/" />
+    <meta name="theme-color" content="#080810" id="pwa-theme-color">
+    <meta name="msapplication-TileColor" content="#080810">
+    <meta name="msapplication-TileImage" content="/icon-144.png">
+
+    <!-- Apple touch icons -->
+    <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
+    <link rel="apple-touch-startup-image" href="/icon-512.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
@@ -1485,5 +1498,132 @@
 
 
 <script src="app.js"></script>
+
+<script>
+// ── SERVICE WORKER ────────────────────────────────────
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => {
+                console.log('[PWA] SW registered:', reg.scope);
+
+                // Проверяем обновления каждый час
+                setInterval(() => reg.update(), 3600000);
+
+                // Сообщаем пользователю об обновлении
+                reg.addEventListener('updatefound', () => {
+                    const newSW = reg.installing;
+                    newSW.addEventListener('statechange', () => {
+                        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                            showUpdateToast();
+                        }
+                    });
+                });
+            })
+            .catch(err => console.warn('[PWA] SW failed:', err));
+    });
+}
+
+// ── INSTALL PROMPT ────────────────────────────────────
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    showInstallBanner();
+});
+
+window.addEventListener('appinstalled', () => {
+    hideInstallBanner();
+    deferredInstallPrompt = null;
+    console.log('[PWA] App installed!');
+});
+
+function showInstallBanner() {
+    const existing = document.getElementById('pwa-install-banner');
+    if (existing || window.matchMedia('(display-mode: standalone)').matches) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'pwa-install-banner';
+    banner.innerHTML = `
+        <div style="
+            position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
+            background: var(--bg-2); border: 1px solid var(--border-hi);
+            border-radius: 16px; padding: 14px 18px;
+            display: flex; align-items: center; gap: 12px;
+            z-index: 9000; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            max-width: calc(100vw - 32px); width: 340px;
+            animation: toastIn 0.3s cubic-bezier(0.4,0,0.2,1);
+        ">
+            <img src="/icon-96.png" style="width:40px;height:40px;border-radius:10px;flex-shrink:0">
+            <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:13px;color:var(--text)">Установить приложение</div>
+                <div style="font-size:11px;color:var(--text-3);margin-top:2px">Работает без интернета</div>
+            </div>
+            <button onclick="installPWA()" style="
+                all:unset;padding:7px 14px;background:var(--accent);color:#fff;
+                border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;
+                white-space:nowrap;font-family:'Outfit',sans-serif;flex-shrink:0;
+            ">Установить</button>
+            <button onclick="hideInstallBanner()" style="
+                all:unset;font-size:18px;color:var(--text-3);cursor:pointer;
+                padding:4px;line-height:1;flex-shrink:0;
+            ">×</button>
+        </div>
+    `;
+    document.body.appendChild(banner);
+
+    // Автоскрытие через 12 сек
+    setTimeout(hideInstallBanner, 12000);
+}
+
+function hideInstallBanner() {
+    const b = document.getElementById('pwa-install-banner');
+    if (b) b.remove();
+}
+
+async function installPWA() {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    console.log('[PWA] Install outcome:', outcome);
+    deferredInstallPrompt = null;
+    hideInstallBanner();
+}
+
+// ── UPDATE TOAST ──────────────────────────────────────
+function showUpdateToast() {
+    const t = document.createElement('div');
+    t.innerHTML = `
+        <div style="
+            position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+            background:var(--bg-2);border:1px solid var(--border-hi);
+            border-radius:100px;padding:10px 18px;z-index:9001;
+            display:flex;align-items:center;gap:12px;white-space:nowrap;
+            box-shadow:0 8px 24px rgba(0,0,0,0.5);
+            animation:toastIn 0.3s cubic-bezier(0.4,0,0.2,1);
+        ">
+            <span style="font-size:13px;color:var(--text)">🔄 Доступно обновление</span>
+            <button onclick="window.location.reload()" style="
+                all:unset;color:var(--accent);font-weight:700;font-size:13px;
+                cursor:pointer;font-family:'Outfit',sans-serif;
+            ">Обновить</button>
+        </div>
+    `;
+    document.body.appendChild(t);
+}
+
+// ── HANDLE SHORTCUT ───────────────────────────────────
+// Если запущен через shortcut ?action=train — сразу начинаем тренировку
+if (location.search.includes('action=train')) {
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            const btn = document.getElementById('start-training-btn');
+            if (btn) btn.click();
+        }, 500);
+    });
+}
+</script>
+
 </body>
 </html>
