@@ -77,6 +77,8 @@ let sessionCorrect = 0;
 let sessionWrong = 0;   
 
 let comboCount = 0;
+let sessionBestCombo = 0;
+let isAnswering = false;
 let sessionStartTodayCount = 0;
 let sessionStartStreakCount = 0;
 
@@ -251,24 +253,126 @@ function speak(text) {
     window.speechSynthesis.speak(utterance);
 }
 
+// ── ВИРТУАЛИЗАЦИЯ списка слов ─────────────────────────
+const VIRT_PAGE = 80;       // сколько карточек рендерим сразу
+const VIRT_THRESH = 300;    // px до конца — подгружаем ещё
+let virtRendered = VIRT_PAGE;
+let virtWords = [];         // текущий отсортированный список
+
+function getSortedWords() {
+    const base = getFilteredWords();
+    if (currentSort === 'default') return base;
+    const arr = [...base];
+    switch (currentSort) {
+        case 'level-asc':  return arr.sort((a,b) => (a.level||0) - (b.level||0));
+        case 'level-desc': return arr.sort((a,b) => (b.level||0) - (a.level||0));
+        case 'alpha':      return arr.sort((a,b) => a.original.localeCompare(b.original));
+        case 'review':     return arr.sort((a,b) => (a.nextReview||0) - (b.nextReview||0));
+    }
+    return arr;
+}
+
+function buildCardHTML(word, now) {
+    const level = word.level || 0;
+    const isMaxLevel = level === 5;
+    const isReady = !word.nextReview || word.nextReview <= now;
+    const reviewClass = (isReady && !isMaxLevel) ? 'needs-review' : '';
+    const learnedStyle = isMaxLevel ? 'style="opacity: 0.5; background: rgba(40, 167, 69, 0.05);"' : '';
+    const badge = `<span class="level-indicator">Ур. ${level}</span>`;
+    const tagsBadges = (word.tags || []).map(t => `<span class="word-tag">${t}</span>`).join('');
+    const isBulkSelected = selectedWordIds.has(word.id);
+    const bulkClass = isBulkSelected ? ' bulk-selected' : '';
+    const tatoebaBtn = `<button class="speak-btn" title="Tatoeba" onclick="event.stopPropagation();openTatoebaModal('${word.original.replace(/'/g,"\'")}')">📖</button>`;
+    const hasVideo = word.videoId ? '<span style="font-size:10px;color:var(--accent-2);margin-left:4px">🎬</span>' : '';
+    const hardWord = word.sm2EF && word.sm2EF < 2.0 ? '<span style="font-size:10px;color:var(--red);margin-left:4px" title="Трудное слово">⚠️</span>' : '';
+    return `<div class="card ${reviewClass}${bulkClass}" data-id="${word.id}" data-word-id="${word.id}" ${learnedStyle} onclick="if(bulkSelectMode)toggleWordSelection(${word.id})">
+        <div class="card-content">
+            ${badge}
+            <span class="original editable-text" contenteditable="${!bulkSelectMode}">${word.original}</span>
+            <span class="arrow"> —> </span>
+            <span class="translation hidden editable-text" contenteditable="${!bulkSelectMode}">${word.translate}</span>
+            ${tagsBadges ? `<span style="margin-left:6px">${tagsBadges}</span>` : ''}
+            ${hasVideo}${hardWord}
+        </div>
+        <div class="actions">
+            <button class="speak-btn" title="Прослушать">🔊</button>
+            ${tatoebaBtn}
+            <button class="history-btn" title="История" onclick="event.stopPropagation();showWordHistory(${word.id})">📈</button>
+            <button class="delete-btn" title="Удалить">&times;</button>
+        </div>
+    </div>`;
+}
+
+function renderVirtual(reset = false) {
+    if (!element) return;
+    const now = Date.now();
+    if (reset) {
+        virtWords = getSortedWords();
+        virtRendered = Math.min(VIRT_PAGE, virtWords.length);
+        element.innerHTML = virtWords.slice(0, virtRendered).map(w => buildCardHTML(w, now)).join('');
+        // Счётчик "показано X из N"
+        updateVirtCounter();
+    } else {
+        // Дозагружаем следующую порцию
+        const prev = virtRendered;
+        virtRendered = Math.min(virtRendered + VIRT_PAGE, virtWords.length);
+        if (virtRendered > prev) {
+            const frag = document.createDocumentFragment();
+            virtWords.slice(prev, virtRendered).forEach(w => {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = buildCardHTML(w, now);
+                frag.appendChild(tmp.firstElementChild);
+            });
+            element.appendChild(frag);
+            updateVirtCounter();
+        }
+    }
+}
+
+function updateVirtCounter() {
+    let counter = document.getElementById('virt-counter');
+    if (virtWords.length <= VIRT_PAGE) {
+        if (counter) counter.remove();
+        return;
+    }
+    if (!counter) {
+        counter = document.createElement('div');
+        counter.id = 'virt-counter';
+        counter.style.cssText = 'text-align:center;font-size:11px;color:var(--text-3);padding:12px;';
+        element.after(counter);
+    }
+    if (virtRendered < virtWords.length) {
+        counter.textContent = `Показано ${virtRendered} из ${virtWords.length} слов — прокрути вниз для загрузки`;
+    } else {
+        counter.textContent = `Все ${virtWords.length} слов загружены`;
+        setTimeout(() => counter.remove(), 3000);
+    }
+}
+
+// Infinite scroll — подгружаем при приближении к концу списка
+function initVirtScroll() {
+    window.addEventListener('scroll', () => {
+        if (document.getElementById('training-section')?.style.display === 'flex') return;
+        if (virtRendered >= virtWords.length) return;
+        const scrollBottom = window.scrollY + window.innerHeight;
+        const docHeight = document.documentElement.scrollHeight;
+        if (docHeight - scrollBottom < VIRT_THRESH) {
+            renderVirtual(false);
+        }
+    }, { passive: true });
+}
+initVirtScroll();
+
 function render() {
     if (!element) return;
     
     const now = Date.now();
 
     renderTagFilterBar();
-    const base = getFilteredWords();
-    const sorted = currentSort === 'default' ? base : (() => {
-        const arr = [...base];
-        switch (currentSort) {
-            case 'level-asc':  return arr.sort((a,b) => (a.level||0) - (b.level||0));
-            case 'level-desc': return arr.sort((a,b) => (b.level||0) - (a.level||0));
-            case 'alpha':      return arr.sort((a,b) => a.original.localeCompare(b.original));
-            case 'review':     return arr.sort((a,b) => (a.nextReview||0) - (b.nextReview||0));
-        }
-        return arr;
-    })();
-    const cardsHTML = sorted.map(word => { 
+    const sorted = getSortedWords();
+    // Для маленьких словарей (≤80) — рендерим всё сразу (нет смысла виртуализировать)
+    if (sorted.length <= VIRT_PAGE) {
+        const cardsHTML = sorted.map(word => { 
         const level = word.level || 0;
         const isMaxLevel = level === 5;
         
@@ -304,7 +408,11 @@ function render() {
         </div>`;
     }).join('');
 
-    element.innerHTML = cardsHTML;
+        element.innerHTML = cardsHTML;
+    } else {
+        // Большой словарь — виртуализация
+        renderVirtual(true);
+    }
     updateOverallProgress();
     updateLevelStats();
     updateVisualProgress();
@@ -325,18 +433,20 @@ function updateTrainingBtnCount() {
     }
 }
 
+let _saveTimer = null;
 async function save() {
     if (!isLoaded) return;
     localStorage.setItem('myWords', JSON.stringify(myWords));
-    try {
-        await apiFetch('/api/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(myWords)
-        });
-    } catch (e) {
-        // Сервер недоступен — не страшно
-    }
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(async () => {
+        try {
+            await apiFetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(myWords)
+            });
+        } catch (e) {}
+    }, 1500);
 }
 
 function updateOverallProgress() {
@@ -627,6 +737,8 @@ function stopTraining() {
     clearInterval(timerId);
     timerId = null;
     document.body.classList.remove('training-mode');
+    // Просим разрешение на уведомления после первой тренировки
+    setTimeout(requestNotificationPermission, 2000);
     const mobileNav = document.getElementById('mobile-nav');
     if (mobileNav) mobileNav.style.display = '';
     saveTimerToServer();
@@ -743,8 +855,10 @@ function applyForgetSchedule(word) {
 // ============================================================
 
 async function handleSM2Answer(quality) {
+    if (isAnswering) return;
+    isAnswering = true;
     const word = activePool[currentWordIndex];
-    if (!word) return;
+    if (!word) { isAnswering = false; return; }
 
     const isCorrect = quality >= 2; // хорошо или легко = правильно
     if (isCorrect) {
@@ -797,6 +911,7 @@ async function handleSM2Answer(quality) {
     }
 
     checkAchievements();
+    isAnswering = false;
     nextStep();
 }
 
@@ -1879,9 +1994,8 @@ function playSound(type) {
 // ============================================================
 // ИТОГИ ТРЕНИРОВКИ
 // ============================================================
-let sessionBestCombo = 0;
 let sessionStartTime = 0;
-let wordMistakes = safeParseStorage('wordMistakes', {});
+let wordMistakes = {}; // per-session only
 
 function showResults() {
     const modal = document.getElementById('results-modal');
@@ -2352,6 +2466,51 @@ function restoreTrainingUI() {
     // FIX: Восстанавливаем кнопку "Назад"
     if (btnBack) btnBack.style.display = '';
 }
+
+
+// ============================================================
+// БРАУЗЕРНЫЕ УВЕДОМЛЕНИЯ — напоминание о повторении
+// ============================================================
+async function requestNotificationPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') return;
+    if (Notification.permission === 'denied') return;
+    // Просим разрешение после первой тренировки — не сразу при входе
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+        scheduleReviewReminder();
+        showToast('Уведомления включены — напомним когда придёт время повторять', 'success');
+    }
+}
+
+function scheduleReviewReminder() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    // Считаем слова к повторению
+    const due = myWords.filter(w => (w.nextReview || 0) <= Date.now()).length;
+    if (due === 0) return;
+    // Показываем уведомление (если вкладка в фоне)
+    if (document.hidden) {
+        new Notification('Легкий Словарь 📚', {
+            body: `${due} ${pluralWords(due)} ждут повторения!`,
+            icon: '/icon-192.png',
+            badge: '/icon-96.png',
+            tag: 'review-reminder',
+        });
+    }
+}
+
+function pluralWords(n) {
+    if (n % 100 >= 11 && n % 100 <= 19) return 'слов';
+    const r = n % 10;
+    if (r === 1) return 'слово';
+    if (r >= 2 && r <= 4) return 'слова';
+    return 'слов';
+}
+
+// Проверяем слова к повторению при возвращении на вкладку
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) scheduleReviewReminder();
+});
 
 // ── DRAGGABLE TIMER (fixed position)
 (function initDraggableTimer() {
