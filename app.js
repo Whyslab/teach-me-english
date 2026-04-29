@@ -3344,13 +3344,11 @@ async function fetchWordImage(word) {
 async function loadCardImage(word) {
     const previewCard = document.getElementById('photo-preview-card');
     const previewEl = document.getElementById('card-image-preview');
-    const elBack = document.getElementById('card-image-back');
-    if (!previewCard || !previewEl || !elBack) return;
-    if (!word || !word.original) { 
+    if (!previewCard || !previewEl) return;
+    if (!word || !word.original) {
         previewCard.style.display = 'none';
         previewEl.style.display = 'none';
-        elBack.style.display = 'none';
-        return; 
+        return;
     }
     
     let imgUrl = null;
@@ -3371,12 +3369,9 @@ async function loadCardImage(word) {
             previewEl.style.display = 'none';
             previewCard.style.display = 'none';
         };
-
-        elBack.style.display = 'none';
     } else {
         previewEl.style.display = 'none';
         previewCard.style.display = 'none';
-        elBack.style.display = 'none';
     }
     
     updateImageControlsVisibility();
