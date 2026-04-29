@@ -1309,8 +1309,14 @@ addBtn.onclick = async () => {
         history: []
     });
     await save();
-    render();
-    renderTagFilterBar();
+    // 🔍 При добавлении слова очищаем фильтр — показываем ВСЕ слова
+    if (activeTagFilter) {
+        console.log('ℹ️ При добавлении слова очищаем активный фильтр');
+        clearTagFilter();
+    } else {
+        render();
+        renderTagFilterBar();
+    }
     inputEn.value = ''; inputRu.value = ''; inputEx.value = ''; inputExRu.value = '';
     if (inputTags) inputTags.value = '';
     inputEn.focus();
@@ -2355,25 +2361,65 @@ function getAllTags() {
 function renderTagFilterBar() {
     const bar = document.getElementById('tag-filter-bar');
     const chips = document.getElementById('tag-chips');
-    if (!bar || !chips) return;
+    if (!bar || !chips) {
+        console.warn('⚠️ renderTagFilterBar: элементы tag-filter-bar или tag-chips не найдены');
+        return;
+    }
     const tags = getAllTags();
-    if (tags.length === 0) { bar.style.display = 'none'; return; }
+    console.log('🏷️ renderTagFilterBar: найдено тегов:', tags, 'activeTagFilter:', activeTagFilter);
+    
+    if (tags.length === 0) { 
+        bar.style.display = 'none'; 
+        console.log('ℹ️ Тегов не найдено, скрываем фильтр');
+        return; 
+    }
     bar.style.display = 'block';
     chips.innerHTML = `
-        <button class="tag-chip${!activeTagFilter ? ' active' : ''}" onclick="setTagFilter(null)">Все</button>
-        ${tags.map(t => `<button class="tag-chip${activeTagFilter === t ? ' active' : ''}" onclick="setTagFilter('${t}')">${t}</button>`).join('')}
+        <button class="tag-chip${!activeTagFilter ? ' active' : ''}" onclick="clearTagFilter()" title="Показать все слова">✕ Все</button>
+        ${tags.map(t => `<button class="tag-chip${activeTagFilter === t ? ' active' : ''}" onclick="setTagFilter('${t}')" title="Фильтр: ${t}">${t}</button>`).join('')}
     `;
+    console.log('✓ renderTagFilterBar: чипы созданы, activeTagFilter:', activeTagFilter);
 }
 
-function setTagFilter(tag) {
-    activeTagFilter = tag;
+function clearTagFilter() {
+    console.log('🗑️ clearTagFilter: очищаем фильтр');
+    activeTagFilter = null;
     renderTagFilterBar();
     render();
 }
 
+function setTagFilter(tag) {
+    console.log('🏷️ setTagFilter вызван:', tag);
+    activeTagFilter = tag;
+    console.log('✓ activeTagFilter установлен:', activeTagFilter);
+    renderTagFilterBar();
+    console.log('✓ renderTagFilterBar() вызван');
+    render();
+    console.log('✓ render() вызван');
+}
+
 function getFilteredWords() {
-    if (!activeTagFilter) return myWords;
-    return myWords.filter(w => (w.tags || []).includes(activeTagFilter));
+    if (!activeTagFilter) {
+        console.log(`🔍 getFilteredWords: нет активного фильтра, возвращаем все ${myWords.length} слов`);
+        return myWords;
+    }
+    // Логируем что происходит
+    console.log(`🔍 Ищу слова с тегом: "${activeTagFilter}"`);
+    myWords.forEach((w, idx) => {
+        const tags = w.tags || [];
+        const has = tags.includes(activeTagFilter);
+        console.log(`   [${idx}] "${w.original}" (теги: [${tags.join(', ')}]) → ${has ? '✓' : '✗'}`);
+    });
+    
+    const filtered = myWords.filter(w => {
+        const hasTag = (w.tags || []).includes(activeTagFilter);
+        return hasTag;
+    });
+    console.log(`🔍 Результат: ${filtered.length} из ${myWords.length}`);
+    if (filtered.length === 0) {
+        console.warn(`⚠️ Слов с тегом "${activeTagFilter}" не найдено!`);
+    }
+    return filtered;
 }
 
 // ============================================================
