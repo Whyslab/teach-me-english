@@ -565,17 +565,39 @@
         .timer-status { font-size: 9px; color: var(--text-3); margin-top: 4px; }
 
         /* ── Image controls ── */
+        .photo-preview-card {
+            display: flex; justify-content: center; margin-bottom: 18px;
+            width: 100%; max-width: min(460px, 90vw); margin-left: auto; margin-right: auto;
+        }
+        .photo-preview-inner {
+            width: 100%; border-radius: var(--r-lg); overflow: hidden;
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+            border: 1px solid rgba(124,106,247,0.16);
+            box-shadow: 0 24px 80px rgba(0,0,0,0.14);
+        }
+        .photo-preview-inner img {
+            width: 100%; height: auto; max-height: 260px; object-fit: cover;
+            display: block; background: #0a0a11;
+        }
+        .photo-preview-caption {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; padding: 10px 12px; color: var(--text-2); font-size: 12px;
+            background: rgba(0,0,0,0.15);
+        }
+        .photo-preview-caption button {
+            flex: 0 0 auto; min-width: auto; padding: 6px 10px; font-size: 12px;
+        }
         .image-controls-row {
             display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
             width: 100%; max-width: min(460px, 90vw); margin-bottom: 10px;
         }
-        #search-image-btn, #upload-image-btn, #remove-image-btn {
+        #search-image-btn, #add-image-url-btn, #upload-image-btn, #remove-image-btn {
             flex: 1; min-width: 100px; padding: 8px 10px;
             background: var(--bg-2); color: var(--text-2); border: 1px solid var(--border);
             border-radius: var(--r-sm); font-size: 12px; font-weight: 500;
             cursor: pointer; transition: all 0.2s;
         }
-        #search-image-btn:hover, #upload-image-btn:hover { background: var(--bg-3); border-color: var(--border-hi); color: var(--accent-2); }
+        #search-image-btn:hover, #add-image-url-btn:hover, #upload-image-btn:hover { background: var(--bg-3); border-color: var(--border-hi); color: var(--accent-2); }
         #remove-image-btn:hover { background: rgba(248,113,113,0.15); border-color: var(--red); color: var(--red); }
 
         /* ── Training buttons ── */
@@ -1312,11 +1334,19 @@
             <span id="combo-display"></span>
         </div>
 
+        <div id="photo-preview-card" class="photo-preview-card" style="display:none">
+            <div class="photo-preview-inner">
+                <img id="card-image-preview" src="" alt="Фото слова">
+                <div class="photo-preview-caption">
+                    <span>Фото для этого слова</span>
+                </div>
+            </div>
+        </div>
+
         <div class="flashcard-container">
             <div class="flashcard" id="flashcard">
                 <div class="flashcard-inner">
                     <div class="flashcard-front">
-                        <img id="card-image" src="" alt="">
                         <div id="card-front">Слово</div>
                     </div>
                     <div class="flashcard-back">
@@ -1335,6 +1365,7 @@
 
         <div id="image-controls" class="image-controls-row">
             <button id="search-image-btn" title="Поиск фото в интернете">🔍 Найти фото</button>
+            <button id="add-image-url-btn" title="Добавить фото по ссылке">🌐 По ссылке</button>
             <button id="upload-image-btn" title="Загрузить фото с компьютера">📤 Загрузить</button>
             <button id="remove-image-btn" title="Удалить фото" style="display:none">❌ Удалить</button>
             <input type="file" id="image-file-input" accept="image/*" style="display:none">

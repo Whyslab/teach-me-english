@@ -2162,6 +2162,19 @@ function closeForgettingStats() {
 // ============================================================
 // ЗАГРУЗКА ФОТО ДЛЯ КАРТОЧЕК
 // ============================================================
+function isValidImageUrl(url) {
+    if (!url) return false;
+    const trimmed = url.trim();
+    if (trimmed.startsWith('data:image/')) return true;
+    try {
+        const parsed = new URL(trimmed);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+        return /(\.jpe?g|\.png|\.webp|\.gif|\.bmp|\.svg)(\?|$)/i.test(parsed.pathname + parsed.search);
+    } catch {
+        return false;
+    }
+}
+
 function updateImageControlsVisibility() {
     const word = activePool[currentWordIndex];
     const removeBtn = document.getElementById('remove-image-btn');
@@ -2179,6 +2192,7 @@ function setupImageUpload() {
     const uploadBtn = document.getElementById('upload-image-btn');
     const fileInput = document.getElementById('image-file-input');
     const searchBtn = document.getElementById('search-image-btn');
+    const urlBtn = document.getElementById('add-image-url-btn');
     const removeBtn = document.getElementById('remove-image-btn');
     
     if (uploadBtn) {
@@ -2195,15 +2209,33 @@ function setupImageUpload() {
             
             // Конвертируем фото в base64
             const reader = new FileReader();
-            reader.onload = (event) => {
+            reader.onload = async (event) => {
                 const base64 = event.target?.result;
                 if (base64) {
                     word.imageUrl = base64;
-                    loadCardImage(word);
+                    await save();
+                    await loadCardImage(word);
                     showToast('✓ Фото добавлено', 'success');
                 }
             };
             reader.readAsDataURL(file);
+        };
+    }
+    
+    if (urlBtn) {
+        urlBtn.onclick = async () => {
+            const word = activePool[currentWordIndex];
+            if (!word) return;
+            const url = prompt('Вставьте прямую ссылку на изображение');
+            if (!url) return;
+            if (!isValidImageUrl(url)) {
+                showToast('Некорректная ссылка на изображение', 'error');
+                return;
+            }
+            word.imageUrl = url.trim();
+            await save();
+            await loadCardImage(word);
+            showToast('✓ Фото по ссылке добавлено', 'success');
         };
     }
     
@@ -2219,12 +2251,12 @@ function setupImageUpload() {
     }
     
     if (removeBtn) {
-        removeBtn.onclick = () => {
+        removeBtn.onclick = async () => {
             const word = activePool[currentWordIndex];
             if (word) {
                 word.imageUrl = '';
-                const el = document.getElementById('card-image');
-                if (el) el.style.display = 'none';
+                await save();
+                await loadCardImage(word);
                 updateImageControlsVisibility();
                 showToast('✓ Фото удалено', 'success');
             }
@@ -3310,11 +3342,13 @@ async function fetchWordImage(word) {
 }
 
 async function loadCardImage(word) {
-    const el = document.getElementById('card-image');
+    const previewCard = document.getElementById('photo-preview-card');
+    const previewEl = document.getElementById('card-image-preview');
     const elBack = document.getElementById('card-image-back');
-    if (!el || !elBack) return;
+    if (!previewCard || !previewEl || !elBack) return;
     if (!word || !word.original) { 
-        el.style.display = 'none';
+        previewCard.style.display = 'none';
+        previewEl.style.display = 'none';
         elBack.style.display = 'none';
         return; 
     }
@@ -3330,19 +3364,23 @@ async function loadCardImage(word) {
     }
     
     if (imgUrl) {
-        el.src = imgUrl;
-        el.style.display = 'block';
-        el.onerror = () => { el.style.display = 'none'; };
-        
+        previewEl.src = imgUrl;
+        previewEl.style.display = 'block';
+        previewCard.style.display = 'flex';
+        previewEl.onerror = () => {
+            previewEl.style.display = 'none';
+            previewCard.style.display = 'none';
+        };
+
         elBack.src = imgUrl;
         elBack.style.display = 'block';
         elBack.onerror = () => { elBack.style.display = 'none'; };
     } else {
-        el.style.display = 'none';
+        previewEl.style.display = 'none';
+        previewCard.style.display = 'none';
         elBack.style.display = 'none';
     }
     
-    // Обновляем видимость кнопки удаления фото
     updateImageControlsVisibility();
 }
 
