@@ -417,6 +417,13 @@
         .translation { font-size: 14px; color: var(--text-2); outline: none; }
         .translation.hidden { display: none; }
         .word-tag { font-size: 10px; padding: 1px 7px; border-radius: 100px; background: var(--accent-dim); color: var(--accent-2); font-weight: 500; }
+        .tags {
+            display: inline-block; min-width: 100px; padding: 2px 8px;
+            margin-left: 6px; border: 1px dashed var(--border);
+            border-radius: 12px; color: var(--text-2); font-size: 12px;
+            white-space: pre-wrap; word-break: break-word;
+        }
+        .tags:empty::before { content: 'теги'; color: var(--text-3); }
 
         .actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
         .speak-btn, .delete-btn, .history-btn {

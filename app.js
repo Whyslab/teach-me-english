@@ -282,6 +282,7 @@ function buildCardHTML(word, now) {
     const learnedStyle = isMaxLevel ? 'style="opacity: 0.5; background: rgba(40, 167, 69, 0.05);"' : '';
     const badge = `<span class="level-indicator">Ур. ${level}</span>`;
     const tagsBadges = (word.tags || []).map(t => `<span class="word-tag">${t}</span>`).join('');
+    const tagsText = (word.tags || []).join(', ');
     const isBulkSelected = selectedWordIds.has(word.id);
     const bulkClass = isBulkSelected ? ' bulk-selected' : '';
     const tatoebaBtn = `<button class="speak-btn" title="Tatoeba" onclick="event.stopPropagation();openTatoebaModal('${word.original.replace(/'/g,"\'")}')">📖</button>`;
@@ -293,7 +294,7 @@ function buildCardHTML(word, now) {
             <span class="original editable-text" contenteditable="${!bulkSelectMode}">${word.original}</span>
             <span class="arrow"> —> </span>
             <span class="translation hidden editable-text" contenteditable="${!bulkSelectMode}">${word.translate}</span>
-            ${tagsBadges ? `<span style="margin-left:6px">${tagsBadges}</span>` : ''}
+            <span class="tags editable-text" contenteditable="${!bulkSelectMode}" title="Редактируйте теги через запятую">${tagsText}</span>
             ${hasVideo}${hardWord}
         </div>
         <div class="actions">
@@ -384,6 +385,7 @@ function render() {
         const learnedStyle = isMaxLevel ? 'style="opacity: 0.5; background: rgba(40, 167, 69, 0.05);"' : '';
         const badge = `<span class="level-indicator" style="font-size: 10px; color: #00d2ff; background: rgba(0, 210, 255, 0.1); padding: 2px 6px; border-radius: 4px; margin-right: 8px;">Ур. ${level}</span>`;
         const tagsBadges = (word.tags || []).map(t => `<span class="word-tag">${t}</span>`).join('');
+        const tagsText = (word.tags || []).join(', ');
         const hasVideo = word.videoId ? ' 🎬' : '';
 
         const isBulkSelected = selectedWordIds.has(word.id);
@@ -397,7 +399,7 @@ function render() {
                 <span class="original editable-text" contenteditable="${!bulkSelectMode}">${word.original}</span>
                 <span class="arrow" style="color: #999"> —> </span>
                 <span class="translation hidden editable-text" contenteditable="${!bulkSelectMode}">${word.translate}</span>
-                ${tagsBadges ? `<span style="margin-left:6px">${tagsBadges}</span>` : ''}
+                <span class="tags editable-text" contenteditable="${!bulkSelectMode}" title="Редактируйте теги через запятую">${tagsText}</span>
                 ${hasVideo ? `<span style="font-size:10px;color:#b084f7;margin-left:4px;" title="Есть видео">${hasVideo}</span>` : ''}
                 ${word.sm2EF && word.sm2EF < 2.0 ? `<span style="font-size:10px;color:#ff4d4d;margin-left:4px;" title="Трудное слово">⚠️</span>` : ''}
             </div>
@@ -1318,6 +1320,7 @@ addBtn.onclick = async () => {
 };
 
 element.onclick = (e) => {
+    if (e.target.classList.contains('editable-text')) return;
     const card = e.target.closest('.card');
     if (!card) return;
     const id = Number(card.dataset.id);
@@ -1346,14 +1349,23 @@ element.addEventListener('blur', (e) => {
     if (!word) return;
 
     const newText = e.target.innerText.trim();
-    if (!newText) { e.target.innerText = e.target.classList.contains('original') ? word.original : word.translate; return; }
+    if (!newText) {
+        if (e.target.classList.contains('original')) e.target.innerText = word.original;
+        else if (e.target.classList.contains('translation')) e.target.innerText = word.translate;
+        else if (e.target.classList.contains('tags')) e.target.innerText = (word.tags || []).join(', ');
+        return;
+    }
 
     if (e.target.classList.contains('original')) {
         word.original = newText;
     } else if (e.target.classList.contains('translation')) {
         word.translate = newText;
+    } else if (e.target.classList.contains('tags')) {
+        word.tags = sanitizeTags(newText.split(','));
+        e.target.innerText = word.tags.join(', ');
     }
     save();
+    renderTagFilterBar();
     e.target.style.color = '#28a745';
     setTimeout(() => { e.target.style.color = ''; }, 600);
 }, true);
