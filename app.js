@@ -3372,9 +3372,7 @@ async function loadCardImage(word) {
             previewCard.style.display = 'none';
         };
 
-        elBack.src = imgUrl;
-        elBack.style.display = 'block';
-        elBack.onerror = () => { elBack.style.display = 'none'; };
+        elBack.style.display = 'none';
     } else {
         previewEl.style.display = 'none';
         previewCard.style.display = 'none';
