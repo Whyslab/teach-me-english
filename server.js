@@ -4,10 +4,16 @@ const cors = require('cors');
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = 3000;
 
-app.use(cors());
+app.use(cors({
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    credentials: true,
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'X-User-Id']
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname), {
     setHeaders: (res, filePath) => {
@@ -26,6 +32,12 @@ app.use(express.static(path.join(__dirname), {
         }
     }
 }));
+
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: 'Too many requests, please try again later.'
+});
 
 const db = new sqlite3.Database('./vocab.db', (err) => {
     if (err) console.error('Ошибка БД:', err.message);
@@ -116,9 +128,9 @@ app.get('/favicon.ico', (req, res) => {
 // ============================================================
 // TATOEBA PROXY — примеры предложений (обходим CORS)
 // ============================================================
-app.get('/api/tatoeba', (req, res) => {
+app.get('/api/tatoeba', limiter, (req, res) => {
     const word = req.query.word;
-    if (!word) return res.status(400).json({ error: 'word required' });
+    if (!word || word.length > 100) return res.status(400).json({ error: 'Invalid word' });
 
     const options = {
         hostname: 'tatoeba.org',
@@ -131,15 +143,29 @@ app.get('/api/tatoeba', (req, res) => {
         timeout: 8000
     };
 
+    let body = '';
     const proxyReq = https.request(options, (proxyRes) => {
-        let body = '';
-        proxyRes.on('data', chunk => body += chunk);
+        if (proxyRes.statusCode !== 200) {
+            return res.status(proxyRes.statusCode).json({ error: 'Service unavailable' });
+        }
+        
+        proxyRes.on('data', chunk => {
+            body += chunk;
+            if (body.length > 1024 * 1024) { // 1MB limit
+                proxyReq.abort();
+                res.status(413).json({ error: 'Response too large' });
+            }
+        });
+        
         proxyRes.on('end', () => {
             try {
                 const data = JSON.parse(body);
-                res.json(data);
+                if (!data.results || !Array.isArray(data.results)) {
+                    throw new Error('Invalid response format');
+                }
+                res.json({ results: data.results.slice(0, 10) }); // Лимитируем результаты
             } catch (e) {
-                res.status(500).json({ error: 'parse error' });
+                res.status(502).json({ error: 'Invalid response from service' });
             }
         });
     });
@@ -243,9 +269,29 @@ app.get('/api/words', (req, res) => {
     });
 });
 
+function validateWord(w) {
+    return w &&
+        typeof w.id === 'number' &&
+        typeof w.original === 'string' && w.original.length <= 100 &&
+        typeof w.translate === 'string' && w.translate.length <= 500 &&
+        (!w.tags || Array.isArray(w.tags)) &&
+        w.tags?.every(t => typeof t === 'string' && t.length <= 50);
+}
+
 app.post('/api/sync', (req, res) => {
+    if (!Array.isArray(req.body)) {
+        return res.status(400).json({ error: "Invalid request format" });
+    }
+    
+    if (req.body.length > 10000) {
+        return res.status(413).json({ error: "Payload too large" });
+    }
+    
+    if (!req.body.every(validateWord)) {
+        return res.status(400).json({ error: "Invalid word format" });
+    }
+
     const words = req.body;
-    if (!Array.isArray(words)) return res.status(400).json({ error: "Data is not an array" });
 
     db.serialize(() => {
         db.run("BEGIN TRANSACTION");

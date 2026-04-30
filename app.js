@@ -64,6 +64,25 @@ function sanitizeTags(rawTags = []) {
     return [...set];
 }
 
+function safeSetLocalStorage(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+            console.error('localStorage quota exceeded');
+            showToast('Хранилище переполнено. Удалите старые данные.', 'error');
+        } else {
+            console.error('localStorage error:', e);
+        }
+        throw e;
+    }
+}
+
+// Кеширование для производительности
+let cachedSortedWords = null;
+let cacheKey = null;
+let lastSyncError = null;
+
 // Состояние
 let mainQueue = [];      
 let trainingHistory = []; 
@@ -226,7 +245,7 @@ async function loadWords() {
                 subtitleText: word.subtitleText || '',
                 imageUrl: word.imageUrl || ''
             }));
-            localStorage.setItem('myWords', JSON.stringify(myWords));
+            safeSetLocalStorage('myWords', myWords);
         }
         isLoaded = true;
         render();
@@ -262,16 +281,27 @@ let virtRendered = VIRT_PAGE;
 let virtWords = [];         // текущий отсортированный список
 
 function getSortedWords() {
-    const base = getFilteredWords();
-    if (currentSort === 'default') return base;
-    const arr = [...base];
-    switch (currentSort) {
-        case 'level-asc':  return arr.sort((a,b) => (a.level||0) - (b.level||0));
-        case 'level-desc': return arr.sort((a,b) => (b.level||0) - (a.level||0));
-        case 'alpha':      return arr.sort((a,b) => a.original.localeCompare(b.original));
-        case 'review':     return arr.sort((a,b) => (a.nextReview||0) - (b.nextReview||0));
+    const key = `${currentSort}|${activeTagFilter}|${myWords.length}`;
+    if (cacheKey === key && cachedSortedWords) {
+        return cachedSortedWords;
     }
-    return arr;
+    
+    const base = getFilteredWords();
+    let result = base;
+    
+    if (currentSort !== 'default') {
+        result = [...base];
+        switch (currentSort) {
+            case 'level-asc': result.sort((a,b) => (a.level||0) - (b.level||0)); break;
+            case 'level-desc': result.sort((a,b) => (b.level||0) - (a.level||0)); break;
+            case 'alpha': result.sort((a,b) => a.original.localeCompare(b.original)); break;
+            case 'review': result.sort((a,b) => (a.nextReview||0) - (b.nextReview||0)); break;
+        }
+    }
+    
+    cacheKey = key;
+    cachedSortedWords = result;
+    return result;
 }
 
 function buildCardHTML(word, now) {
@@ -312,7 +342,15 @@ function renderVirtual(reset = false) {
     if (reset) {
         virtWords = getSortedWords();
         virtRendered = Math.min(VIRT_PAGE, virtWords.length);
-        element.innerHTML = virtWords.slice(0, virtRendered).map(w => buildCardHTML(w, now)).join('');
+        
+        const frag = document.createDocumentFragment();
+        virtWords.slice(0, virtRendered).forEach(w => {
+            const div = document.createElement('div');
+            div.innerHTML = buildCardHTML(w, now);
+            frag.appendChild(div.firstElementChild);
+        });
+        element.innerHTML = '';
+        element.appendChild(frag);
         // Счётчик "показано X из N"
         updateVirtCounter();
     } else {
@@ -440,16 +478,24 @@ function updateTrainingBtnCount() {
 let _saveTimer = null;
 async function save() {
     if (!isLoaded) return;
-    localStorage.setItem('myWords', JSON.stringify(myWords));
+    safeSetLocalStorage('myWords', myWords);
+    cacheKey = null; // Очищаем кеш сортировки
+    cachedSortedWords = null;
     clearTimeout(_saveTimer);
     _saveTimer = setTimeout(async () => {
         try {
-            await apiFetch('/api/sync', {
+            const response = await apiFetch('/api/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(myWords)
             });
-        } catch (e) {}
+            if (!response.ok) throw new Error('Sync failed');
+            lastSyncError = null;
+        } catch (e) {
+            lastSyncError = e;
+            console.error('Sync error:', e);
+            showToast('⚠️ Не удалось синхронизировать данные. Они сохранены локально.', 'warning');
+        }
     }, 1500);
 }
 
@@ -1115,7 +1161,11 @@ spellingInput.onkeydown = (e) => {
 };
 
 function toDayKey(date = new Date()) {
-    return date.toISOString().slice(0, 10);
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function recordDailyLearn(count = 1) {
@@ -1278,8 +1328,7 @@ addBtn.onclick = async () => {
 
     // Проверка дубликата
     const duplicate = myWords.find(w =>
-        w.original.toLowerCase() === en.toLowerCase() ||
-        w.translate.toLowerCase() === ru.toLowerCase()
+        w.original.toLowerCase() === en.toLowerCase()
     );
     if (duplicate) {
         const existingLevel = duplicate.level || 0;
@@ -1474,8 +1523,20 @@ if (restoreBtn && restoreInput) {
         if (!file) return;
         try {
             const text = await file.text();
-            const data = JSON.parse(text);
-            if (!data.words || !Array.isArray(data.words)) throw new Error('Неверный формат');
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                throw new Error('Некорректный JSON формат: ' + e.message);
+            }
+            
+            if (!data || typeof data !== 'object') {
+                throw new Error('Ожидается объект JSON');
+            }
+            
+            if (!Array.isArray(data.words)) {
+                throw new Error('Поле "words" должно быть массивом');
+            }
             if (await showConfirm(`Восстановить ${data.words.length} слов из резервной копии?<br><small style='color:#888'>Текущий словарь будет заменён</small>`, 'Восстановить', 'Отмена')) {
                 myWords = data.words;
                 if (data.streak) { streakData = data.streak; }
@@ -1524,8 +1585,28 @@ if (searchInput) searchInput.oninput = () => {
 };
 
 function highlightMatch(text, term) {
-    const regex = new RegExp(`(${term})`, 'gi');
-    return text.replace(regex, `<mark>$1</mark>`);
+    if (!term || !text) return text;
+    const regex = new RegExp(`(${escapeRegex(term)})`, 'gi');
+    const parts = text.split(regex);
+    const fragment = document.createDocumentFragment();
+    
+    parts.forEach(part => {
+        if (part.match(regex)) {
+            const mark = document.createElement('mark');
+            mark.textContent = part;
+            fragment.appendChild(mark);
+        } else {
+            fragment.appendChild(document.createTextNode(part));
+        }
+    });
+    
+    const wrapper = document.createElement('span');
+    wrapper.appendChild(fragment);
+    return wrapper.innerHTML;
+}
+
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function filterByLevel(level) {
@@ -2612,6 +2693,7 @@ function handleQuizAnswer(btn, correct, chosen) {
     checkAchievements();
 
     setTimeout(() => {
+        quizWaiting = false;
         quizIndex++;
         showQuizQuestion();
     }, 900);
