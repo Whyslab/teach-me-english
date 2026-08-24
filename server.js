@@ -6,7 +6,10 @@ const https = require('https');
 const http = require('http');
 const rateLimit = require('express-rate-limit');
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+// Overridable so tests can run against a throwaway database instead of
+// the real library.
+const DB_PATH = process.env.DATABASE_PATH || './vocab.db';
 
 app.use(cors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
@@ -39,9 +42,9 @@ const limiter = rateLimit({
     message: 'Too many requests, please try again later.'
 });
 
-const db = new sqlite3.Database('./vocab.db', (err) => {
+const db = new sqlite3.Database(DB_PATH, (err) => {
     if (err) console.error('Ошибка БД:', err.message);
-    else console.log('Подключено к базе данных SQLite (vocab.db).');
+    else if (process.env.NODE_ENV !== 'test') console.log(`Подключено к базе данных SQLite (${DB_PATH}).`);
 });
 
 db.exec(`
@@ -269,12 +272,23 @@ app.get('/api/words', (req, res) => {
 });
 
 function validateWord(w) {
-    return w &&
+    // tags are optional. The previous form ended with `w.tags?.every(...)`,
+    // which evaluates to undefined when tags is absent — so a word without
+    // tags failed validation, and because /api/sync validates with .every(),
+    // a single such word rejected the entire deck with a 400.
+    const tagsOk =
+        w.tags === undefined ||
+        w.tags === null ||
+        (Array.isArray(w.tags) &&
+            w.tags.every(t => typeof t === 'string' && t.length <= 50));
+
+    return Boolean(
+        w &&
         typeof w.id === 'number' &&
         typeof w.original === 'string' && w.original.length <= 100 &&
         typeof w.translate === 'string' && w.translate.length <= 500 &&
-        (!w.tags || Array.isArray(w.tags)) &&
-        w.tags?.every(t => typeof t === 'string' && t.length <= 50);
+        tagsOk
+    );
 }
 
 app.post('/api/sync', (req, res) => {
@@ -416,7 +430,13 @@ app.get('/api/youglish-proxy', (req, res) => {
     proxyReq.end();
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`--- СЕРВЕР ЗАПУЩЕН ---`);
-    console.log(`Адрес: http://localhost:${PORT}`);
-});
+// Start listening only when run directly (`node server.js`). Importing this
+// file from a test must not bind a port.
+if (require.main === module) {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`--- СЕРВЕР ЗАПУЩЕН ---`);
+        console.log(`Адрес: http://localhost:${PORT}`);
+    });
+}
+
+module.exports = { app, db, validateWord };

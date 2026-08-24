@@ -5,6 +5,7 @@
 ![Express](https://img.shields.io/badge/Express-5.x-000000?style=flat-square&logo=express&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-003b57?style=flat-square&logo=sqlite&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+[![CI](https://github.com/Whyslab/teach-me-english/actions/workflows/ci.yml/badge.svg)](https://github.com/Whyslab/teach-me-english/actions/workflows/ci.yml)
 
 A self-hosted vocabulary trainer built around spaced repetition. Add an English word, and the app attaches the things that actually make a word stick — a translation, an example sentence, an illustration, and a clip of a real YouTube video where the word is spoken — then schedules reviews so you see it again right before you would have forgotten it.
 
@@ -61,8 +62,8 @@ Then open <http://localhost:3000>.
 | Variable | Default | Purpose |
 |---|---|---|
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS allow-list. Set this if you serve the app from another host. |
-
-The port is `3000`, set in `server.js`.
+| `PORT` | `3000` | Port to listen on. |
+| `DATABASE_PATH` | `./vocab.db` | Where the deck is stored. Tests point this at a throwaway file. |
 
 > **Note on `npm install`:** `sqlite3` compiles a native binding. Recent npm versions block install scripts by default; if `require('sqlite3')` fails afterwards, run `npm rebuild sqlite3` once.
 
@@ -105,10 +106,23 @@ Python helpers used to build the video-backed entries — locating a word inside
 
 ---
 
+## 🧪 Tests
+
+```bash
+npm install
+npm test
+```
+
+20 tests over the API and the word validator, run against a throwaway SQLite file rather than your real deck. They cover the validation rules, the sync round-trip, tag normalisation, and that the app shell, service worker, manifest and favicon are all served with the right content types.
+
+CI runs them on Node 20 and 22, plus a static pass that syntax-checks every JavaScript file and asserts every icon the manifest declares actually exists.
+
+---
+
 ## ⚠️ Known rough edges
 
 * `app.js` is a single 147 KB file. It works, but splitting it into modules is the main thing this project needs next.
-* No automated tests.
+* The frontend has no tests — the suite covers the server.
 * The repository history still carries a committed `node_modules` from early on, so a clone is heavier than the code warrants.
 
 ---

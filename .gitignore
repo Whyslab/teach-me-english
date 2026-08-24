@@ -16,3 +16,6 @@ tools/proxies.txt
 # scratch
 черновик
 *.log
+
+# test artefacts
+tme-test-*.db*
