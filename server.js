@@ -109,7 +109,6 @@ db.serialize(() => {
     db.run("CREATE INDEX IF NOT EXISTS idx_words_next_review ON words(nextReview)");
 });
 
-// Явный маршрут для favicon (express.static иногда не подхватывает)
 // SW — явный маршрут с правильным Content-Type и заголовками
 app.get('/sw.js', (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
@@ -118,10 +117,10 @@ app.get('/sw.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'sw.js'));
 });
 
+// Браузеры запрашивают /favicon.ico безусловно; отдаём PWA-иконку,
+// чтобы запрос не превращался в 404 в логах.
 app.get('/favicon.ico', (req, res) => {
-    res.sendFile(path.join(__dirname, 'favicon.ico'), (err) => {
-        if (err) res.status(204).end(); // No content если файл не найден
-    });
+    res.sendFile(path.join(__dirname, 'icon-96.png'));
 });
 
 

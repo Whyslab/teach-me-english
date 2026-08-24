@@ -1,0 +1,18 @@
+# dependencies
+node_modules/
+
+# local database and its write-ahead log
+vocab.db
+vocab.db-shm
+vocab.db-wal
+tools/vocab.db
+
+# credentials and scraping inputs — never commit these
+cookies.txt
+tools/cookies.txt.txt
+tools/proxies.txt
+.env
+
+# scratch
+черновик
+*.log
