@@ -1,5 +1,7 @@
 # 📚 Лёгкий Словарь — offline-first English vocabulary trainer
 
+*[Русская версия](README.ru.md)*
+
 ![PWA](https://img.shields.io/badge/PWA-installable-5a45ff?style=flat-square)
 ![Node](https://img.shields.io/badge/Node-20.17%2B-339933?style=flat-square&logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5.x-000000?style=flat-square&logo=express&logoColor=white)
