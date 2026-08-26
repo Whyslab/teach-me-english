@@ -1,0 +1,35 @@
+# systemd user-юнит для teach-me-english.
+#
+# Не редактируй этот файл напрямую: %REPO% подставляет deploy/install.sh.
+# Готовый юнит окажется в ~/.config/systemd/user/teach-me-english.service.
+
+[Unit]
+Description=teach-me-english — тренажёр английских слов
+Documentation=https://github.com/Whyslab/teach-me-english
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%REPO%
+EnvironmentFile=-%REPO%/.env
+ExecStart=/usr/bin/env node %REPO%/server.js
+Restart=on-failure
+RestartSec=5
+
+# Приложение — это один процесс, который читает свой каталог и слушает порт.
+# Больше ему ничего не нужно, поэтому забираем всё остальное.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%REPO%
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=default.target

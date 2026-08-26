@@ -22,10 +22,10 @@
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.4.1",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^6.0.1"
   },
   "allowScripts": {
-    "sqlite3@5.1.7": true
+    "sqlite3@6.0.1": true
   },
   "repository": {
     "type": "git",
@@ -33,5 +33,8 @@
   },
   "devDependencies": {
     "supertest": "^7.2.2"
+  },
+  "engines": {
+    "node": ">=20.17.0"
   }
 }

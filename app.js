@@ -311,20 +311,24 @@ function buildCardHTML(word, now) {
     const reviewClass = (isReady && !isMaxLevel) ? 'needs-review' : '';
     const learnedStyle = isMaxLevel ? 'style="opacity: 0.5; background: rgba(40, 167, 69, 0.05);"' : '';
     const badge = `<span class="level-indicator">Ур. ${level}</span>`;
-    const tagsBadges = (word.tags || []).map(t => `<span class="word-tag">${t}</span>`).join('');
+    const tagsBadges = (word.tags || []).map(t => `<span class="word-tag">${escapeHtml(t)}</span>`).join('');
     const tagsText = (word.tags || []).join(', ');
     const isBulkSelected = selectedWordIds.has(word.id);
     const bulkClass = isBulkSelected ? ' bulk-selected' : '';
-    const tatoebaBtn = `<button class="speak-btn" title="Tatoeba" onclick="event.stopPropagation();openTatoebaModal('${word.original.replace(/'/g,"\'")}')">📖</button>`;
-    const hasVideo = word.videoId ? '<span style="font-size:10px;color:var(--accent-2);margin-left:4px">🎬</span>' : '';
+    const tatoebaBtn = `<button class="speak-btn" title="Tatoeba" onclick="event.stopPropagation();openTatoebaModal('${escapeJsString(word.original)}')">📖</button>`;
+    const hasVideo = word.videoId
+        ? `<button class="speak-btn" style="font-size:10px;margin-left:4px" title="Послушать слово в реальной речи"
+                   aria-label="Фрагмент видео со словом ${escapeAttr(word.original)}"
+                   onclick="event.stopPropagation();openClipModal('${escapeJsString(word.id)}')">🎬</button>`
+        : '';
     const hardWord = word.sm2EF && word.sm2EF < 2.0 ? '<span style="font-size:10px;color:var(--red);margin-left:4px" title="Трудное слово">⚠️</span>' : '';
     return `<div class="card ${reviewClass}${bulkClass}" data-id="${word.id}" data-word-id="${word.id}" ${learnedStyle} onclick="if(bulkSelectMode)toggleWordSelection(${word.id})">
         <div class="card-content">
             ${badge}
-            <span class="original editable-text" contenteditable="${!bulkSelectMode}">${word.original}</span>
+            <span class="original editable-text" contenteditable="${!bulkSelectMode}">${escapeHtml(word.original)}</span>
             <span class="arrow"> —> </span>
-            <span class="translation hidden editable-text" contenteditable="${!bulkSelectMode}">${word.translate}</span>
-            <span class="tags editable-text" contenteditable="${!bulkSelectMode}" title="Редактируйте теги через запятую">${tagsText}</span>
+            <span class="translation hidden editable-text" contenteditable="${!bulkSelectMode}">${escapeHtml(word.translate)}</span>
+            <span class="tags editable-text" contenteditable="${!bulkSelectMode}" title="Редактируйте теги через запятую">${escapeHtml(tagsText)}</span>
             ${hasVideo}${hardWord}
         </div>
         <div class="actions">
@@ -422,22 +426,26 @@ function render() {
         
         const learnedStyle = isMaxLevel ? 'style="opacity: 0.5; background: rgba(40, 167, 69, 0.05);"' : '';
         const badge = `<span class="level-indicator" style="font-size: 10px; color: #00d2ff; background: rgba(0, 210, 255, 0.1); padding: 2px 6px; border-radius: 4px; margin-right: 8px;">Ур. ${level}</span>`;
-        const tagsBadges = (word.tags || []).map(t => `<span class="word-tag">${t}</span>`).join('');
+        const tagsBadges = (word.tags || []).map(t => `<span class="word-tag">${escapeHtml(t)}</span>`).join('');
         const tagsText = (word.tags || []).join(', ');
-        const hasVideo = word.videoId ? ' 🎬' : '';
+        const hasVideo = word.videoId
+            ? `<button class="speak-btn" style="font-size:10px;margin-left:4px" title="Послушать слово в реальной речи"
+                       aria-label="Фрагмент видео со словом ${escapeAttr(word.original)}"
+                       onclick="event.stopPropagation();openClipModal('${escapeJsString(word.id)}')">🎬</button>`
+            : '';
 
         const isBulkSelected = selectedWordIds.has(word.id);
         const bulkClass = isBulkSelected ? ' bulk-selected' : '';
-        const tatoebaBtn = `<button class="speak-btn" title="Найти примеры Tatoeba" onclick="event.stopPropagation();openTatoebaModal('${word.original.replace(/'/g,"\\'")}')">📖</button>`;
+        const tatoebaBtn = `<button class="speak-btn" title="Найти примеры Tatoeba" onclick="event.stopPropagation();openTatoebaModal('${escapeJsString(word.original)}')">📖</button>`;
 
         return `
         <div class="card ${reviewClass}${bulkClass}" data-id="${word.id}" data-word-id="${word.id}" ${learnedStyle} onclick="if(bulkSelectMode)toggleWordSelection(${word.id})">
             <div class="card-content">
                 ${badge}
-                <span class="original editable-text" contenteditable="${!bulkSelectMode}">${word.original}</span>
+                <span class="original editable-text" contenteditable="${!bulkSelectMode}">${escapeHtml(word.original)}</span>
                 <span class="arrow" style="color: #999"> —> </span>
-                <span class="translation hidden editable-text" contenteditable="${!bulkSelectMode}">${word.translate}</span>
-                <span class="tags editable-text" contenteditable="${!bulkSelectMode}" title="Редактируйте теги через запятую">${tagsText}</span>
+                <span class="translation hidden editable-text" contenteditable="${!bulkSelectMode}">${escapeHtml(word.translate)}</span>
+                <span class="tags editable-text" contenteditable="${!bulkSelectMode}" title="Редактируйте теги через запятую">${escapeHtml(tagsText)}</span>
                 ${hasVideo ? `<span style="font-size:10px;color:#b084f7;margin-left:4px;" title="Есть видео">${hasVideo}</span>` : ''}
                 ${word.sm2EF && word.sm2EF < 2.0 ? `<span style="font-size:10px;color:#ff4d4d;margin-left:4px;" title="Трудное слово">⚠️</span>` : ''}
             </div>
@@ -3163,15 +3171,143 @@ async function fetchTatoebaExamples(word) {
             const trans = r.translations?.[0]?.[0];
             const ruText = trans?.text || '';
             const enText = r.text || '';
-            return `<div class="tatoeba-item" onclick="useTatoebaExample('${enText.replace(/'/g,"\'")}', '${ruText.replace(/'/g,"\'")}')">
-                <div class="tatoeba-en">${enText}</div>
-                ${ruText ? `<div class="tatoeba-ru">${ruText}</div>` : ''}
+            // Текст приходит со стороннего сервиса — в разметку он попадает
+            // только экранированным, и в onclick тоже.
+            return `<div class="tatoeba-item" role="button" tabindex="0"
+                         onclick="useTatoebaExample('${escapeJsString(enText)}', '${escapeJsString(ruText)}')"
+                         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                <div class="tatoeba-en">${escapeHtml(enText)}</div>
+                ${ruText ? `<div class="tatoeba-ru">${escapeHtml(ruText)}</div>` : ''}
                 <div class="tatoeba-use">Использовать →</div>
             </div>`;
         }).join('');
     } catch (e) {
         container.innerHTML = '<div style="color:#555;font-size:13px;text-align:center;padding:16px;">Ошибка загрузки примеров</div>';
     }
+}
+
+// ---------------------------------------------------------------------------
+// Экранирование
+//
+// Значительная часть интерфейса собирается конкатенацией строк и пишется через
+// innerHTML. Слово, перевод, теги и текст примеров с Tatoeba — это данные,
+// которые вводит пользователь или отдаёт сторонний сервис; попадая в разметку
+// без обработки, они перестают быть текстом и становятся HTML.
+//
+// escapeHtml — для текстовых узлов, escapeAttr — дополнительно закрывает
+// кавычки, escapeJsString — для значений, которые попадают внутрь onclick="...".
+// ---------------------------------------------------------------------------
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function escapeAttr(value) {
+    return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escapeJsString(value) {
+    return String(value ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '\\"')
+        .replace(/</g, '\\x3C')
+        .replace(/\r?\n/g, ' ');
+}
+
+// ---------------------------------------------------------------------------
+// Фрагмент видео, где слово произносят вслух
+//
+// Колонки videoId / startTime / endTime / subtitleText заполняются офлайн
+// скриптами из tools/. Раньше значок 🎬 показывался, но не был кликабельным —
+// плеера в приложении не существовало вовсе. Теперь значок открывает фрагмент.
+//
+// Используется youtube-nocookie.com: домен без рекламных кук, API-ключ не нужен.
+// ---------------------------------------------------------------------------
+let currentClip = null;
+
+function buildClipEmbedUrl(clip) {
+    const params = new URLSearchParams({
+        start: String(Math.max(0, Math.floor(clip.startTime || 0))),
+        autoplay: '1',
+        rel: '0',
+        modestbranding: '1'
+    });
+    // end имеет смысл только если он позже начала.
+    if (clip.endTime && clip.endTime > clip.startTime) {
+        params.set('end', String(Math.ceil(clip.endTime)));
+    }
+    return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(clip.videoId)}?${params}`;
+}
+
+function openClipModal(wordId) {
+    const word = words.find(w => String(w.id) === String(wordId));
+    if (!word || !word.videoId) {
+        showToast('К этому слову ещё не привязан фрагмент', 'info');
+        return;
+    }
+
+    // Идентификатор видео на YouTube — 11 символов из ограниченного алфавита.
+    // Проверяем прежде, чем подставлять его в URL.
+    if (!/^[A-Za-z0-9_-]{11}$/.test(word.videoId)) {
+        showToast('Некорректный идентификатор видео', 'error');
+        return;
+    }
+
+    currentClip = word;
+
+    const modal = document.getElementById('clip-modal');
+    const titleEl = document.getElementById('clip-word-title');
+    const subEl = document.getElementById('clip-subtitle');
+    const linkEl = document.getElementById('clip-youtube-link');
+    const frame = document.getElementById('clip-frame');
+    if (!modal || !frame) return;
+
+    if (titleEl) titleEl.textContent = word.original || '';
+
+    if (subEl) {
+        if (word.subtitleText) {
+            // Подсвечиваем само слово в реплике, не собирая HTML из данных.
+            subEl.replaceChildren();
+            const re = new RegExp(`(${escapeRegex(word.original)})`, 'ig');
+            word.subtitleText.split(re).forEach((part, i) => {
+                if (!part) return;
+                if (i % 2 === 1) {
+                    const mark = document.createElement('mark');
+                    mark.textContent = part;
+                    subEl.appendChild(mark);
+                } else {
+                    subEl.appendChild(document.createTextNode(part));
+                }
+            });
+        } else {
+            subEl.textContent = '';
+        }
+    }
+
+    if (linkEl) {
+        const t = Math.max(0, Math.floor(word.startTime || 0));
+        linkEl.href = `https://www.youtube.com/watch?v=${encodeURIComponent(word.videoId)}&t=${t}s`;
+    }
+
+    frame.src = buildClipEmbedUrl(word);
+    modal.style.display = 'flex';
+}
+
+function closeClipModal() {
+    const modal = document.getElementById('clip-modal');
+    const frame = document.getElementById('clip-frame');
+    // Снимаем src, иначе ролик продолжает играть за закрытым окном.
+    if (frame) frame.src = '';
+    if (modal) modal.style.display = 'none';
+    currentClip = null;
+}
+
+function replayClip() {
+    const frame = document.getElementById('clip-frame');
+    if (frame && currentClip) frame.src = buildClipEmbedUrl(currentClip);
 }
 
 function openTatoebaModal(word) {

@@ -9,7 +9,12 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 // Overridable so tests can run against a throwaway database instead of
 // the real library.
-const DB_PATH = process.env.DATABASE_PATH || './vocab.db';
+//
+// Относительный путь разворачивается от каталога приложения, а не от текущего
+// рабочего каталога. Иначе запуск не из корня проекта — а именно так делает
+// systemd-юнит — создавал бы пустую vocab.db где-то ещё, и приложение
+// стартовало бы с пустым словарём, ничего не сообщив.
+const DB_PATH = path.resolve(__dirname, process.env.DATABASE_PATH || './vocab.db');
 
 app.use(cors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
@@ -189,36 +194,115 @@ app.get('/api/tatoeba', limiter, (req, res) => {
 // ============================================================
 // UNSPLASH PROXY — картинки к словам
 // ============================================================
-app.get('/api/word-image', (req, res) => {
-    const word = req.query.word;
-    if (!word) return res.status(400).json({ error: 'word required' });
+// ---------------------------------------------------------------------------
+// Картинка к слову.
+//
+// Раньше здесь проксировался source.unsplash.com. Unsplash этот эндпоинт
+// закрыл — он отвечает 503, — а код не проверял статус ответа и в любом случае
+// возвращал клиенту ссылку на мёртвый адрес. Наружу это выглядело как "функция
+// работает, просто картинка не грузится".
+//
+// Теперь: Openverse (агрегатор Flickr/Wikimedia, ключ не нужен), с откатом на
+// Wikimedia Commons. Анонимный лимит Openverse — 200 запросов в сутки, поэтому
+// найденный адрес сохраняется в колонку words.imageUrl и повторно не ищется.
+// ---------------------------------------------------------------------------
 
-    // Используем Picsum для демо (не требует API key)
-    // Для продакшна замените на Unsplash API с ключом
-    const seed = encodeURIComponent(word.toLowerCase().trim());
-    // Ищем через DuckDuckGo image API (публичный, без ключа)
-    const options = {
-        hostname: 'source.unsplash.com',
-        path: `/200x150/?${seed}`,
-        method: 'GET',
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        timeout: 6000
-    };
+// Верхняя граница таймера сессии — сутки. Больше не бывает осмысленным,
+// а без границы в базу попадало любое число.
+const MAX_TIMER_SECONDS = 24 * 60 * 60;
 
-    let responded = false;
-    const safeJson = (data) => { if (!responded) { responded = true; res.json(data); } };
+const IMAGE_LOOKUP_TIMEOUT = 8000;
 
-    const proxyReq = https.request(options, (proxyRes) => {
-        if (proxyRes.statusCode === 302 || proxyRes.statusCode === 301) {
-            const location = proxyRes.headers.location;
-            if (location) return safeJson({ url: location });
-        }
-        safeJson({ url: `https://source.unsplash.com/200x150/?${seed}` });
+function fetchJson(url, headers = {}) {
+    return new Promise((resolve) => {
+        const req = https.request(url, {
+            method: 'GET',
+            headers: { 'User-Agent': 'teach-me-english/1.0 (self-hosted vocabulary trainer)', ...headers },
+            timeout: IMAGE_LOOKUP_TIMEOUT
+        }, (res) => {
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+                res.resume();
+                return resolve(null);
+            }
+            let body = '';
+            res.setEncoding('utf8');
+            res.on('data', (chunk) => {
+                body += chunk;
+                // Ответ поиска не бывает большим; обрываем явную аномалию.
+                if (body.length > 2 * 1024 * 1024) { req.destroy(); resolve(null); }
+            });
+            res.on('end', () => {
+                try { resolve(JSON.parse(body)); } catch { resolve(null); }
+            });
+        });
+        req.on('error', () => resolve(null));
+        req.on('timeout', () => { req.destroy(); resolve(null); });
+        req.end();
     });
+}
 
-    proxyReq.on('error', () => safeJson({ url: null }));
-    proxyReq.on('timeout', () => { proxyReq.destroy(); safeJson({ url: null }); });
-    proxyReq.end();
+async function lookupOpenverse(word) {
+    const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(word)}` +
+                '&page_size=1&license_type=all&mature=false';
+    const data = await fetchJson(url);
+    const hit = data?.results?.[0];
+    return hit?.thumbnail || hit?.url || null;
+}
+
+async function lookupWikimedia(word) {
+    const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json' +
+                '&generator=search&gsrnamespace=6&gsrlimit=1' +
+                `&gsrsearch=${encodeURIComponent(word)}` +
+                '&prop=imageinfo&iiprop=url&iiurlwidth=320';
+    const data = await fetchJson(url);
+    const pages = data?.query?.pages;
+    if (!pages) return null;
+    for (const page of Object.values(pages)) {
+        const thumb = page?.imageinfo?.[0]?.thumburl;
+        if (thumb) return thumb;
+    }
+    return null;
+}
+
+app.get('/api/word-image', limiter, async (req, res) => {
+    const word = typeof req.query.word === 'string' ? req.query.word.trim() : '';
+    if (!word || word.length > 100) {
+        return res.status(400).json({ error: 'word required' });
+    }
+
+    // 1. Кеш: уже искали для этого слова — отдаём сохранённое.
+    const cached = await new Promise((resolve) => {
+        db.get(
+            "SELECT imageUrl FROM words WHERE lower(original) = lower(?) AND imageUrl IS NOT NULL AND imageUrl != '' LIMIT 1",
+            [word],
+            (err, row) => resolve(err ? null : row?.imageUrl || null)
+        );
+    });
+    if (cached) return res.json({ url: cached, cached: true });
+
+    // 2. Ищем во внешних источниках.
+    let url = null;
+    try {
+        url = await lookupOpenverse(word);
+        if (!url) url = await lookupWikimedia(word);
+    } catch {
+        url = null;
+    }
+
+    if (!url) {
+        // Честный ответ: ничего не нашли. Клиент показывает это явно,
+        // а не оставляет пустую рамку.
+        return res.json({ url: null });
+    }
+
+    // 3. Запоминаем, чтобы больше не тратить дневной лимит на это слово.
+    db.run(
+        "UPDATE words SET imageUrl = ? WHERE lower(original) = lower(?) AND (imageUrl IS NULL OR imageUrl = '')",
+        [url, word],
+        (err) => { if (err) console.error('Не удалось закешировать картинку:', err.message); }
+    );
+
+    res.json({ url, cached: false });
 });
 
 app.get('/', (req, res) => {
@@ -236,11 +320,22 @@ app.get('/api/timer', (req, res) => {
 });
 
 app.post('/api/timer', (req, res) => {
-    const { timeLeft } = req.body;
-    db.run("UPDATE settings SET value = ? WHERE key = 'timeLeft'", [timeLeft], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ status: "success" });
-    });
+    // Раньше значение писалось в базу как пришло. Строка, объект, отрицательное
+    // число — всё сохранялось, и GET /api/timer потом отдавал NaN.
+    const { timeLeft } = req.body ?? {};
+    const seconds = Number(timeLeft);
+
+    if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_TIMER_SECONDS) {
+        return res.status(400).json({
+            error: `timeLeft must be a number between 0 and ${MAX_TIMER_SECONDS}`
+        });
+    }
+
+    db.run("UPDATE settings SET value = ? WHERE key = 'timeLeft'",
+        [String(Math.floor(seconds))], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ status: "success" });
+        });
 });
 
 // --- РЕГИСТРАЦИЯ ПОЛЬЗОВАТЕЛЯ (однопользовательский режим) ---
@@ -353,90 +448,12 @@ app.post('/api/sync', (req, res) => {
 // ============================================================
 // YOUGLISH PROXY — обходим X-Frame-Options через сервер
 // ============================================================
-app.get('/api/youglish-proxy', (req, res) => {
-    const word = (req.query.word || '').trim();
-    if (!word) return res.status(400).send('Word required');
-
-    const targetUrl = `https://youglish.com/pronounce/${encodeURIComponent(word)}/english`;
-
-    const options = {
-        hostname: 'youglish.com',
-        path: `/pronounce/${encodeURIComponent(word)}/english`,
-        method: 'GET',
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'identity',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-        },
-        timeout: 10000
-    };
-
-    const proxyReq = https.request(options, (proxyRes) => {
-        // Убираем заголовки блокировки iframe
-        const headers = { ...proxyRes.headers };
-        delete headers['x-frame-options'];
-        delete headers['content-security-policy'];
-        delete headers['x-content-type-options'];
-
-        // Фиксируем encoding чтобы не сломать текст
-        delete headers['content-encoding'];
-        delete headers['transfer-encoding'];
-
-        let body = Buffer.alloc(0);
-
-        proxyRes.on('data', (chunk) => {
-            body = Buffer.concat([body, chunk]);
-        });
-
-        proxyRes.on('end', () => {
-            let html = body.toString('utf8');
-
-            // Патчим все абсолютные пути чтобы ресурсы грузились с оригинального сайта
-            html = html.replace(/(href|src|action)=\"\//g, '$1="https://youglish.com/');
-            html = html.replace(/(href|src|action)='\//g, "$1='https://youglish.com/");
-            html = html.replace(/(href|src|action)=\//g, '$1=https://youglish.com/');
-
-            // Inject base tag чтобы относительные ссылки работали
-            html = html.replace('<head>', '<head><base href="https://youglish.com/">');
-
-            res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            Object.entries(headers).forEach(([key, val]) => {
-                try { res.setHeader(key, val); } catch(e) {}
-            });
-
-            res.send(html);
-        });
-    });
-
-    proxyReq.on('error', (e) => {
-        console.error('YouGlish proxy error:', e.message);
-        res.status(502).send(`
-            <html><body style="font-family:sans-serif;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:16px;">
-                <div style="font-size:2rem;">⚠️</div>
-                <div>Не удалось загрузить YouGlish</div>
-                <a href="${targetUrl}" target="_blank" style="color:#b084f7;padding:10px 20px;border:1px solid #b084f7;border-radius:8px;text-decoration:none;">Открыть напрямую →</a>
-            </body></html>
-        `);
-    });
-
-    proxyReq.on('timeout', () => {
-        proxyReq.destroy();
-        res.status(504).send('Timeout');
-    });
-
-    proxyReq.end();
-});
-
-// Start listening only when run directly (`node server.js`). Importing this
-// file from a test must not bind a port.
-if (require.main === module) {
-    app.listen(PORT, '0.0.0.0', () => {
-        console.log(`--- СЕРВЕР ЗАПУЩЕН ---`);
-        console.log(`Адрес: http://localhost:${PORT}`);
-    });
-}
+// /api/youglish-proxy удалён.
+//
+// Эндпоинт скачивал страницу youglish.com и вырезал из ответа заголовки
+// X-Frame-Options и Content-Security-Policy, чтобы чужой сайт можно было
+// показать в iframe. Клиент его никогда не вызывал — произношение открывается
+// обычным window.open на youglish.com (см. app.js). То есть 76 строк кода
+// обходили защиту стороннего сайта от встраивания и при этом не использовались.
 
 module.exports = { app, db, validateWord };

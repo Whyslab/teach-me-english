@@ -10,7 +10,7 @@ process.env.NODE_ENV = 'test';
 process.env.DATABASE_PATH = DB;
 
 const request = require('supertest');
-const { app, validateWord } = require('../server.js');
+const { app, db, validateWord } = require('../server.js');
 
 test.after(() => {
   for (const suffix of ['', '-wal', '-shm']) {
@@ -144,4 +144,86 @@ test('GET /favicon.ico returns a real image', async () => {
   const res = await request(app).get('/favicon.ico').expect(200);
   assert.match(res.headers['content-type'], /image/);
   assert.ok(res.body.length > 0, 'favicon must not be empty');
+});
+
+// ---------------------------------------------------------------------------
+// Картинка к слову
+//
+// Прежний эндпоинт проксировал source.unsplash.com, не проверял статус ответа
+// и возвращал ссылку на мёртвый адрес независимо от того, что ответил апстрим.
+// Эти тесты фиксируют новый контракт: валидация входа, честный null и кеш.
+// ---------------------------------------------------------------------------
+test('GET /api/word-image rejects an empty word', async () => {
+    const res = await request(app).get('/api/word-image?word=');
+    assert.equal(res.status, 400);
+});
+
+test('GET /api/word-image rejects an over-long word', async () => {
+    const res = await request(app).get('/api/word-image?word=' + 'a'.repeat(150));
+    assert.equal(res.status, 400);
+});
+
+test('GET /api/word-image serves a cached url without calling upstream', async () => {
+    const id = Date.now() + 1;
+    await request(app).post('/api/sync').send([{
+        id, original: 'cachedword', translate: 'кешслово',
+        example: '', exampleTranslate: '', level: 0, nextReview: Date.now()
+    }]);
+
+    await new Promise((resolve, reject) => {
+        db.run("UPDATE words SET imageUrl = ? WHERE id = ?",
+            ['https://example.test/cached.jpg', id],
+            (err) => (err ? reject(err) : resolve()));
+    });
+
+    const res = await request(app).get('/api/word-image?word=cachedword');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.url, 'https://example.test/cached.jpg');
+    assert.equal(res.body.cached, true);
+});
+
+test('GET /api/word-image matches the cache case-insensitively', async () => {
+    const res = await request(app).get('/api/word-image?word=CachedWord');
+    assert.equal(res.body.url, 'https://example.test/cached.jpg');
+    assert.equal(res.body.cached, true);
+});
+
+// ---------------------------------------------------------------------------
+// Таймер сессии
+//
+// POST /api/timer писал в базу что угодно: строку, объект, отрицательное число.
+// GET потом возвращал NaN, и интерфейс показывал пустоту.
+// ---------------------------------------------------------------------------
+test('POST /api/timer accepts a sane number', async () => {
+    const res = await request(app).post('/api/timer').send({ timeLeft: 1800 });
+    assert.equal(res.status, 200);
+    const back = await request(app).get('/api/timer');
+    assert.equal(back.body.timeLeft, 1800);
+});
+
+test('POST /api/timer rejects a non-number', async () => {
+    const res = await request(app).post('/api/timer').send({ timeLeft: 'полчаса' });
+    assert.equal(res.status, 400);
+});
+
+test('POST /api/timer rejects a negative value', async () => {
+    const res = await request(app).post('/api/timer').send({ timeLeft: -60 });
+    assert.equal(res.status, 400);
+});
+
+test('POST /api/timer rejects an absurdly large value', async () => {
+    const res = await request(app).post('/api/timer').send({ timeLeft: 99999999 });
+    assert.equal(res.status, 400);
+});
+
+test('POST /api/timer rejects a missing body', async () => {
+    const res = await request(app).post('/api/timer').send({});
+    assert.equal(res.status, 400);
+});
+
+test('a rejected timer value never reaches the database', async () => {
+    await request(app).post('/api/timer').send({ timeLeft: 1800 });
+    await request(app).post('/api/timer').send({ timeLeft: {} });
+    const back = await request(app).get('/api/timer');
+    assert.equal(back.body.timeLeft, 1800);
 });
