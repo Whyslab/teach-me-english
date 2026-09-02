@@ -19,3 +19,6 @@ tools/proxies.txt
 
 # test artefacts
 tme-test-*.db*
+
+# graphify knowledge graph (regenerate with: graphify update .)
+graphify-out/
