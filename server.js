@@ -7,6 +7,9 @@ const http = require('http');
 const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+// Слушать только этот компьютер. Чтобы открыть приложение с телефона:
+// HOST=0.0.0.0 в окружении службы плюс правило ufw на этот порт.
+const HOST = process.env.HOST || '127.0.0.1';
 // Overridable so tests can run against a throwaway database instead of
 // the real library.
 //
@@ -455,5 +458,20 @@ app.post('/api/sync', (req, res) => {
 // показать в iframe. Клиент его никогда не вызывал — произношение открывается
 // обычным window.open на youglish.com (см. app.js). То есть 76 строк кода
 // обходили защиту стороннего сайта от встраивания и при этом не использовались.
+
+// Слушать порт только при прямом запуске (`node server.js`).
+// При импорте из тестов сервер подниматься не должен.
+//
+// 12.09.2026: вызов восстановлен. Он был с первого коммита, потом его обернули
+// в эту проверку, а коммит 11e2a90 «add a deployment path» от 26.08.2026 снёс
+// его целиком. С тех пор `npm start` и служба systemd молча завершались за
+// треть секунды с кодом 0 — база подключалась, маршруты настраивались, порт
+// никто не слушал. Приложением поэтому ни разу и не пользовались.
+if (require.main === module) {
+    app.listen(PORT, HOST, () => {
+        console.log(`--- СЕРВЕР ЗАПУЩЕН ---`);
+        console.log(`Адрес: http://localhost:${PORT}`);
+    });
+}
 
 module.exports = { app, db, validateWord };
