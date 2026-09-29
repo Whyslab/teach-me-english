@@ -11,7 +11,7 @@ import {
 import { normalizeWord } from './srs.js';
 import { stripParticle } from './norsk.js';
 import { plural, escapeHtml } from './util.js';
-import { $, showToast, showConfirm, openModal, closeModal, topModal } from './ui.js';
+import { $, showToast, showConfirm, openModal, closeModal, topModal, initSpeech } from './ui.js';
 import { applyTheme, setTheme } from './themes.js';
 import { wordFormHtml, readWordForm, clearWordForm, syncGrammarVisibility, guessForms, insertChar } from './wordform.js';
 import { dedupeKey } from './format.js';
@@ -238,6 +238,7 @@ async function init() {
     });
 
     loadLocal();
+    initSpeech();   // есть ли на сервере Piper — не ждём, это не блокирует интерфейс
     applyTheme();
     initAddForm();
     initList();

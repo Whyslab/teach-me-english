@@ -9,12 +9,88 @@ const DB = path.join(os.tmpdir(), `tme-test-${process.pid}.db`);
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_PATH = DB;
 
+// Озвучка: поддельный piper и временный каталог для кеша звука.
+const TTS_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tme-tts-'));
+const FAKE_MODEL = path.join(TTS_DIR, 'voice.onnx');
+fs.writeFileSync(FAKE_MODEL, 'model');
+process.env.PIPER_BIN = path.join(__dirname, 'fixtures', 'fake-piper.js');
+process.env.PIPER_MODEL = FAKE_MODEL;
+process.env.TTS_CACHE_DIR = path.join(TTS_DIR, 'cache');
+process.env.FAKE_PIPER_LOG = path.join(TTS_DIR, 'calls.log');
+
 const request = require('supertest');
 const { app, db, validateWord } = require('../server.js');
 
 test.after(() => {
   for (const suffix of ['', '-wal', '-shm']) {
     fs.rmSync(DB + suffix, { force: true });
+  }
+  fs.rmSync(TTS_DIR, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// Озвучка через Piper
+// ---------------------------------------------------------------------------
+const piperCalls = () => {
+  try { return fs.readFileSync(process.env.FAKE_PIPER_LOG, 'utf8').trim().split('\n').filter(Boolean); }
+  catch { return []; }
+};
+
+test('GET /api/tts/status reports the voice as available', async () => {
+  const res = await request(app).get('/api/tts/status').expect(200);
+  assert.equal(res.body.available, true);
+  assert.equal(res.body.voice, 'voice');
+});
+
+test('GET /api/tts synthesizes a wav and caches it', async () => {
+  const first = await request(app).get('/api/tts?text=' + encodeURIComponent('et hus')).expect(200);
+  assert.match(first.headers['content-type'], /audio\/wav/);
+  assert.match(first.headers['cache-control'], /immutable/);
+  assert.ok(first.body.toString().includes('FAKE-AUDIO:et hus'));
+  const calls = piperCalls().length;
+
+  // Тот же текст с другим регистром и пробелами — из кеша, без нового синтеза.
+  await request(app).get('/api/tts?text=' + encodeURIComponent('  Et   hus ')).expect(200);
+  assert.equal(piperCalls().length, calls);
+});
+
+test('GET /api/tts synthesizes a word only once under concurrent requests', async () => {
+  const before = piperCalls().length;
+  const url = '/api/tts?text=' + encodeURIComponent('å reise');
+  const results = await Promise.all([1, 2, 3, 4].map(() => request(app).get(url)));
+  results.forEach(r => assert.equal(r.status, 200));
+  assert.equal(piperCalls().length, before + 1);
+});
+
+test('GET /api/tts keeps Norwegian letters intact', async () => {
+  const res = await request(app).get('/api/tts?text=' + encodeURIComponent('kjøkken, blåbær')).expect(200);
+  assert.ok(res.body.toString().includes('kjøkken, blåbær'));
+});
+
+test('GET /api/tts rejects empty and over-long text', async () => {
+  await request(app).get('/api/tts?text=').expect(400);
+  await request(app).get('/api/tts?text=%20%20').expect(400);
+  await request(app).get('/api/tts?text=' + 'a'.repeat(201)).expect(400);
+});
+
+test('GET /api/tts reports a synthesis failure and caches nothing', async () => {
+  await request(app).get('/api/tts?text=FAIL').expect(500);
+  const cached = fs.readdirSync(process.env.TTS_CACHE_DIR);
+  assert.ok(cached.every(f => f.endsWith('.wav')), 'no temporary files left behind');
+  assert.equal(cached.length, 3);
+});
+
+test('GET /api/tts answers 503 when Piper is not installed', async () => {
+  const saved = process.env.PIPER_BIN;
+  process.env.PIPER_BIN = path.join(TTS_DIR, 'no-such-piper');
+  try {
+    const status = await request(app).get('/api/tts/status').expect(200);
+    assert.equal(status.body.available, false);
+    assert.deepStrictEqual(status.body.missing, ['piper']);
+    const res = await request(app).get('/api/tts?text=hei').expect(503);
+    assert.equal(res.body.error, 'tts-unavailable');
+  } finally {
+    process.env.PIPER_BIN = saved;
   }
 });
 

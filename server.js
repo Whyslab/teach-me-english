@@ -222,6 +222,9 @@ app.get('/api/tatoeba', limiter, (req, res) => {
     proxyReq.end();
 });
 
+// Озвучка через Piper (см. tts.js).
+app.use(require('./tts').router);
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });

@@ -26,7 +26,7 @@ Installable as a PWA and fully usable with no network connection.
 * **Grammar:** noun gender (`en` / `ei` / `et`, colour-coded) and inflections — *et hus — huset — hus — husene*, *å reise — reiser — reiste — har reist*. A "⚡ regular forms" button fills in the regular patterns.
 * **Training modes:** flashcards · writing NO→RU · writing RU→NO · multiple choice · **guess the gender** · **inflection drill** · hard words · marathon (no limit).
 * **A bundled Norsk A1 deck** — 275 high-frequency words with gender, forms, example sentences and Russian translations, one click in the Import dialog (`decks/a1.txt`, plain import format).
-* **Pronunciation:** browser speech with an `nb-NO` voice, plus links to [Forvo](https://forvo.com/languages/no/) (native speakers) and [Ordbøkene](https://ordbokene.no/) (the official Bokmål dictionary).
+* **Pronunciation:** a local neural voice via [Piper](https://github.com/OHF-Voice/piper1-gpl) (`no_NO-talesyntese-medium`, installed by `./deploy/install-voice.sh`, synthesized once per word and cached in `tts-cache/`; `GET /api/tts?text=…`), falling back to browser speech when Piper is absent, plus links to [Forvo](https://forvo.com/languages/no/) (native speakers) and [Ordbøkene](https://ordbokene.no/) (the official Bokmål dictionary).
 * **æ ø å buttons**; answers that are right except for the special letters are flagged separately.
 * **Auto-translation** Norwegian → Russian and **Tatoeba examples** (Bokmål ↔ Russian).
 * **Stats:** streak with a daily goal, review forecast, level curve, activity heatmap, hard words, per-word history.

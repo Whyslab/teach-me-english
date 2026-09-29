@@ -16,6 +16,11 @@ proxies.txt
 # the folder may still hold a YouTube cookies file — a live Google login.
 tools/
 
+# neural voice (deploy/install-voice.sh) and its synthesized audio cache
+.venv-tts/
+voices/
+tts-cache/
+
 # scratch
 черновик
 *.log

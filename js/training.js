@@ -3,7 +3,7 @@ import { state, saveWords, saveSettings, recordAnswer, markIntroduced, introduce
 import { sm2, selectSession, isHard, isDue } from './srs.js';
 import { escapeHtml, shuffle, plural, toDayKey } from './util.js';
 import { GENDERS, displayWord, formsLine, formsFor, lookupUrls, checkAnswer, checkGender } from './norsk.js';
-import { $, showToast, openModal, playSound, speak, stopSpeech } from './ui.js';
+import { $, showToast, openModal, playSound, speak, stopSpeech, prefetchSpeech } from './ui.js';
 
 // Режимы, между которыми переключается кнопка во время карточной сессии.
 const CARD_MODES = ['cards', 'write-no-ru', 'write-ru-no'];
@@ -133,6 +133,9 @@ function next() {
     t.checked = null;
     t.answered = false;
     render();
+    // Пока отвечаешь на эту карточку, сервер синтезирует звук следующей.
+    const upcoming = t.queue.slice(0, 3).map(q => (t.mode === 'forms' ? q.word : q)).filter(Boolean);
+    upcoming.forEach(w => prefetchSpeech(displayWord(w)));
 }
 
 function word() {

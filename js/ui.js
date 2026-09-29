@@ -143,9 +143,53 @@ if (window.speechSynthesis) {
     window.speechSynthesis.addEventListener?.('voiceschanged', pickNorwegianVoice);
 }
 
+// ---------------------------------------------------------------------------
+// Основной путь — Piper на сервере (/api/tts): нейросетевой голос вместо
+// роботизированного espeak, которым браузер на Linux озвучивает всё.
+// Браузерная речь остаётся запасным вариантом, если Piper не установлен
+// или сервер недоступен (офлайн).
+// ---------------------------------------------------------------------------
+let serverTts = null;          // null — ещё не проверяли, true/false — есть ли Piper
+let currentAudio = null;
+const ttsUrl = (text) => `/api/tts?text=${encodeURIComponent(String(text).trim())}`;
+
+export async function initSpeech() {
+    try {
+        const res = await fetch('/api/tts/status');
+        serverTts = res.ok && (await res.json()).available === true;
+    } catch {
+        serverTts = false;
+    }
+    return serverTts;
+}
+
+export function hasNeuralVoice() { return serverTts === true; }
+
+// Готовит звук заранее (например, следующей карточки), чтобы он играл сразу.
+const prefetched = new Set();
+export function prefetchSpeech(text) {
+    if (!serverTts || !text || prefetched.has(text)) return;
+    prefetched.add(text);
+    fetch(ttsUrl(text)).catch(() => prefetched.delete(text));
+}
+
 export function speak(text) {
-    if (!window.speechSynthesis || state.settings.muted || !text) return;
-    window.speechSynthesis.cancel();
+    if (state.settings.muted || !text) return;
+    stopSpeech();
+    if (serverTts) {
+        const audio = new Audio(ttsUrl(text));
+        currentAudio = audio;
+        audio.play().catch(() => {
+            // Сервер не смог синтезировать — говорим браузерным голосом.
+            if (currentAudio === audio) browserSpeak(text);
+        });
+        return;
+    }
+    browserSpeak(text);
+}
+
+function browserSpeak(text) {
+    if (!window.speechSynthesis) return;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = SPEECH_LANG;
     const voice = norwegianVoice || pickNorwegianVoice();
@@ -153,12 +197,16 @@ export function speak(text) {
         utterance.voice = voice;
     } else if (!voiceWarningShown && window.speechSynthesis.getVoices().length > 0) {
         voiceWarningShown = true;
-        showToast('В системе нет норвежского голоса — произношение будет неточным. Инструкция — в README, раздел про озвучку.', 'warning', 7000);
+        showToast('Нет норвежского голоса. Для качественной озвучки установи Piper: deploy/install-voice.sh', 'warning', 7000);
     }
     utterance.rate = 0.9;
     window.speechSynthesis.speak(utterance);
 }
 
 export function stopSpeech() {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+    }
     try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
 }

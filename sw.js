@@ -5,7 +5,7 @@
 
 // Версию нужно поднимать при каждом изменении фронтенда, иначе браузер
 // ещё один запуск будет отдавать старые app.js/index.html из кеша.
-const VERSION    = 'norsk-v2';
+const VERSION    = 'norsk-v3';
 const CACHE_STATIC  = `${VERSION}-static`;
 const CACHE_DYNAMIC = `${VERSION}-dynamic`;
 
@@ -51,6 +51,11 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const { request } = event;
     const url = new URL(request.url);
+
+    // Озвучку не трогаем: аудио грузится частичными ответами (206), их нельзя
+    // положить в Cache Storage. Сервер отдаёт её с immutable, и браузерный
+    // HTTP-кеш сам хранит уже прослушанные слова.
+    if (url.pathname.startsWith('/api/tts')) return;
 
     // API запросы — Network First, fallback null
     if (url.pathname.startsWith('/api/')) {
