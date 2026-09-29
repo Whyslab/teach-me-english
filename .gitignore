@@ -8,6 +8,13 @@ vocab.db-wal
 
 # credentials — never commit these
 .env
+cookies.txt
+*.cookies.txt
+proxies.txt
+
+# leftovers of the English version's video tools (removed from the repo):
+# the folder may still hold a YouTube cookies file — a live Google login.
+tools/
 
 # scratch
 черновик
