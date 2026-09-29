@@ -1,0 +1,23 @@
+# Ежедневный бэкап базы словаря. Запускается таймером
+# teach-me-norwegian-backup.timer. %REPO% подставляет deploy/install.sh.
+
+[Unit]
+Description=teach-me-norwegian — бэкап базы словаря
+
+[Service]
+Type=oneshot
+WorkingDirectory=%REPO%
+EnvironmentFile=-%REPO%/.env
+ExecStart=/usr/bin/env node %REPO%/deploy/backup.js
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# Каталог приложения — на запись: SQLite читает базу в режиме WAL через файл
+# vocab.db-shm, и ему нужен доступ к нему. Бэкапы — в ~/Backups.
+ReadWritePaths=%REPO% %h/Backups
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true

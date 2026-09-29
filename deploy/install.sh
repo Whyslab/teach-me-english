@@ -94,7 +94,26 @@ fi
 log_info "Юнит собран: ${UNIT_DIR}/${UNIT_NAME}"
 
 systemctl --user daemon-reload
-systemctl --user enable --now "$UNIT_NAME"
+systemctl --user enable "$UNIT_NAME"
+# restart, а не start: при повторной установке (после git pull) служба уже
+# работает, и enable --now оставил бы её на старом коде.
+systemctl --user restart "$UNIT_NAME"
+
+# ---------------------------------------------------------------------------
+log_step "Ежедневный бэкап базы"
+# ---------------------------------------------------------------------------
+BACKUP_UNIT="teach-me-norwegian-backup"
+mkdir -p "$HOME/Backups/teach-me-norwegian"   # ReadWritePaths требует, чтобы каталог существовал
+sed "s|%REPO%|${REPO}|g" "$REPO/deploy/${BACKUP_UNIT}.service.template" > "${UNIT_DIR}/${BACKUP_UNIT}.service"
+cp -f "$REPO/deploy/${BACKUP_UNIT}.timer" "${UNIT_DIR}/${BACKUP_UNIT}.timer"
+systemctl --user daemon-reload
+systemctl --user enable --now "${BACKUP_UNIT}.timer"
+if systemctl --user start "${BACKUP_UNIT}.service"; then
+    journalctl --user -u "${BACKUP_UNIT}.service" -n 1 --no-pager -o cat 2>/dev/null || true
+    log_info "Бэкап — раз в день в ~/Backups/teach-me-norwegian, хранятся 14 последних."
+else
+    log_warn "Первый бэкап не удался: journalctl --user -u ${BACKUP_UNIT}.service -n 20 --no-pager"
+fi
 
 # ---------------------------------------------------------------------------
 log_step "Проверка"

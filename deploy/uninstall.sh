@@ -26,8 +26,14 @@ else
     log_info "Юнита не было."
 fi
 
+log_step "Удаление таймера бэкапа"
+systemctl --user disable --now teach-me-norwegian-backup.timer 2>/dev/null || true
+rm -f "${UNIT_DIR}/teach-me-norwegian-backup.timer" "${UNIT_DIR}/teach-me-norwegian-backup.service"
+systemctl --user daemon-reload
+
 echo
 log_info "Готово. Твои данные остались на месте:"
 log_info "  словарь:   ${REPO}/vocab.db"
+log_info "  бэкапы:    ~/Backups/teach-me-norwegian"
 log_info "  настройки: ${REPO}/.env"
 log_warn "Удалить их можно вручную — но сначала сделай экспорт из интерфейса."

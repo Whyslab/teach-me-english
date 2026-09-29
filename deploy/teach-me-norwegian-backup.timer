@@ -1,0 +1,13 @@
+# Бэкап базы словаря раз в день. Persistent=true: если ноутбук был выключен
+# в назначенное время, бэкап сделается при следующем включении.
+
+[Unit]
+Description=teach-me-norwegian — ежедневный бэкап базы
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target
