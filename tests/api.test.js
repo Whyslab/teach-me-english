@@ -29,6 +29,90 @@ test.after(() => {
 });
 
 // ---------------------------------------------------------------------------
+// Service worker: версия и список кеша подставляются сервером
+// ---------------------------------------------------------------------------
+test('GET /sw.js precaches every frontend module and carries a content hash', async () => {
+  const res = await request(app).get('/sw.js').expect(200);
+  assert.doesNotMatch(res.text, /__ASSET_VERSION__|__PRECACHE__/, 'placeholders must be filled');
+  assert.match(res.text, /const VERSION\s*=\s*'norsk-[0-9a-f]{12}'/);
+  for (const f of fs.readdirSync(path.join(__dirname, '..', 'js')).filter(f => f.endsWith('.js'))) {
+    assert.ok(res.text.includes(`"/js/${f}"`), `sw.js does not precache js/${f}`);
+  }
+  for (const needed of ['"/"', '"/css/app.css"', '"/decks/a1.txt"', '"/manifest.json"']) {
+    assert.ok(res.text.includes(needed), `sw.js does not precache ${needed}`);
+  }
+  assert.ok(!res.text.includes('package.json'), 'js/package.json is not a public file');
+  new Function(res.text.replace(/self\.addEventListener/g, '(()=>{})'));  // синтаксис валиден
+});
+
+test('GET /sw.js version is stable between requests', async () => {
+  const a = (await request(app).get('/sw.js')).text.match(/norsk-([0-9a-f]{12})/)[1];
+  const b = (await request(app).get('/sw.js')).text.match(/norsk-([0-9a-f]{12})/)[1];
+  assert.equal(a, b);
+});
+
+// ---------------------------------------------------------------------------
+// Инкрементальная синхронизация
+// ---------------------------------------------------------------------------
+test('POST /api/words/batch inserts, updates and deletes individual words', async () => {
+  await request(app).post('/api/sync').send([
+    { id: 501, original: 'hus', translate: 'дом' },
+    { id: 502, original: 'bok', translate: 'книга' },
+    { id: 503, original: 'katt', translate: 'кот' },
+  ]).expect(200);
+
+  const res = await request(app).post('/api/words/batch').send({
+    upserts: [
+      { id: 502, original: 'bok', translate: 'книга', level: 3, sm2Reps: 2, history: [{ ts: 1, q: 2, ef: 2.5 }] },
+      { id: 504, original: 'hund', translate: 'собака', pos: 'noun', gender: 'm' },
+    ],
+    deletes: [503],
+  }).expect(200);
+  assert.deepStrictEqual(res.body, { status: 'success', upserted: 2, deleted: 1 });
+
+  const words = (await request(app).get('/api/words').expect(200)).body;
+  const byId = Object.fromEntries(words.map(w => [w.id, w]));
+  assert.deepStrictEqual(Object.keys(byId).map(Number).sort(), [501, 502, 504]);
+  assert.equal(byId[501].translate, 'дом', 'untouched word stays');
+  assert.equal(byId[502].level, 3);
+  assert.equal(byId[502].history.length, 1);
+  assert.equal(byId[504].gender, 'm');
+});
+
+test('POST /api/words/batch is idempotent', async () => {
+  const batch = { upserts: [{ id: 601, original: 'sol', translate: 'солнце' }], deletes: [602] };
+  await request(app).post('/api/words/batch').send(batch).expect(200);
+  await request(app).post('/api/words/batch').send(batch).expect(200);
+  const words = (await request(app).get('/api/words').expect(200)).body;
+  assert.equal(words.filter(w => w.id === 601).length, 1);
+});
+
+test('POST /api/words/batch validates its input', async () => {
+  await request(app).post('/api/words/batch').send({ upserts: 'x' }).expect(400);
+  await request(app).post('/api/words/batch').send({ upserts: [{ id: 'x', original: 'a', translate: 'b' }] }).expect(400);
+  await request(app).post('/api/words/batch').send({ deletes: ['1'] }).expect(400);
+  await request(app).post('/api/words/batch').send({}).expect(200);
+});
+
+test('POST /api/words/batch accepts a sendBeacon-style request', async () => {
+  // sendBeacon шлёт Blob с type application/json — тело то же, что у fetch.
+  await request(app).post('/api/words/batch')
+    .set('Content-Type', 'application/json')
+    .send(JSON.stringify({ upserts: [{ id: 701, original: 'tog', translate: 'поезд' }] }))
+    .expect(200);
+});
+
+test('a failing batch leaves the database unchanged', async () => {
+  const before = (await request(app).get('/api/words').expect(200)).body.length;
+  // Невалидное второе слово отклоняет весь пакет — первое тоже не записывается.
+  await request(app).post('/api/words/batch')
+    .send({ upserts: [{ id: 801, original: 'a', translate: 'b' }, { id: 802, original: 'x'.repeat(101), translate: 'b' }] })
+    .expect(400);
+  const after = (await request(app).get('/api/words').expect(200)).body.length;
+  assert.equal(after, before);
+});
+
+// ---------------------------------------------------------------------------
 // Озвучка через Piper
 // ---------------------------------------------------------------------------
 const piperCalls = () => {

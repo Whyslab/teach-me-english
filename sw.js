@@ -3,24 +3,14 @@
 // Стратегия: Cache First для статики, Network First для API
 // ═══════════════════════════════════════════════════
 
-// Версию нужно поднимать при каждом изменении фронтенда, иначе браузер
-// ещё один запуск будет отдавать старые app.js/index.html из кеша.
-const VERSION    = 'norsk-v3';
+// Версию и список файлов подставляет сервер при отдаче /sw.js (см. server.js):
+// версия — хеш содержимого фронтенда, поэтому любое изменение кода само
+// обновляет кеш. Руками здесь ничего поднимать не нужно.
+const VERSION    = 'norsk-__ASSET_VERSION__';
 const CACHE_STATIC  = `${VERSION}-static`;
 const CACHE_DYNAMIC = `${VERSION}-dynamic`;
 
-const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/css/app.css',
-    '/js/main.js', '/js/util.js', '/js/norsk.js', '/js/srs.js', '/js/store.js', '/js/ui.js',
-    '/js/themes.js', '/js/wordform.js', '/js/list.js', '/js/stats.js', '/js/training.js',
-    '/js/format.js', '/js/io.js', '/js/tatoeba.js',
-    '/decks/a1.txt',
-    '/manifest.json',
-    '/icon-192.png',
-    '/icon-512.png',
-];
+const STATIC_ASSETS = /*__PRECACHE__*/[];
 
 // ── Установка: кешируем всю статику ──────────────────
 self.addEventListener('install', event => {

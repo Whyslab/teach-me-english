@@ -1,6 +1,7 @@
 // Состояние приложения и его хранение: localStorage + синхронизация с сервером.
 import { toDayKey, DAY_MS } from './util.js';
 import { normalizeWord, isNew } from './srs.js';
+import { computeChanges, applyConfirmed, snapshotFor, fingerprint, isEmpty, BEACON_LIMIT } from './sync.js';
 
 export const DEFAULT_SETTINGS = {
     newPerDay: 15,     // лимит новых слов в день
@@ -80,19 +81,81 @@ function api(path, options = {}) {
     });
 }
 
+// ---------------------------------------------------------------------------
+// Синхронизация (см. js/sync.js)
+//
+// synced — версии слов, которые сервер подтвердил. Разница между ними и
+// state.words — это то, что ещё не дошло до сервера. Её список (id изменённых
+// и удалённых) хранится в localStorage под ключом pendingSync и переживает
+// перезагрузку: при следующем открытии он уходит на сервер раньше, чем
+// серверная копия подтягивается в браузер.
+// ---------------------------------------------------------------------------
+const synced = new Map();
+
+function persistPending(changes) {
+    write('pendingSync', { ids: changes.upserts.map(w => w.id), deleted: changes.deletes });
+}
+
+export function pendingChanges() {
+    return computeChanges(state.words, synced);
+}
+
+async function pushChanges(changes) {
+    const sent = snapshotFor(changes);
+    const res = await api('/api/words/batch', {
+        method: 'POST',
+        body: JSON.stringify({ upserts: changes.upserts, deletes: changes.deletes }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    applyConfirmed(synced, sent);
+    persistPending(pendingChanges());
+}
+
+function rememberServerState(words) {
+    synced.clear();
+    for (const w of words) synced.set(w.id, fingerprint(w));
+}
+
 export async function loadFromServer() {
+    const pending = read('pendingSync', { ids: [], deleted: [] });
     try {
+        // 1. Сначала отправляем то, что не успело уйти в прошлый раз. Сервер
+        //    знает всё, кроме этих слов, — так и считаем.
+        const dirty = new Set(pending.ids || []);
+        const deleted = pending.deleted || [];
+        if (dirty.size || deleted.length) {
+            rememberServerState(state.words.filter(w => !dirty.has(w.id)));
+            for (const id of deleted) synced.set(id, '');
+            await pushChanges(pendingChanges());
+        }
+
+        // 2. Теперь серверная копия — самая свежая.
         const res = await api('/api/words');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        // Пустой ответ сервера не затирает локальный словарь: сервер мог
-        // только что появиться с новой базой, а слова живут в браузере.
-        if (Array.isArray(data) && data.length > 0) {
+        if (!Array.isArray(data)) throw new Error('bad response');
+
+        if (data.length === 0 && state.words.length > 0) {
+            // Новая пустая база на сервере, а слова живут в браузере — отдаём их.
+            synced.clear();
+            await pushChanges(pendingChanges());
+        } else {
             state.words = data.map(normalizeWord);
             write('myWords', state.words);
+            rememberServerState(state.words);
+            persistPending(pendingChanges());
         }
+        state.lastSyncError = null;
         return true;
-    } catch {
+    } catch (e) {
+        // Сервер недоступен: работаем с локальной копией. Неотправленное
+        // остаётся в pendingSync и уйдёт, когда сервер появится.
+        state.lastSyncError = e;
+        if (!synced.size) {
+            const dirty = new Set(pending.ids || []);
+            rememberServerState(state.words.filter(w => !dirty.has(w.id)));
+            for (const id of pending.deleted || []) synced.set(id, '');
+        }
         return false;
     } finally {
         state.loaded = true;
@@ -100,6 +163,7 @@ export async function loadFromServer() {
 }
 
 let syncTimer = null;
+let syncing = null;
 let onSyncResult = () => {};
 export function setSyncResultHandler(fn) { onSyncResult = fn; }
 
@@ -108,26 +172,43 @@ export function setSyncResultHandler(fn) { onSyncResult = fn; }
 export function saveWords() {
     if (!state.loaded) return;
     write('myWords', state.words);
+    persistPending(pendingChanges());
     clearTimeout(syncTimer);
     syncTimer = setTimeout(syncNow, 1500);
 }
 
 export function hasPendingSync() {
-    return syncTimer !== null;
+    return !isEmpty(pendingChanges());
 }
 
 export async function syncNow() {
     clearTimeout(syncTimer);
     syncTimer = null;
-    try {
-        const res = await api('/api/sync', { method: 'POST', body: JSON.stringify(state.words) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        state.lastSyncError = null;
-        onSyncResult(null);
-    } catch (e) {
-        state.lastSyncError = e;
-        onSyncResult(e);
-    }
+    if (syncing) return syncing;   // один запрос за раз; остальное уйдёт следующим
+    const changes = pendingChanges();
+    if (isEmpty(changes)) return;
+    syncing = pushChanges(changes)
+        .then(() => {
+            state.lastSyncError = null;
+            onSyncResult(null);
+            // Пока запрос шёл, могли появиться новые изменения.
+            if (!isEmpty(pendingChanges())) syncTimer = setTimeout(syncNow, 300);
+        })
+        .catch((e) => {
+            state.lastSyncError = e;
+            onSyncResult(e);
+            syncTimer = setTimeout(syncNow, 30000);  // повторим позже
+        })
+        .finally(() => { syncing = null; });
+    return syncing;
+}
+
+// Для закрытия вкладки: только разница, чтобы уложиться в лимит sendBeacon.
+export function beaconPayload() {
+    const changes = pendingChanges();
+    if (isEmpty(changes)) return null;
+    const body = JSON.stringify({ upserts: changes.upserts, deletes: changes.deletes });
+    return body.length <= BEACON_LIMIT ? body : null;
 }
 
 // ---------------------------------------------------------------------------

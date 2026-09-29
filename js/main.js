@@ -6,7 +6,7 @@
 // внутрь JS-кода в атрибутах — именно там аудит нашёл XSS.
 import {
     state, loadLocal, loadFromServer, saveWords, saveSettings, setSyncResultHandler,
-    setWriteErrorHandler, rollStreak, hasPendingSync,
+    setWriteErrorHandler, rollStreak, hasPendingSync, beaconPayload,
 } from './store.js';
 import { normalizeWord } from './srs.js';
 import { stripParticle } from './norsk.js';
@@ -292,11 +292,16 @@ if ('serviceWorker' in navigator) {
 }
 
 // Если вкладку закрыли в течение 1,5 с после ответа, отложенная синхронизация
-// не успела бы уйти. sendBeacon отправляет её при закрытии.
+// не успела бы уйти. sendBeacon отправляет её при закрытии — только разницу:
+// у sendBeacon лимит 64 КБ, а весь словарь A1 весит 100–400 КБ (раньше из-за
+// этого отправка не срабатывала никогда). Если не дошло и так — изменения
+// лежат в localStorage и уйдут при следующем открытии.
 window.addEventListener('pagehide', () => {
     if (!state.loaded || !hasPendingSync()) return;
+    const body = beaconPayload();
+    if (!body) return;
     try {
-        navigator.sendBeacon?.('/api/sync', new Blob([JSON.stringify(state.words)], { type: 'application/json' }));
+        navigator.sendBeacon?.('/api/words/batch', new Blob([body], { type: 'application/json' }));
     } catch { /* ignore */ }
 });
 

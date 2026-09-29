@@ -2,6 +2,8 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const https = require('https');
 const rateLimit = require('express-rate-limit');
 const app = express();
@@ -70,16 +72,21 @@ db.exec(`
     PRAGMA busy_timeout = 5000;
 `);
 
-// Инициализация таблиц
-db.serialize(() => {
-    // Таблица settings (таймер сессии) осталась в старых базах и больше не
-    // используется: дневной таймер заменён лимитом новых слов на клиенте.
-    //
-    // Колонки videoId/startTime/endTime/subtitleText/imageUrl остались в старых
-    // базах от английской версии (видеофрагменты и фото). Сервер их больше не
-    // читает и не пишет; при следующей синхронизации они заполняются пустыми
-    // значениями по умолчанию.
-    db.run(`CREATE TABLE IF NOT EXISTS words (
+const run = (sql, params = []) => new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) { if (err) reject(err); else resolve(this); });
+});
+const all = (sql, params = []) => new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
+});
+const quiet = process.env.NODE_ENV === 'test';
+
+// Колонки, которые остались в базах от английской версии (видеофрагменты и
+// фото), и таблица settings от удалённого дневного таймера.
+const LEGACY_COLUMNS = ['videoId', 'startTime', 'endTime', 'subtitleText', 'imageUrl'];
+
+// Схема и миграции — строго по порядку. Запросы к словам ждут `ready`.
+async function migrate() {
+    await run(`CREATE TABLE IF NOT EXISTS words (
         id REAL,
         original TEXT,
         translate TEXT,
@@ -97,51 +104,95 @@ db.serialize(() => {
         pos TEXT DEFAULT '',
         gender TEXT DEFAULT '',
         forms TEXT DEFAULT '{}'
-    )`, (err) => {
-        if (err) console.error("Ошибка создания таблицы слов:", err.message);
-        else {
-            if (process.env.NODE_ENV !== 'test') console.log("Таблица слов готова: OK");
+    )`);
 
-            // Состояние SM-2 и история ответов раньше жили только в браузере:
-            // /api/sync их не сохранял, а GET /api/words при следующей загрузке
-            // перезаписывал локальные данные серверными — и интервалы каждого
-            // слова откатывались к началу.
-            const migrations = [
-                ["forgetStep",  "ALTER TABLE words ADD COLUMN forgetStep INTEGER DEFAULT 0"],
-                ["tags",        "ALTER TABLE words ADD COLUMN tags TEXT DEFAULT '[]'"],
-                ["sm2EF",       "ALTER TABLE words ADD COLUMN sm2EF REAL DEFAULT 2.5"],
-                ["sm2Interval", "ALTER TABLE words ADD COLUMN sm2Interval REAL DEFAULT 1"],
-                ["sm2Reps",     "ALTER TABLE words ADD COLUMN sm2Reps INTEGER DEFAULT 0"],
-                ["history",     "ALTER TABLE words ADD COLUMN history TEXT DEFAULT '[]'"],
-                ["addedAt",     "ALTER TABLE words ADD COLUMN addedAt REAL DEFAULT 0"],
-                ["pos",         "ALTER TABLE words ADD COLUMN pos TEXT DEFAULT ''"],
-                ["gender",      "ALTER TABLE words ADD COLUMN gender TEXT DEFAULT ''"],
-                ["forms",       "ALTER TABLE words ADD COLUMN forms TEXT DEFAULT '{}'"],
-            ];
+    // Состояние SM-2 и история ответов раньше жили только в браузере:
+    // /api/sync их не сохранял, а GET /api/words при следующей загрузке
+    // перезаписывал локальные данные серверными — и интервалы каждого
+    // слова откатывались к началу.
+    const migrations = [
+        ["forgetStep",  "ALTER TABLE words ADD COLUMN forgetStep INTEGER DEFAULT 0"],
+        ["tags",        "ALTER TABLE words ADD COLUMN tags TEXT DEFAULT '[]'"],
+        ["sm2EF",       "ALTER TABLE words ADD COLUMN sm2EF REAL DEFAULT 2.5"],
+        ["sm2Interval", "ALTER TABLE words ADD COLUMN sm2Interval REAL DEFAULT 1"],
+        ["sm2Reps",     "ALTER TABLE words ADD COLUMN sm2Reps INTEGER DEFAULT 0"],
+        ["history",     "ALTER TABLE words ADD COLUMN history TEXT DEFAULT '[]'"],
+        ["addedAt",     "ALTER TABLE words ADD COLUMN addedAt REAL DEFAULT 0"],
+        ["pos",         "ALTER TABLE words ADD COLUMN pos TEXT DEFAULT ''"],
+        ["gender",      "ALTER TABLE words ADD COLUMN gender TEXT DEFAULT ''"],
+        ["forms",       "ALTER TABLE words ADD COLUMN forms TEXT DEFAULT '{}'"],
+    ];
+    const cols = new Set((await all("PRAGMA table_info(words)")).map(c => c.name));
+    for (const [col, sql] of migrations) {
+        if (cols.has(col)) continue;
+        await run(sql);
+        if (!quiet) console.log(`Колонка '${col}' добавлена`);
+    }
 
-            db.all("PRAGMA table_info(words)", [], (err, cols) => {
-                if (err) return;
-                const existingCols = new Set(cols.map(c => c.name));
-                migrations.forEach(([col, sql]) => {
-                    if (!existingCols.has(col)) {
-                        db.run(sql, (err) => {
-                            if (!err && process.env.NODE_ENV !== 'test') console.log(`Колонка '${col}' добавлена`);
-                        });
-                    }
-                });
-            });
+    // Мёртвые данные английской версии. DROP COLUMN есть в SQLite с 3.35.
+    for (const col of LEGACY_COLUMNS) {
+        if (!cols.has(col)) continue;
+        try {
+            await run(`ALTER TABLE words DROP COLUMN ${col}`);
+            if (!quiet) console.log(`Старая колонка '${col}' удалена`);
+        } catch (err) {
+            console.warn(`Не удалось удалить колонку '${col}':`, err.message);
         }
-    });
+    }
+    await run('DROP TABLE IF EXISTS settings');
 
-    db.run("CREATE INDEX IF NOT EXISTS idx_words_next_review ON words(nextReview)");
+    // Инкрементальная синхронизация обновляет слова по id, поэтому id должен
+    // быть уникальным. Старая полная перезапись таблицы могла оставить дубли
+    // только при сбое — оставляем самую свежую строку.
+    await run('DELETE FROM words WHERE rowid NOT IN (SELECT MAX(rowid) FROM words GROUP BY id)');
+    await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_words_id ON words(id)');
+    await run('CREATE INDEX IF NOT EXISTS idx_words_next_review ON words(nextReview)');
+    if (!quiet) console.log('База готова.');
+}
+
+const ready = migrate();
+ready.catch(err => console.error('Миграция базы не удалась:', err.message));
+
+// Запросы к словам ждут окончания миграции.
+app.use(['/api/words', '/api/sync'], (req, res, next) => {
+    ready.then(() => next(), (err) => res.status(500).json({ error: 'database not ready: ' + err.message }));
 });
 
 // SW — явный маршрут с правильным Content-Type и заголовками
+// Раньше версию кеша в sw.js приходилось поднимать руками при каждом изменении
+// фронтенда, а список файлов для кеша — дописывать. Забыл — и браузер ещё один
+// запуск показывал старую версию. Теперь сервер подставляет и то и другое:
+// версия — хеш содержимого всех файлов фронтенда, список — что лежит на диске.
+function precacheList() {
+    const list = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+    for (const [dir, ext] of [['css', '.css'], ['js', '.js'], ['decks', '.txt']]) {
+        const files = fs.readdirSync(path.join(__dirname, dir))
+            .filter(f => f.endsWith(ext) && PUBLIC_PATTERN.test(`${dir}/${f}`))
+            .sort();
+        for (const f of files) list.push(`/${dir}/${f}`);
+    }
+    return list;
+}
+
+function assetVersion(list, swSource) {
+    const hash = crypto.createHash('sha1').update(swSource);
+    for (const url of list) {
+        const file = url === '/' ? 'index.html' : url.slice(1);
+        hash.update(url).update(fs.readFileSync(path.join(__dirname, file)));
+    }
+    return hash.digest('hex').slice(0, 12);
+}
+
 app.get('/sw.js', (req, res) => {
-    res.setHeader('Content-Type', 'application/javascript');
+    const source = fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8');
+    const list = precacheList();
+    const body = source
+        .replace('__ASSET_VERSION__', assetVersion(list, source))
+        .replace('/*__PRECACHE__*/[]', JSON.stringify(list, null, 4));
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Service-Worker-Allowed', '/');
-    res.sendFile(path.join(__dirname, 'sw.js'));
+    res.send(body);
 });
 
 // Браузеры запрашивают /favicon.ico безусловно; отдаём PWA-иконку,
@@ -320,87 +371,117 @@ function validateWord(w) {
     );
 }
 
-// Каждая синхронизация — это одна транзакция DELETE + INSERT. Два запроса,
-// пришедшие одновременно, раньше пытались открыть вторую транзакцию внутри
-// первой и падали с SQLITE_ERROR. Теперь они выстраиваются в очередь.
-let syncQueue = Promise.resolve();
+// Запись в базу — одна транзакция. Одновременные запросы раньше пытались
+// открыть транзакцию внутри транзакции и падали с SQLITE_ERROR, поэтому все
+// записи идут через очередь.
+let writeQueue = Promise.resolve();
 
-function replaceAllWords(words) {
-    return new Promise((resolve, reject) => {
-        let failed = null;
-        const fail = (err) => { if (err && !failed) failed = err; };
+const UPSERT_SQL = `
+    INSERT INTO words (id, original, translate, example, exampleTranslate, level,
+                       nextReview, forgetStep, tags, sm2EF, sm2Interval, sm2Reps,
+                       history, addedAt, pos, gender, forms)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+        original = excluded.original, translate = excluded.translate,
+        example = excluded.example, exampleTranslate = excluded.exampleTranslate,
+        level = excluded.level, nextReview = excluded.nextReview,
+        forgetStep = excluded.forgetStep, tags = excluded.tags,
+        sm2EF = excluded.sm2EF, sm2Interval = excluded.sm2Interval,
+        sm2Reps = excluded.sm2Reps, history = excluded.history,
+        addedAt = excluded.addedAt, pos = excluded.pos,
+        gender = excluded.gender, forms = excluded.forms`;
 
-        db.serialize(() => {
-            db.run("BEGIN TRANSACTION", fail);
-            db.run("DELETE FROM words", fail);
-
-            const stmt = db.prepare(`
-                INSERT INTO words (id, original, translate, example, exampleTranslate, level,
-                                   nextReview, forgetStep, tags, sm2EF, sm2Interval, sm2Reps,
-                                   history, addedAt, pos, gender, forms)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `);
-
-            words.forEach(w => {
-                if (!w.original || !w.translate) return;
-                stmt.run(
-                    w.id,
-                    String(w.original),
-                    String(w.translate),
-                    String(w.example || ''),
-                    String(w.exampleTranslate || ''),
-                    parseInt(w.level) || 0,
-                    Number(w.nextReview) || Date.now(),
-                    parseInt(w.forgetStep) || 0,
-                    JSON.stringify(Array.isArray(w.tags) ? w.tags : []),
-                    Number(w.sm2EF) || 2.5,
-                    Number(w.sm2Interval) || 1,
-                    parseInt(w.sm2Reps) || 0,
-                    JSON.stringify(Array.isArray(w.history) ? w.history.slice(-30) : []),
-                    Number(w.addedAt) || 0,
-                    w.pos || '',
-                    w.pos === 'noun' ? (w.gender || '') : '',
-                    JSON.stringify(parseForms(w.forms)),
-                    fail
-                );
-            });
-
-            stmt.finalize((err) => {
-                fail(err);
-                if (failed) {
-                    db.run("ROLLBACK", () => reject(failed));
-                } else {
-                    db.run("COMMIT", (commitErr) => commitErr ? reject(commitErr) : resolve());
-                }
-            });
-        });
-    });
+function wordParams(w) {
+    return [
+        w.id,
+        String(w.original),
+        String(w.translate),
+        String(w.example || ''),
+        String(w.exampleTranslate || ''),
+        parseInt(w.level) || 0,
+        Number(w.nextReview) || Date.now(),
+        parseInt(w.forgetStep) || 0,
+        JSON.stringify(Array.isArray(w.tags) ? w.tags : []),
+        Number(w.sm2EF) || 2.5,
+        Number(w.sm2Interval) || 1,
+        parseInt(w.sm2Reps) || 0,
+        JSON.stringify(Array.isArray(w.history) ? w.history.slice(-30) : []),
+        Number(w.addedAt) || 0,
+        POS_VALUES.has(w.pos) ? (w.pos || '') : '',
+        w.pos === 'noun' ? (w.gender || '') : '',
+        JSON.stringify(parseForms(w.forms)),
+    ];
 }
 
-app.post('/api/sync', (req, res) => {
+// { replaceAll, upserts, deletes } → одна транзакция.
+function writeWords({ replaceAll = false, upserts = [], deletes = [] }) {
+    const job = writeQueue.then(async () => {
+        await run('BEGIN IMMEDIATE');
+        try {
+            if (replaceAll) await run('DELETE FROM words');
+            for (const id of deletes) await run('DELETE FROM words WHERE id = ?', [id]);
+            for (const w of upserts) {
+                if (w.original && w.translate) await run(UPSERT_SQL, wordParams(w));
+            }
+            await run('COMMIT');
+        } catch (err) {
+            await run('ROLLBACK').catch(() => {});
+            throw err;
+        }
+    });
+    writeQueue = job.catch(() => {});
+    return job;
+}
+
+const MAX_WORDS = 10000;
+
+// Инкрементальная синхронизация: только изменённые и удалённые слова.
+app.post('/api/words/batch', async (req, res) => {
+    const { upserts = [], deletes = [] } = req.body ?? {};
+    if (!Array.isArray(upserts) || !Array.isArray(deletes)) {
+        return res.status(400).json({ error: 'upserts and deletes must be arrays' });
+    }
+    if (upserts.length > MAX_WORDS || deletes.length > MAX_WORDS) {
+        return res.status(413).json({ error: 'Payload too large' });
+    }
+    if (!upserts.every(validateWord)) {
+        return res.status(400).json({ error: 'Invalid word format' });
+    }
+    if (!deletes.every(id => typeof id === 'number' && Number.isFinite(id))) {
+        return res.status(400).json({ error: 'Invalid id in deletes' });
+    }
+    try {
+        await writeWords({ upserts, deletes });
+        if (!quiet && (upserts.length || deletes.length)) {
+            console.log(`Синхронизировано: изменено ${upserts.length}, удалено ${deletes.length}`);
+        }
+        res.json({ status: 'success', upserted: upserts.length, deleted: deletes.length });
+    } catch (err) {
+        console.error('Ошибка синхронизации:', err.message);
+        res.status(500).json({ error: 'Ошибка синхронизации' });
+    }
+});
+
+// Полная замена словаря. Новый клиент им не пользуется, но страница, открытая
+// до обновления (или закешированная service worker'ом), ещё может его вызвать.
+app.post('/api/sync', async (req, res) => {
     if (!Array.isArray(req.body)) {
         return res.status(400).json({ error: "Invalid request format" });
     }
-
-    if (req.body.length > 10000) {
+    if (req.body.length > MAX_WORDS) {
         return res.status(413).json({ error: "Payload too large" });
     }
-
     if (!req.body.every(validateWord)) {
         return res.status(400).json({ error: "Invalid word format" });
     }
-
-    const words = req.body;
-    const job = syncQueue.then(() => replaceAllWords(words));
-    syncQueue = job.catch(() => {});
-
-    job.then(() => {
-        if (process.env.NODE_ENV !== 'test') console.log(`Синхронизировано слов: ${words.length}`);
-        res.json({ status: "success", count: words.length });
-    }).catch((err) => {
+    try {
+        await writeWords({ replaceAll: true, upserts: req.body });
+        if (!quiet) console.log(`Синхронизировано слов (полная замена): ${req.body.length}`);
+        res.json({ status: "success", count: req.body.length });
+    } catch (err) {
         console.error("Ошибка синхронизации:", err.message);
         res.status(500).json({ error: "Ошибка синхронизации" });
-    });
+    }
 });
 
 // Слушать порт только при прямом запуске (`node server.js`).
@@ -418,4 +499,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { app, db, validateWord };
+module.exports = { app, db, validateWord, ready };

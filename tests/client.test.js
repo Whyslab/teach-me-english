@@ -164,6 +164,47 @@ test('selectSession caps new words per day but never caps reviews', async () => 
 });
 
 // ---------------------------------------------------------------------------
+// sync.js
+// ---------------------------------------------------------------------------
+test('computeChanges finds new, changed and deleted words', async () => {
+    const { computeChanges, fingerprint } = await load('sync.js');
+    const a = { id: 1, original: 'hus', level: 0 };
+    const b = { id: 2, original: 'bok', level: 0 };
+    const synced = new Map([[1, fingerprint(a)], [2, fingerprint(b)], [3, fingerprint({ id: 3 })]]);
+    const changedB = { ...b, level: 2 };
+    const c = { id: 4, original: 'katt' };
+    const ch = computeChanges([a, changedB, c], synced);
+    assert.deepStrictEqual(ch.upserts.map(w => w.id), [2, 4]);
+    assert.deepStrictEqual(ch.deletes, [3]);
+});
+
+test('applyConfirmed keeps a word dirty if it changed while the request was in flight', async () => {
+    const { computeChanges, applyConfirmed, snapshotFor, isEmpty } = await load('sync.js');
+    const w = { id: 1, level: 0 };
+    const synced = new Map();
+    const sent = snapshotFor(computeChanges([w], synced));
+    w.level = 1;                       // ответ, пока запрос в пути
+    applyConfirmed(synced, sent);
+    assert.equal(isEmpty(computeChanges([w], synced)), false, 'the newer version must still be sent');
+    applyConfirmed(synced, snapshotFor(computeChanges([w], synced)));
+    assert.equal(isEmpty(computeChanges([w], synced)), true);
+});
+
+test('one answer produces a payload far below the sendBeacon limit', async () => {
+    const { computeChanges, fingerprint, BEACON_LIMIT } = await load('sync.js');
+    const { parseImport } = await load('format.js');
+    const { normalizeWord, sm2 } = await load('srs.js');
+    const { words } = parseImport(fs.readFileSync(path.join(ROOT, 'decks', 'a1.txt'), 'utf8'));
+    const deck = words.map((w, i) => normalizeWord({ ...w, id: i + 1 }));
+    for (const w of deck) for (let k = 0; k < 30; k++) sm2(w, 2, k);
+    const synced = new Map(deck.map(w => [w.id, fingerprint(w)]));
+    assert.ok(JSON.stringify(deck).length > BEACON_LIMIT, 'the whole deck does not fit — that was the bug');
+    sm2(deck[0], 3, 99);
+    const body = JSON.stringify(computeChanges(deck, synced));
+    assert.ok(body.length < 3000, `one answer is ${body.length} bytes`);
+});
+
+// ---------------------------------------------------------------------------
 // format.js
 // ---------------------------------------------------------------------------
 test('parseImportLine reads gender and forms', async () => {
@@ -255,13 +296,6 @@ test('every element id the modules look up exists in the markup', () => {
         }
     }
     assert.deepStrictEqual(missing, []);
-});
-
-test('the service worker precaches every frontend module', () => {
-    const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
-    for (const f of fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js'))) {
-        assert.ok(sw.includes(`'/js/${f}'`), `sw.js does not precache js/${f}`);
-    }
 });
 
 test('speech is Norwegian and the removed features stay removed', () => {
