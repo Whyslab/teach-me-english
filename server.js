@@ -22,7 +22,7 @@ app.use(cors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'X-User-Id']
+    allowedHeaders: ['Content-Type']
 }));
 // Лимит был 50 МБ — ради фото в base64. Фото больше нет, а текстовый словарь
 // даже на 10 000 слов укладывается в пару мегабайт.
@@ -32,18 +32,24 @@ app.use(express.json({ limit: '5mb' }));
 // базу со словарём, GET /server.js — исходники, GET /deploy/... — скрипты.
 // Теперь наружу видны только файлы, из которых состоит фронтенд.
 const PUBLIC_FILES = new Set([
-    'index.html', 'app.js', 'manifest.json', 'screenshot.png',
+    'index.html', 'manifest.json', 'screenshot.png',
     ...[72, 96, 128, 144, 152, 192, 384, 512].map(n => `icon-${n}.png`)
 ]);
+// Модули фронтенда, стили и колоды. Имя — только латиница, цифры и дефис,
+// без подкаталогов и точек: путь не может выйти за пределы этих папок.
+const PUBLIC_PATTERN = /^(?:js\/[a-z0-9-]+\.js|css\/[a-z0-9-]+\.css|decks\/[a-z0-9-]+\.txt)$/;
 
 app.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
     const name = req.path.replace(/^\/+/, '');
-    if (!PUBLIC_FILES.has(name)) return next();
+    if (!PUBLIC_FILES.has(name) && !PUBLIC_PATTERN.test(name)) return next();
     const headers = {};
     if (name === 'manifest.json') headers['Cache-Control'] = 'max-age=86400';
     else if (/^icon-\d+\.png$/.test(name)) headers['Cache-Control'] = 'max-age=604800, immutable';
-    res.sendFile(path.join(__dirname, name), { headers, dotfiles: 'deny' });
+    if (name.startsWith('decks/')) headers['Content-Type'] = 'text/plain; charset=utf-8';
+    res.sendFile(path.join(__dirname, name), { headers, dotfiles: 'deny' }, (err) => {
+        if (err && !res.headersSent) next();
+    });
 });
 
 const limiter = rateLimit({
@@ -66,15 +72,9 @@ db.exec(`
 
 // Инициализация таблиц
 db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS settings (
-        key TEXT PRIMARY KEY,
-        value TEXT
-    )`, (err) => {
-        if (!err) {
-            db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('timeLeft', '3600')");
-        }
-    });
-
+    // Таблица settings (таймер сессии) осталась в старых базах и больше не
+    // используется: дневной таймер заменён лимитом новых слов на клиенте.
+    //
     // Колонки videoId/startTime/endTime/subtitleText/imageUrl остались в старых
     // базах от английской версии (видеофрагменты и фото). Сервер их больше не
     // читает и не пишет; при следующей синхронизации они заполняются пустыми
@@ -93,7 +93,10 @@ db.serialize(() => {
         sm2Interval REAL DEFAULT 1,
         sm2Reps INTEGER DEFAULT 0,
         history TEXT DEFAULT '[]',
-        addedAt REAL DEFAULT 0
+        addedAt REAL DEFAULT 0,
+        pos TEXT DEFAULT '',
+        gender TEXT DEFAULT '',
+        forms TEXT DEFAULT '{}'
     )`, (err) => {
         if (err) console.error("Ошибка создания таблицы слов:", err.message);
         else {
@@ -111,6 +114,9 @@ db.serialize(() => {
                 ["sm2Reps",     "ALTER TABLE words ADD COLUMN sm2Reps INTEGER DEFAULT 0"],
                 ["history",     "ALTER TABLE words ADD COLUMN history TEXT DEFAULT '[]'"],
                 ["addedAt",     "ALTER TABLE words ADD COLUMN addedAt REAL DEFAULT 0"],
+                ["pos",         "ALTER TABLE words ADD COLUMN pos TEXT DEFAULT ''"],
+                ["gender",      "ALTER TABLE words ADD COLUMN gender TEXT DEFAULT ''"],
+                ["forms",       "ALTER TABLE words ADD COLUMN forms TEXT DEFAULT '{}'"],
             ];
 
             db.all("PRAGMA table_info(words)", [], (err, cols) => {
@@ -216,51 +222,29 @@ app.get('/api/tatoeba', limiter, (req, res) => {
     proxyReq.end();
 });
 
-// Верхняя граница таймера сессии — сутки. Больше не бывает осмысленным,
-// а без границы в базу попадало любое число.
-const MAX_TIMER_SECONDS = 24 * 60 * 60;
-
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// --- API ДЛЯ ТАЙМЕРА ---
-
-app.get('/api/timer', (req, res) => {
-    db.get("SELECT value FROM settings WHERE key = 'timeLeft'", (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        const timeLeft = row ? parseInt(row.value) : 3600;
-        res.json({ timeLeft: timeLeft > 0 ? timeLeft : 3600 });
-    });
-});
-
-app.post('/api/timer', (req, res) => {
-    // Раньше значение писалось в базу как пришло. Строка, объект, отрицательное
-    // число — всё сохранялось, и GET /api/timer потом отдавал NaN.
-    const { timeLeft } = req.body ?? {};
-    const seconds = Number(timeLeft);
-
-    if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_TIMER_SECONDS) {
-        return res.status(400).json({
-            error: `timeLeft must be a number between 0 and ${MAX_TIMER_SECONDS}`
-        });
-    }
-
-    db.run("UPDATE settings SET value = ? WHERE key = 'timeLeft'",
-        [String(Math.floor(seconds))], (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ status: "success" });
-        });
-});
-
-// --- РЕГИСТРАЦИЯ ПОЛЬЗОВАТЕЛЯ (однопользовательский режим) ---
-// Клиент вызывает POST /api/register чтобы получить стабильный userId.
-// У нас один пользователь — просто возвращаем фиксированный ID.
-app.post('/api/register', (req, res) => {
-    res.json({ userId: 'local-user-001', status: 'ok' });
-});
-
 // --- API ДЛЯ СЛОВ ---
+
+const POS_VALUES = new Set(['', 'noun', 'verb', 'other']);
+const GENDER_VALUES = new Set(['', 'm', 'f', 'n']);
+const FORM_KEYS = new Set(['defSg', 'indefPl', 'defPl', 'present', 'past', 'perfect']);
+
+function parseForms(raw) {
+    try {
+        const v = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw;
+        if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+        const out = {};
+        for (const [k, val] of Object.entries(v)) {
+            if (FORM_KEYS.has(k) && typeof val === 'string' && val) out[k] = val.slice(0, 60);
+        }
+        return out;
+    } catch {
+        return {};
+    }
+}
 
 function parseJsonArray(raw) {
     try {
@@ -288,7 +272,10 @@ function rowToWord(row) {
         sm2Interval: Number(row.sm2Interval) || 1,
         sm2Reps: Number(row.sm2Reps) || 0,
         history: parseJsonArray(row.history),
-        addedAt: Number(row.addedAt) || 0
+        addedAt: Number(row.addedAt) || 0,
+        pos: POS_VALUES.has(row.pos) ? row.pos : '',
+        gender: GENDER_VALUES.has(row.gender) ? row.gender : '',
+        forms: parseForms(row.forms)
     };
 }
 
@@ -312,6 +299,11 @@ function validateWord(w) {
         (Array.isArray(w.tags) &&
             w.tags.every(t => typeof t === 'string' && t.length <= 50));
 
+    const grammarOk =
+        (w.pos === undefined || POS_VALUES.has(w.pos)) &&
+        (w.gender === undefined || GENDER_VALUES.has(w.gender)) &&
+        (w.forms === undefined || w.forms === null || (typeof w.forms === 'object' && !Array.isArray(w.forms)));
+
     const historyOk =
         w.history === undefined ||
         w.history === null ||
@@ -321,7 +313,7 @@ function validateWord(w) {
         typeof w.id === 'number' && Number.isFinite(w.id) &&
         typeof w.original === 'string' && w.original.length <= 100 &&
         typeof w.translate === 'string' && w.translate.length <= 500 &&
-        tagsOk && historyOk
+        tagsOk && historyOk && grammarOk
     );
 }
 
@@ -342,8 +334,8 @@ function replaceAllWords(words) {
             const stmt = db.prepare(`
                 INSERT INTO words (id, original, translate, example, exampleTranslate, level,
                                    nextReview, forgetStep, tags, sm2EF, sm2Interval, sm2Reps,
-                                   history, addedAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                   history, addedAt, pos, gender, forms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `);
 
             words.forEach(w => {
@@ -363,6 +355,9 @@ function replaceAllWords(words) {
                     parseInt(w.sm2Reps) || 0,
                     JSON.stringify(Array.isArray(w.history) ? w.history.slice(-30) : []),
                     Number(w.addedAt) || 0,
+                    w.pos || '',
+                    w.pos === 'noun' ? (w.gender || '') : '',
+                    JSON.stringify(parseForms(w.forms)),
                     fail
                 );
             });

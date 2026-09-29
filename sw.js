@@ -5,27 +5,31 @@
 
 // Версию нужно поднимать при каждом изменении фронтенда, иначе браузер
 // ещё один запуск будет отдавать старые app.js/index.html из кеша.
-const VERSION    = 'norsk-v1';
+const VERSION    = 'norsk-v2';
 const CACHE_STATIC  = `${VERSION}-static`;
 const CACHE_DYNAMIC = `${VERSION}-dynamic`;
 
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/app.js',
+    '/css/app.css',
+    '/js/main.js', '/js/util.js', '/js/norsk.js', '/js/srs.js', '/js/store.js', '/js/ui.js',
+    '/js/themes.js', '/js/wordform.js', '/js/list.js', '/js/stats.js', '/js/training.js',
+    '/js/format.js', '/js/io.js', '/js/tatoeba.js',
+    '/decks/a1.txt',
     '/manifest.json',
     '/icon-192.png',
     '/icon-512.png',
-    'https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap',
 ];
 
 // ── Установка: кешируем всю статику ──────────────────
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_STATIC)
-            .then(cache => cache.addAll(STATIC_ASSETS.map(url => new Request(url, { mode: 'cors' })))
-                .catch(err => console.warn('[SW] Some assets failed to cache:', err))
-            )
+            // addAll атомарен: один недоступный адрес — и не кешируется ничего.
+            // Поэтому здесь только свои файлы; шрифты Google попадают в кеш при первом запросе.
+            .then(cache => cache.addAll(STATIC_ASSETS))
+            .catch(err => console.warn('[SW] Some assets failed to cache:', err))
             .then(() => self.skipWaiting())
     );
 });

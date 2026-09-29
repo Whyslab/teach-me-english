@@ -43,7 +43,8 @@ jobs:
 
       - name: Syntax check every JavaScript file
         run: |
-          for f in server.js app.js sw.js; do
+          # js/ — ES-модули (js/package.json: "type": "module").
+          for f in server.js sw.js js/*.js; do
             node --check "$f"
           done
 

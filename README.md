@@ -21,15 +21,16 @@ Installable as a PWA and fully usable with no network connection.
 
 ## ✨ What it does
 
-* **SM-2 spaced repetition** (the Anki algorithm) with four grades — Again, Hard, Good, Easy. Each word's ease factor, interval, repetition count and answer history are persisted server-side.
-* **Five training modes:** flashcards, spelling (see the Norwegian word, type the translation — any of several comma-separated translations is accepted), multiple choice, marathon (no timer) and mistakes-only.
-* **Norwegian speech.** Browser speech synthesis with an explicitly selected `nb`/`no` voice; the app warns if the OS has none installed.
-* **æ ø å buttons** for people without a Norwegian keyboard layout (Shift for capitals).
-* **Auto-translation** Norwegian → Russian while adding a word (MyMemory).
-* **Example sentences from Tatoeba** — Bokmål ↔ Russian pairs, proxied server-side for CORS.
-* **Progress you can see:** per-level learning curve, three-month activity heatmap, seven-day chart, review forecast, XP, streaks, weekly challenge, achievements.
-* **Works offline.** A service worker caches the shell; the deck lives in the browser and syncs back when the server is reachable.
-* **Your data stays yours:** TXT/CSV/Anki export, full JSON backup and restore, text import.
+* **SM-2 spaced repetition** (the Anki algorithm), grades on keys 1–4. Ease, interval, repetitions and answer history are persisted server-side.
+* **A daily new-word limit** (15 by default, like Anki). Reviews are never capped, so importing a large deck does not turn into a review avalanche a week later.
+* **Grammar:** noun gender (`en` / `ei` / `et`, colour-coded) and inflections — *et hus — huset — hus — husene*, *å reise — reiser — reiste — har reist*. A "⚡ regular forms" button fills in the regular patterns.
+* **Training modes:** flashcards · writing NO→RU · writing RU→NO · multiple choice · **guess the gender** · **inflection drill** · hard words · marathon (no limit).
+* **A bundled Norsk A1 deck** — 275 high-frequency words with gender, forms, example sentences and Russian translations, one click in the Import dialog (`decks/a1.txt`, plain import format).
+* **Pronunciation:** browser speech with an `nb-NO` voice, plus links to [Forvo](https://forvo.com/languages/no/) (native speakers) and [Ordbøkene](https://ordbokene.no/) (the official Bokmål dictionary).
+* **æ ø å buttons**; answers that are right except for the special letters are flagged separately.
+* **Auto-translation** Norwegian → Russian and **Tatoeba examples** (Bokmål ↔ Russian).
+* **Stats:** streak with a daily goal, review forecast, level curve, activity heatmap, hard words, per-word history.
+* **Offline PWA**, TXT/CSV/Anki export, JSON backup and restore, **4 themes** (system, dark, light, Nord).
 
 ---
 
@@ -39,7 +40,7 @@ Installable as a PWA and fully usable with no network connection.
 |---|---|
 | Backend | Node.js + Express 5 |
 | Storage | SQLite (WAL mode) via `sqlite3` |
-| Frontend | Vanilla JS, no framework |
+| Frontend | Native ES modules in `js/`, no framework, no bundler |
 | Offline | Service worker + Web App Manifest |
 | Hardening | Static file allow-list, `express-rate-limit`, CORS allow-list |
 
@@ -62,10 +63,11 @@ Then open <http://localhost:3000>. `vocab.db` is created on first run; older dat
 
 ### Import format
 
-One word per line: `word|translation|example|example translation|tags`. Only the first two fields are required.
+One word per line: `word|translation|example|example translation|tags|gender|forms`. Only the first two fields are required. Gender is `en`/`ei`/`et` for nouns or `v` for verbs; forms are comma-separated (noun: definite singular, indefinite plural, definite plural; verb: present, past, perfect). TXT export writes the same format.
 
 ```
-hus|дом|Huset er stort.|Дом большой.|A1,hjem
+hus|дом|Huset er stort.|Дом большой.|A1,hjem|et|huset,hus,husene
+å reise|путешествовать||||v|reiser,reiste,har reist
 eple|яблоко
 ```
 
@@ -77,11 +79,9 @@ eple|яблоко
 |---|---|---|
 | `GET` | `/api/words` | The deck, including SM-2 state and answer history |
 | `POST` | `/api/sync` | Replace the deck with the client's copy (queued, transactional) |
-| `POST` | `/api/register` | Returns the fixed single-user id |
 | `GET` | `/api/tatoeba?word=…` | Bokmål → Russian example sentences (CORS proxy) |
-| `GET`/`POST` | `/api/timer` | Session timer state |
 
-Only the frontend files (`index.html`, `app.js`, `sw.js`, `manifest.json`, icons) are served statically — the database, sources and deploy scripts are not.
+Only the frontend is served statically — `index.html`, `sw.js`, `manifest.json`, icons, and files matching `js/*.js`, `css/*.css`, `decks/*.txt` (flat names only). The database, server sources and deploy scripts are not.
 
 > **There is no authentication.** Every route is open to anything that can reach the port. Fine on `localhost` or a trusted home network; do not port-forward this to the internet.
 
@@ -93,12 +93,12 @@ Only the frontend files (`index.html`, `app.js`, `sw.js`, `manifest.json`, icons
 words (
     id, original, translate, example, exampleTranslate,
     level, nextReview, forgetStep, tags,
-    sm2EF, sm2Interval, sm2Reps, history, addedAt
+    sm2EF, sm2Interval, sm2Reps, history, addedAt,
+    pos, gender, forms            -- part of speech, en/ei/et, JSON of inflections
 )
-settings (key, value)
 ```
 
-Databases created by the earlier English version also carry `videoId`, `startTime`, `endTime`, `subtitleText` and `imageUrl`. They are left in place so the migration is non-destructive, but they are no longer read or written.
+Databases created by the earlier English version also carry `videoId`, `startTime`, `endTime`, `subtitleText`, `imageUrl` and a `settings` table for the removed daily timer. They are left in place so the migration is non-destructive, but they are no longer read or written.
 
 ---
 
@@ -109,7 +109,7 @@ npm install
 npm test
 ```
 
-58 tests, run against a throwaway SQLite file. `tests/api.test.js` covers validation, the sync round-trip (including SM-2 state), concurrent syncs, the static allow-list, the Tatoeba input checks and timer bounds. `tests/client.test.js` covers the pure helpers in `app.js` (escaping, spelling-answer matching) plus static regressions — no duplicate function declarations, every inline handler in `index.html` points at a real function, speech is Norwegian.
+72 tests, run against a throwaway SQLite file. `tests/api.test.js` covers validation, the sync round-trip (SM-2 state, gender and forms), concurrent syncs, the static allow-list including traversal attempts, and the Tatoeba input checks. `tests/client.test.js` imports the DOM-free modules directly — SM-2, session selection with the new-word limit, answer checking (articles, æ ø å, alternative translations), regular-form guessing, the import/export format, the A1 deck's integrity — and adds static checks on the markup: every `data-action` has a handler, every looked-up id exists, no inline handlers or scripts, and the service worker precaches every module.
 
 CI runs them on Node 20 and 22, plus a static pass that syntax-checks every JavaScript file and asserts every icon the manifest declares exists.
 
@@ -147,7 +147,6 @@ journalctl --user -u teach-me-norwegian -f
 
 ## ⚠️ Known rough edges
 
-* `app.js` is still a single large browser script. Splitting it into modules is the main structural debt.
 * `POST /api/sync` replaces the whole table; with two devices the last sync wins.
 * The Tatoeba and MyMemory language codes (`nob`, `nb-NO`) follow the services' documentation but were not verified against the live APIs during the migration.
 

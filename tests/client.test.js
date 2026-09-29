@@ -1,138 +1,276 @@
-// Тесты чистых функций из app.js.
-//
-// app.js писался как один браузерный скрипт без модульной системы, поэтому
-// подключить его через require() нельзя: он сразу лезет в document. Вместо
-// этого вырезаем нужные объявления функций по фигурным скобкам и исполняем их
-// изолированно. Способ грубоватый, но он даёт покрытие ровно там, где раньше
-// его не было вообще, не требуя переписывать весь фронтенд.
+// Тесты логики фронтенда. Модули в js/ — это ES-модули без DOM (кроме
+// интерфейсных), поэтому чистые функции импортируются напрямую.
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const ROOT = path.join(__dirname, '..');
+const load = (name) => import(path.join(ROOT, 'js', name));
 
-function extract(names) {
-    let code = '';
-    for (const name of names) {
-        const start = SRC.indexOf(`function ${name}(`);
-        assert.notStrictEqual(start, -1, `функция ${name} не найдена в app.js`);
-        let i = SRC.indexOf('{', start);
-        let depth = 0;
-        do {
-            if (SRC[i] === '{') depth++;
-            else if (SRC[i] === '}') depth--;
-            i++;
-        } while (depth > 0);
-        code += SRC.slice(start, i) + '\n';
-    }
-    code += `module.exports = {${names.join(',')}};`;
-    const mod = { exports: {} };
-    new Function('module', 'URLSearchParams', code)(mod, URLSearchParams);
-    return mod.exports;
-}
-
-const { escapeHtml, escapeAttr, escapeJsString, jsAttr, normalizeAnswer, isSpellingMatch } =
-    extract(['escapeHtml', 'escapeAttr', 'escapeJsString', 'jsAttr', 'normalizeAnswer', 'isSpellingMatch']);
-
-test('escapeHtml neutralises a script tag', () => {
+// ---------------------------------------------------------------------------
+// util.js
+// ---------------------------------------------------------------------------
+test('escapeHtml neutralises a script tag and survives null', async () => {
+    const { escapeHtml } = await load('util.js');
     assert.equal(escapeHtml('<script>alert(1)</script>'), '&lt;script&gt;alert(1)&lt;/script&gt;');
-});
-
-test('escapeHtml replaces the ampersand first, so nothing is double-encoded', () => {
     assert.equal(escapeHtml('&lt;'), '&amp;lt;');
-});
-
-test('escapeHtml survives null and undefined', () => {
     assert.equal(escapeHtml(null), '');
-    assert.equal(escapeHtml(undefined), '');
 });
 
-test('escapeAttr closes the quote-breakout that escapeHtml alone leaves open', () => {
-    assert.equal(escapeAttr('" onerror="alert(1)'), '&quot; onerror=&quot;alert(1)');
-    assert.equal(escapeAttr("' onerror='alert(1)"), '&#39; onerror=&#39;alert(1)');
+test('escapeAttr closes the quote breakout', async () => {
+    const { escapeAttr } = await load('util.js');
+    assert.equal(escapeAttr('" onerror="x'), '&quot; onerror=&quot;x');
+    assert.equal(escapeAttr("'"), '&#39;');
 });
 
-test('escapeJsString escapes quotes and backslashes', () => {
-    assert.equal(escapeJsString("it's"), "it\\'s");
-    assert.equal(escapeJsString('a\\b'), 'a\\\\b');
-    assert.equal(escapeJsString('say "hi"'), 'say \\"hi\\"');
+test('highlightMatch escapes both the text and the match', async () => {
+    const { highlightMatch } = await load('util.js');
+    assert.equal(highlightMatch('<b>hus</b>', 'hus'), '&lt;b&gt;<mark>hus</mark>&lt;/b&gt;');
+    assert.equal(highlightMatch('a.b', '.'), 'a<mark>.</mark>b', 'regex specials are literal');
 });
 
-test('escapeJsString breaks up a closing script tag', () => {
-    // Иначе строка внутри inline-обработчика могла бы закрыть сам <script>.
-    assert.equal(escapeJsString('</script>'), '\\x3C/script>');
-});
-
-test('escapeJsString flattens newlines, which would end the statement', () => {
-    assert.equal(escapeJsString('a\nb'), 'a b');
-    assert.equal(escapeJsString('a\r\nb'), 'a b');
-});
-
-test('jsAttr keeps a double quote from closing the onclick attribute', () => {
-    // escapeJsString даёт \" — для HTML это не экранирование, атрибут закрывался.
-    assert.ok(!jsAttr('a"b').includes('"'));
-    assert.ok(!jsAttr("a'b").includes("'"));
-    assert.ok(!jsAttr('<img>').includes('<'));
-});
-
-test('isSpellingMatch ignores case, extra spaces and trailing punctuation', () => {
-    assert.ok(isSpellingMatch('  Дом. ', 'дом'));
-    assert.ok(isSpellingMatch('ДОМ', 'дом'));
-});
-
-test('isSpellingMatch treats ё and е as the same letter', () => {
-    assert.ok(isSpellingMatch('еж', 'ёж'));
-});
-
-test('isSpellingMatch accepts any of several listed translations', () => {
-    assert.ok(isSpellingMatch('здание', 'дом, здание'));
-    assert.ok(isSpellingMatch('жильё', 'дом; жильё'));
-    assert.ok(isSpellingMatch('дом', 'дом / здание'));
-});
-
-test('isSpellingMatch rejects a wrong or empty answer', () => {
-    assert.ok(!isSpellingMatch('кот', 'дом, здание'));
-    assert.ok(!isSpellingMatch('', 'дом'));
-    assert.ok(!isSpellingMatch('   ', 'дом'));
-});
-
-test('normalizeAnswer collapses whitespace', () => {
-    assert.equal(normalizeAnswer('  god   morgen  '), 'god morgen');
+test('plural picks the Russian form', async () => {
+    const { plural } = await load('util.js');
+    const f = ['слово', 'слова', 'слов'];
+    assert.deepStrictEqual([1, 2, 5, 11, 21, 22, 25, 111].map(n => plural(n, f)),
+        ['слово', 'слова', 'слов', 'слов', 'слово', 'слова', 'слов', 'слов']);
 });
 
 // ---------------------------------------------------------------------------
-// Регрессии, найденные при аудите. app.js — один скрипт без модулей, поэтому
-// часть проверок — статические, по исходнику.
+// norsk.js
 // ---------------------------------------------------------------------------
-test('no function is declared twice (a later copy silently overrides the first)', () => {
-    // Вторая getSortedWords перекрывала первую и выбрасывала фильтр по тегу.
-    const names = [...SRC.matchAll(/^(?:async\s+)?function\s+([A-Za-z0-9_$]+)\s*\(/gm)].map(m => m[1]);
-    const dupes = names.filter((n, i) => names.indexOf(n) !== i);
-    assert.deepStrictEqual(dupes, []);
+test('checkAnswer ignores case, spaces, ё/е and trailing punctuation', async () => {
+    const { checkAnswer } = await load('norsk.js');
+    assert.equal(checkAnswer('  Дом. ', 'дом'), 'correct');
+    assert.equal(checkAnswer('еж', 'ёж'), 'correct');
 });
 
-test('every onclick handler in index.html refers to a function that exists', () => {
-    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    const called = new Set([...html.matchAll(/on(?:click|keydown|input)="(?:[^"]*?[;(])?\s*([A-Za-z_$][\w$]*)\(/g)].map(m => m[1]));
-    const inlineScript = html.slice(html.lastIndexOf('<script>'));
-    const builtins = new Set(['if', 'setTimeout', 'prompt', 'speak', 'event']);
-    const missing = [...called].filter(fn =>
-        !builtins.has(fn) &&
-        !new RegExp(`function\\s+${fn}\\s*\\(`).test(SRC) &&
-        !new RegExp(`function\\s+${fn}\\s*\\(`).test(inlineScript));
-    assert.deepStrictEqual(missing, [], 'closeBulkTagModal когда-то вызывался, но не существовал');
+test('checkAnswer accepts any of several translations', async () => {
+    const { checkAnswer } = await load('norsk.js');
+    assert.equal(checkAnswer('здание', 'дом, здание'), 'correct');
+    assert.equal(checkAnswer('жильё', 'дом; жильё'), 'correct');
+    assert.equal(checkAnswer('кот', 'дом, здание'), 'wrong');
+    assert.equal(checkAnswer('', 'дом'), 'wrong');
 });
 
-test('speech is Norwegian Bokmål', () => {
-    assert.match(SRC, /SPEECH_LANG\s*=\s*'nb-NO'/);
-    assert.doesNotMatch(SRC, /en-US/);
+test('checkAnswer: the Norwegian article and infinitive marker are optional', async () => {
+    const { checkAnswer } = await load('norsk.js');
+    assert.equal(checkAnswer('hus', 'et hus', { norwegian: true }), 'correct');
+    assert.equal(checkAnswer('et hus', 'hus', { norwegian: true }), 'correct');
+    assert.equal(checkAnswer('reise', 'å reise', { norwegian: true }), 'correct');
 });
 
-test('the photo, video clip and YouGlish features are gone', () => {
-    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    for (const needle of ['imageUrl', 'loadCardImage', 'upload-image-btn', 'openClipModal', 'youglish', 'YouGlish']) {
-        assert.ok(!SRC.includes(needle), `app.js still mentions ${needle}`);
-        assert.ok(!html.includes(needle), `index.html still mentions ${needle}`);
+test('checkAnswer flags a missing æ ø å as "letters", not as correct', async () => {
+    const { checkAnswer } = await load('norsk.js');
+    assert.equal(checkAnswer('sko', 'skø', { norwegian: true }), 'letters');
+    assert.equal(checkAnswer('kjokken', 'kjøkken', { norwegian: true }), 'letters');
+    assert.equal(checkAnswer('gaa', 'gå', { norwegian: true }), 'wrong');
+    assert.equal(checkAnswer('laerer', 'lærer', { norwegian: true }), 'letters');
+});
+
+test('checkGender accepts "en" for a feminine noun as an alternative', async () => {
+    const { checkGender } = await load('norsk.js');
+    assert.equal(checkGender('f', 'f'), 'correct');
+    assert.equal(checkGender('m', 'f'), 'also');
+    assert.equal(checkGender('n', 'f'), 'wrong');
+    assert.equal(checkGender('f', 'm'), 'wrong');
+});
+
+test('guessNounForms follows the regular patterns', async () => {
+    const { guessNounForms } = await load('norsk.js');
+    assert.deepStrictEqual(guessNounForms('gutt', 'm'), { defSg: 'gutten', indefPl: 'gutter', defPl: 'guttene' });
+    assert.deepStrictEqual(guessNounForms('jente', 'f'), { defSg: 'jenta', indefPl: 'jenter', defPl: 'jentene' });
+    assert.deepStrictEqual(guessNounForms('eple', 'n'), { defSg: 'eplet', indefPl: 'epler', defPl: 'eplene' });
+    // односложные среднего рода не меняются во мн. ч.
+    assert.deepStrictEqual(guessNounForms('et hus', 'n'), { defSg: 'huset', indefPl: 'hus', defPl: 'husene' });
+    assert.equal(guessNounForms('hus', ''), null, 'no gender — no guess');
+});
+
+test('guessVerbForms only guesses the present tense', async () => {
+    const { guessVerbForms } = await load('norsk.js');
+    assert.deepStrictEqual(guessVerbForms('å reise'), { present: 'reiser' });
+    assert.deepStrictEqual(guessVerbForms('å bo'), { present: 'bor' });
+});
+
+test('displayWord adds the article for nouns only', async () => {
+    const { displayWord } = await load('norsk.js');
+    assert.equal(displayWord({ original: 'hus', pos: 'noun', gender: 'n' }), 'et hus');
+    assert.equal(displayWord({ original: 'jente', pos: 'noun', gender: 'f' }), 'ei jente');
+    assert.equal(displayWord({ original: 'å reise', pos: 'verb' }), 'å reise');
+    assert.equal(displayWord({ original: 'hus', pos: 'noun', gender: '' }), 'hus');
+});
+
+test('lookupUrls strip the particle and encode the word', async () => {
+    const { lookupUrls } = await load('norsk.js');
+    const u = lookupUrls('å gå');
+    assert.equal(u.forvo, 'https://forvo.com/word/g%C3%A5/#no');
+    assert.equal(u.ordbok, 'https://ordbokene.no/nob/bm/g%C3%A5');
+});
+
+// ---------------------------------------------------------------------------
+// srs.js
+// ---------------------------------------------------------------------------
+test('sm2: "again" schedules in 10 minutes and resets repetitions', async () => {
+    const { sm2, AGAIN_DELAY_MS } = await load('srs.js');
+    const w = { sm2Reps: 3, sm2Interval: 15, sm2EF: 2.5, level: 4 };
+    sm2(w, 0, 1000);
+    assert.equal(w.sm2Reps, 0);
+    assert.equal(w.nextReview, 1000 + AGAIN_DELAY_MS);
+    assert.equal(w.level, 3);
+    assert.equal(w.history.length, 1);
+});
+
+test('sm2: intervals grow 1 → 6 → ×EF on "good"', async () => {
+    const { sm2 } = await load('srs.js');
+    const w = {};
+    sm2(w, 2, 0); assert.equal(w.sm2Interval, 1);
+    sm2(w, 2, 0); assert.equal(w.sm2Interval, 6);
+    sm2(w, 2, 0); assert.equal(w.sm2Interval, Math.round(6 * w.sm2EF));
+});
+
+test('sm2 keeps at most 30 history entries', async () => {
+    const { sm2 } = await load('srs.js');
+    const w = {};
+    for (let i = 0; i < 40; i++) sm2(w, 2, i);
+    assert.equal(w.history.length, 30);
+});
+
+test('normalizeWord drops legacy photo/video fields and invalid grammar', async () => {
+    const { normalizeWord } = await load('srs.js');
+    const w = normalizeWord({
+        id: 1, original: 'hus', translate: 'дом', imageUrl: 'data:image/png;base64,AAAA', videoId: 'x',
+        pos: 'noun', gender: 'x', forms: { defSg: 'huset', present: 'nope' },
+    });
+    assert.ok(!('imageUrl' in w) && !('videoId' in w));
+    assert.equal(w.gender, '');
+    assert.deepStrictEqual(w.forms, { defSg: 'huset' });
+    assert.equal(normalizeWord({ original: 'a', translate: 'b', pos: 'verb', gender: 'n' }).gender, '');
+});
+
+test('selectSession caps new words per day but never caps reviews', async () => {
+    const { selectSession } = await load('srs.js');
+    const now = 1_000_000;
+    const reviews = Array.from({ length: 30 }, (_, i) => ({ id: i, history: [{ q: 2 }], sm2Reps: 1, nextReview: now - 1 }));
+    const future = { id: 99, history: [{ q: 2 }], sm2Reps: 1, nextReview: now + 1 };
+    const fresh = Array.from({ length: 40 }, (_, i) => ({ id: 100 + i, history: [], sm2Reps: 0, nextReview: 0, addedAt: i }));
+    const s = selectSession([...reviews, future, ...fresh], { now, newLimit: 15, introducedToday: 5 });
+    assert.equal(s.reviews.length, 30);
+    assert.equal(s.fresh.length, 10, '15 per day minus 5 already introduced');
+    assert.deepStrictEqual(s.fresh.map(w => w.id), fresh.slice(0, 10).map(w => w.id), 'new words in deck order');
+    assert.equal(s.queue.length, 40);
+    const m = selectSession([...reviews, ...fresh], { now, newLimit: 15, introducedToday: 15, ignoreLimit: true });
+    assert.equal(m.fresh.length, 40, 'marathon ignores the limit');
+});
+
+// ---------------------------------------------------------------------------
+// format.js
+// ---------------------------------------------------------------------------
+test('parseImportLine reads gender and forms', async () => {
+    const { parseImportLine } = await load('format.js');
+    assert.deepStrictEqual(parseImportLine('hus|дом|||A1|et|huset,hus,husene'), {
+        original: 'hus', translate: 'дом', example: '', exampleTranslate: '', tags: ['A1'],
+        pos: 'noun', gender: 'n', forms: { defSg: 'huset', indefPl: 'hus', defPl: 'husene' },
+    });
+    const v = parseImportLine('å reise|путешествовать||||v|reiser,reiste,har reist');
+    assert.equal(v.pos, 'verb');
+    assert.deepStrictEqual(v.forms, { present: 'reiser', past: 'reiste', perfect: 'har reist' });
+});
+
+test('parseImportLine infers the gender from a leading article', async () => {
+    const { parseImportLine } = await load('format.js');
+    const w = parseImportLine('ei jente|девочка');
+    assert.equal(w.original, 'jente');
+    assert.equal(w.gender, 'f');
+    assert.equal(parseImportLine('å bo|жить').pos, 'verb');
+    assert.equal(parseImportLine('bare one field'), null);
+});
+
+test('parseImport skips duplicates but keeps homonyms of different kinds', async () => {
+    const { parseImport } = await load('format.js');
+    const { words, duplicates } = parseImport('tre|три\ntre|дерево|||x|et\nTRE|три\n# comment\n\nhus|дом', [{ original: 'hus', pos: '' }]);
+    assert.deepStrictEqual(words.map(w => w.translate), ['три', 'дерево']);
+    assert.deepStrictEqual(duplicates, ['TRE', 'hus']);
+});
+
+test('toTxtLine round-trips through parseImportLine', async () => {
+    const { toTxtLine, parseImportLine } = await load('format.js');
+    const w = { original: 'bok', translate: 'книга', example: 'Boka er fin.', exampleTranslate: 'Книга хорошая.',
+                tags: ['A1', 'skole'], pos: 'noun', gender: 'f', forms: { defSg: 'boka', indefPl: 'bøker', defPl: 'bøkene' } };
+    assert.equal(toTxtLine(w), 'bok|книга|Boka er fin.|Книга хорошая.|A1,skole|ei|boka,bøker,bøkene');
+    assert.deepStrictEqual(parseImportLine(toTxtLine(w)), w);
+    assert.equal(toTxtLine({ original: 'ja', translate: 'да', tags: [] }), 'ja|да');
+    assert.equal(toTxtLine({ original: 'a|b', translate: 'x\ny', tags: [] }), 'a b|x y', 'separators in data are neutralised');
+});
+
+test('toAnki escapes HTML and adds the article', async () => {
+    const { toAnki } = await load('format.js');
+    const line = toAnki([{ original: 'hus', translate: '<b>дом</b>', tags: [], pos: 'noun', gender: 'n', forms: {} }]);
+    assert.equal(line, 'et hus\t&lt;b&gt;дом&lt;/b&gt;');
+});
+
+test('the bundled A1 deck parses cleanly, with grammar on every noun and verb', async () => {
+    const { parseImport } = await load('format.js');
+    const text = fs.readFileSync(path.join(ROOT, 'decks', 'a1.txt'), 'utf8');
+    const { words, duplicates } = parseImport(text);
+    assert.deepStrictEqual(duplicates, []);
+    assert.ok(words.length >= 250, `only ${words.length} words`);
+    for (const w of words) {
+        if (w.pos === 'noun') {
+            assert.ok(w.gender, `${w.original}: noun without gender`);
+            assert.ok(w.forms.defSg, `${w.original}: noun without the definite form`);
+        }
+        if (w.pos === 'verb') assert.equal(Object.keys(w.forms).length, 3, `${w.original}: verb needs 3 forms`);
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Статические проверки разметки
+// ---------------------------------------------------------------------------
+test('every data-action in the markup has a handler', () => {
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const jsFiles = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js'));
+    const js = jsFiles.map(f => fs.readFileSync(path.join(ROOT, 'js', f), 'utf8')).join('\n');
+    const used = new Set([...(html + js).matchAll(/data-action="([a-z0-9-]+)"/g)].map(m => m[1]));
+    const missing = [...used].filter(a => !new RegExp(`['"]${a}['"]\\s*(?:\\(|:)`).test(js));
+    assert.deepStrictEqual(missing, []);
+});
+
+test('index.html has no inline handlers or inline scripts', () => {
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    assert.doesNotMatch(html, /\son[a-z]+="/i, 'inline on*= handler');
+    assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>/i, 'inline <script>');
+});
+
+test('every element id the modules look up exists in the markup', () => {
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
+    const generated = /^(add|edit)-/; // поля формы слова создаются из js/wordform.js
+    const skip = new Set(['toast-container']);
+    const missing = [];
+    for (const f of fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js'))) {
+        const src = fs.readFileSync(path.join(ROOT, 'js', f), 'utf8');
+        for (const [, id] of src.matchAll(/\$\('([a-z0-9-]+)'\)/g)) {
+            if (!ids.has(id) && !generated.test(id) && !skip.has(id)) missing.push(`${f}: ${id}`);
+        }
+    }
+    assert.deepStrictEqual(missing, []);
+});
+
+test('the service worker precaches every frontend module', () => {
+    const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
+    for (const f of fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js'))) {
+        assert.ok(sw.includes(`'/js/${f}'`), `sw.js does not precache js/${f}`);
+    }
+});
+
+test('speech is Norwegian and the removed features stay removed', () => {
+    const js = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js'))
+        .map(f => fs.readFileSync(path.join(ROOT, 'js', f), 'utf8')).join('\n');
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    assert.match(js, /SPEECH_LANG\s*=\s*'nb-NO'/);
+    for (const needle of ['en-US', 'imageUrl =', 'openClipModal', 'youglish', 'launchConfetti', 'ACHIEVEMENTS', 'XP_PER', '/api/timer']) {
+        assert.ok(!js.includes(needle), `js mentions ${needle}`);
+        assert.ok(!html.includes(needle), `index.html mentions ${needle}`);
     }
 });

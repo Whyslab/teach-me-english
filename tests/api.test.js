@@ -71,13 +71,6 @@ test('GET /api/words returns an array', async () => {
   assert.ok(Array.isArray(res.body));
 });
 
-test('POST /api/register returns a stable user id', async () => {
-  const first = await request(app).post('/api/register').expect(200);
-  const second = await request(app).post('/api/register').expect(200);
-  assert.ok(first.body.userId);
-  assert.strictEqual(first.body.userId, second.body.userId);
-});
-
 test('POST /api/sync rejects a non-array body', async () => {
   await request(app).post('/api/sync').send({ not: 'an array' }).expect(400);
 });
@@ -147,46 +140,6 @@ test('GET /favicon.ico returns a real image', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Таймер сессии
-//
-// POST /api/timer писал в базу что угодно: строку, объект, отрицательное число.
-// GET потом возвращал NaN, и интерфейс показывал пустоту.
-// ---------------------------------------------------------------------------
-test('POST /api/timer accepts a sane number', async () => {
-    const res = await request(app).post('/api/timer').send({ timeLeft: 1800 });
-    assert.equal(res.status, 200);
-    const back = await request(app).get('/api/timer');
-    assert.equal(back.body.timeLeft, 1800);
-});
-
-test('POST /api/timer rejects a non-number', async () => {
-    const res = await request(app).post('/api/timer').send({ timeLeft: 'полчаса' });
-    assert.equal(res.status, 400);
-});
-
-test('POST /api/timer rejects a negative value', async () => {
-    const res = await request(app).post('/api/timer').send({ timeLeft: -60 });
-    assert.equal(res.status, 400);
-});
-
-test('POST /api/timer rejects an absurdly large value', async () => {
-    const res = await request(app).post('/api/timer').send({ timeLeft: 99999999 });
-    assert.equal(res.status, 400);
-});
-
-test('POST /api/timer rejects a missing body', async () => {
-    const res = await request(app).post('/api/timer').send({});
-    assert.equal(res.status, 400);
-});
-
-test('a rejected timer value never reaches the database', async () => {
-    await request(app).post('/api/timer').send({ timeLeft: 1800 });
-    await request(app).post('/api/timer').send({ timeLeft: {} });
-    const back = await request(app).get('/api/timer');
-    assert.equal(back.body.timeLeft, 1800);
-});
-
-// ---------------------------------------------------------------------------
 // Раздача статики
 //
 // express.static раздавал весь каталог проекта — включая базу со словарём.
@@ -198,9 +151,50 @@ for (const file of ['vocab.db', 'server.js', 'package.json', 'deploy/install.sh'
     });
 }
 
-test('GET /app.js is served as JavaScript', async () => {
-    const res = await request(app).get('/app.js').expect(200);
-    assert.match(res.headers['content-type'], /javascript/);
+test('frontend modules, styles and decks are served', async () => {
+    const js = await request(app).get('/js/main.js').expect(200);
+    assert.match(js.headers['content-type'], /javascript/);
+    const css = await request(app).get('/css/app.css').expect(200);
+    assert.match(css.headers['content-type'], /css/);
+    const deck = await request(app).get('/decks/a1.txt').expect(200);
+    assert.match(deck.headers['content-type'], /text\/plain.*utf-8/i);
+    assert.match(deck.text, /hus\|дом/);
+});
+
+for (const p of ['/js/package.json', '/js/../server.js', '/js/%2e%2e/server.js', '/decks/../vocab.db', '/js/nope.js', '/app.js']) {
+    test(`GET ${p} is not served`, async () => {
+        const res = await request(app).get(p);
+        assert.equal(res.status, 404);
+    });
+}
+
+test('the timer and register endpoints are gone', async () => {
+    await request(app).get('/api/timer').expect(404);
+    await request(app).post('/api/register').expect(404);
+});
+
+test('POST /api/sync round-trips gender and forms', async () => {
+    await request(app).post('/api/sync').send([
+        { id: 30, original: 'bok', translate: 'книга', pos: 'noun', gender: 'f',
+          forms: { defSg: 'boka', indefPl: 'bøker', defPl: 'bøkene', junk: 'x' } },
+        { id: 31, original: 'å gå', translate: 'идти', pos: 'verb', gender: 'n',
+          forms: { present: 'går', past: 'gikk', perfect: 'har gått' } },
+    ]).expect(200);
+    const res = await request(app).get('/api/words').expect(200);
+    const bok = res.body.find(w => w.id === 30);
+    assert.equal(bok.pos, 'noun');
+    assert.equal(bok.gender, 'f');
+    assert.deepStrictEqual(bok.forms, { defSg: 'boka', indefPl: 'bøker', defPl: 'bøkene' }, 'unknown form keys dropped');
+    const gaa = res.body.find(w => w.id === 31);
+    assert.equal(gaa.gender, '', 'a verb has no gender');
+    assert.equal(gaa.forms.past, 'gikk');
+});
+
+test('validateWord rejects an unknown part of speech or gender', () => {
+    assert.strictEqual(validateWord(word({ pos: 'adverb' })), false);
+    assert.strictEqual(validateWord(word({ pos: 'noun', gender: 'x' })), false);
+    assert.strictEqual(validateWord(word({ forms: ['a'] })), false);
+    assert.strictEqual(validateWord(word({ pos: 'noun', gender: 'n', forms: {} })), true);
 });
 
 test('the photo endpoint is gone', async () => {

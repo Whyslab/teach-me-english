@@ -1,0 +1,308 @@
+# Norsk A1 — стартовая колода для приложения «Лёгкий Словарь · Norsk».
+# Формат: слово|перевод|пример|перевод примера|теги|род|формы
+#   род: en / ei / et — существительное; v — глагол; пусто — прочее.
+#   формы существительного: опр. ед., неопр. мн., опр. мн.
+#   формы глагола: presens, preteritum, perfektum
+# Женский род указан как «ei» (так в словаре Ordbøkene); в букмоле допустимо и «en».
+# Строки, начинающиеся с «#», при импорте пропускаются.
+
+# ── Люди и семья ─────────────────────────────────────────────
+mann|мужчина|Mannen leser avisen.|Мужчина читает газету.|familie|en|mannen,menn,mennene
+kvinne|женщина|Kvinnen jobber på sykehuset.|Женщина работает в больнице.|familie|ei|kvinna,kvinner,kvinnene
+barn|ребёнок, дети|Barna leker ute.|Дети играют на улице.|familie|et|barnet,barn,barna
+gutt|мальчик|Gutten er sju år.|Мальчику семь лет.|familie|en|gutten,gutter,guttene
+jente|девочка, девушка|Jenta synger.|Девочка поёт.|familie|ei|jenta,jenter,jentene
+mor|мать, мама|Mor lager middag.|Мама готовит ужин.|familie|ei|moren,mødre,mødrene
+far|отец, папа|Far kjører bil.|Папа ведёт машину.|familie|en|faren,fedre,fedrene
+foreldre|родители|Foreldrene mine bor i Bergen.|Мои родители живут в Бергене.|familie
+bror|брат|Broren min heter Ola.|Моего брата зовут Ула.|familie|en|broren,brødre,brødrene
+søster|сестра|Søsteren min er lege.|Моя сестра — врач.|familie|ei|søstera,søstre,søstrene
+sønn|сын|Sønnen går på skolen.|Сын ходит в школу.|familie|en|sønnen,sønner,sønnene
+datter|дочь|Datteren min er fem år.|Моей дочери пять лет.|familie|ei|dattera,døtre,døtrene
+familie|семья|Vi er en stor familie.|Мы большая семья.|familie|en|familien,familier,familiene
+venn|друг|Han er en god venn.|Он хороший друг.|familie|en|vennen,venner,vennene
+venninne|подруга|Hun møter en venninne.|Она встречается с подругой.|familie|ei|venninna,venninner,venninnene
+navn|имя|Hva er navnet ditt?|Как тебя зовут?|familie|et|navnet,navn,navnene
+menneske|человек|Det er mange mennesker her.|Здесь много людей.|familie|et|mennesket,mennesker,menneskene
+nabo|сосед|Naboen vår er hyggelig.|Наш сосед приятный.|familie|en|naboen,naboer,naboene
+
+# ── Дом ──────────────────────────────────────────────────────
+hus|дом (здание)|Huset er gammelt.|Дом старый.|hjem|et|huset,hus,husene
+hjem|дом (жилище), родной дом|Jeg er hjemme.|Я дома.|hjem|et|hjemmet,hjem,hjemmene
+leilighet|квартира|Leiligheten har tre rom.|В квартире три комнаты.|hjem|en|leiligheten,leiligheter,leilighetene
+rom|комната|Rommet er lyst.|Комната светлая.|hjem|et|rommet,rom,rommene
+kjøkken|кухня|Vi spiser på kjøkkenet.|Мы едим на кухне.|hjem|et|kjøkkenet,kjøkken,kjøkkenene
+stue|гостиная|Stua er stor.|Гостиная большая.|hjem|ei|stua,stuer,stuene
+soverom|спальня|Soverommet er lite.|Спальня маленькая.|hjem|et|soverommet,soverom,soverommene
+bad|ванная|Badet er ved siden av soverommet.|Ванная рядом со спальней.|hjem|et|badet,bad,badene
+dør|дверь|Kan du lukke døra?|Можешь закрыть дверь?|hjem|ei|døra,dører,dørene
+vindu|окно|Vinduet er åpent.|Окно открыто.|hjem|et|vinduet,vinduer,vinduene
+bord|стол|Boka ligger på bordet.|Книга лежит на столе.|hjem|et|bordet,bord,bordene
+stol|стул|Stolen er ny.|Стул новый.|hjem|en|stolen,stoler,stolene
+seng|кровать|Senga er myk.|Кровать мягкая.|hjem|ei|senga,senger,sengene
+nøkkel|ключ|Jeg finner ikke nøkkelen.|Я не могу найти ключ.|hjem|en|nøkkelen,nøkler,nøklene
+lampe|лампа|Lampa er på.|Лампа включена.|hjem|ei|lampa,lamper,lampene
+
+# ── Еда и напитки ────────────────────────────────────────────
+mat|еда|Maten er god.|Еда вкусная.|mat|en|maten
+vann|вода|Kan jeg få et glass vann?|Можно стакан воды?|mat|et|vannet
+melk|молоко|Jeg drikker melk.|Я пью молоко.|mat|ei|melka
+kaffe|кофе|Vil du ha kaffe?|Хочешь кофе?|mat|en|kaffen
+te|чай|Hun drikker te om kvelden.|Она пьёт чай вечером.|mat|en|teen
+brød|хлеб|Vi kjøper brød.|Мы покупаем хлеб.|mat|et|brødet,brød,brødene
+ost|сыр|Norsk brunost er søt.|Норвежский коричневый сыр сладкий.|mat|en|osten,oster,ostene
+smør|сливочное масло|Smøret er i kjøleskapet.|Масло в холодильнике.|mat|et|smøret
+egg|яйцо|Jeg spiser to egg til frokost.|Я ем два яйца на завтрак.|mat|et|egget,egg,eggene
+fisk|рыба|Norge er kjent for fisk.|Норвегия известна рыбой.|mat|en|fisken,fisker,fiskene
+kjøtt|мясо|Han spiser ikke kjøtt.|Он не ест мясо.|mat|et|kjøttet
+eple|яблоко|Eplet er rødt.|Яблоко красное.|mat|et|eplet,epler,eplene
+potet|картофель|Vi spiser poteter til middag.|На ужин у нас картошка.|mat|en|poteten,poteter,potetene
+frukt|фрукт(ы)|Frukt er sunt.|Фрукты полезны.|mat|en|frukten,frukter,fruktene
+grønnsak|овощ|Spis mer grønnsaker!|Ешь больше овощей!|mat|en|grønnsaken,grønnsaker,grønnsakene
+frokost|завтрак|Frokosten er klar.|Завтрак готов.|mat|en|frokosten,frokoster,frokostene
+lunsj|обед (днём)|Vi har lunsj klokka tolv.|У нас обед в двенадцать.|mat|en|lunsjen,lunsjer,lunsjene
+middag|ужин (основной приём пищи)|Middagen er klokka fem.|Ужин в пять.|mat|en|middagen,middager,middagene
+kake|торт, пирог|Kaka er deilig.|Торт восхитительный.|mat|ei|kaka,kaker,kakene
+øl|пиво|Et glass øl, takk.|Бокал пива, пожалуйста.|mat|et|ølet
+glass|стакан|Glasset er tomt.|Стакан пустой.|mat|et|glasset,glass,glassene
+kopp|чашка|En kopp kaffe, takk.|Чашку кофе, пожалуйста.|mat|en|koppen,kopper,koppene
+tallerken|тарелка|Tallerkenen er ren.|Тарелка чистая.|mat|en|tallerkenen,tallerkener,tallerkenene
+
+# ── Город и транспорт ────────────────────────────────────────
+by|город|Oslo er en stor by.|Осло — большой город.|by|en|byen,byer,byene
+gate|улица|Jeg bor i denne gata.|Я живу на этой улице.|by|ei|gata,gater,gatene
+butikk|магазин|Butikken stenger klokka ni.|Магазин закрывается в девять.|by|en|butikken,butikker,butikkene
+skole|школа|Barna går på skolen.|Дети ходят в школу.|by|en|skolen,skoler,skolene
+sykehus|больница|Hun jobber på sykehuset.|Она работает в больнице.|by|et|sykehuset,sykehus,sykehusene
+lege|врач|Jeg må gå til legen.|Мне надо к врачу.|by|en|legen,leger,legene
+apotek|аптека|Apoteket er åpent.|Аптека открыта.|by|et|apoteket,apotek,apotekene
+bibliotek|библиотека|Jeg låner bøker på biblioteket.|Я беру книги в библиотеке.|by|et|biblioteket,bibliotek,bibliotekene
+kirke|церковь|Kirken er fra 1200-tallet.|Церковь XIII века.|by|ei|kirka,kirker,kirkene
+bil|машина|Bilen er blå.|Машина синяя.|reise|en|bilen,biler,bilene
+buss|автобус|Bussen kommer snart.|Автобус скоро придёт.|reise|en|bussen,busser,bussene
+tog|поезд|Toget går til Bergen.|Поезд идёт в Берген.|reise|et|toget,tog,togene
+fly|самолёт|Flyet er forsinket.|Самолёт задерживается.|reise|et|flyet,fly,flyene
+båt|лодка, корабль|Vi tar båten til øya.|Мы поедем на лодке на остров.|reise|en|båten,båter,båtene
+sykkel|велосипед|Jeg sykler til jobben.|Я езжу на работу на велосипеде.|reise|en|sykkelen,sykler,syklene
+stasjon|станция, вокзал|Stasjonen ligger i sentrum.|Вокзал в центре.|reise|en|stasjonen,stasjoner,stasjonene
+billett|билет|En billett til Oslo, takk.|Один билет до Осло, пожалуйста.|reise|en|billetten,billetter,billettene
+vei|дорога, путь|Veien er lang.|Дорога длинная.|reise|en|veien,veier,veiene
+kart|карта|Har du et kart?|У тебя есть карта?|reise|et|kartet,kart,kartene
+hotell|гостиница|Hotellet ligger ved sjøen.|Гостиница у моря.|reise|et|hotellet,hoteller,hotellene
+ferie|отпуск, каникулы|Vi har ferie i juli.|У нас отпуск в июле.|reise|en|ferien,ferier,feriene
+
+# ── Работа и учёба ───────────────────────────────────────────
+jobb|работа|Jeg har en ny jobb.|У меня новая работа.|jobb|en|jobben,jobber,jobbene
+arbeid|труд, работа|Hun søker arbeid.|Она ищет работу.|jobb|et|arbeidet
+kontor|офис|Kontoret er i andre etasje.|Офис на втором этаже.|jobb|et|kontoret,kontorer,kontorene
+penger|деньги|Jeg har ikke penger.|У меня нет денег.|jobb
+lønn|зарплата|Lønnen kommer den tjuende.|Зарплата приходит двадцатого.|jobb|en|lønnen,lønner,lønnene
+møte|встреча, собрание|Møtet begynner klokka ni.|Собрание начинается в девять.|jobb|et|møtet,møter,møtene
+språk|язык|Norsk er et fint språk.|Норвежский — красивый язык.|jobb|et|språket,språk,språkene
+bok|книга|Boka er spennende.|Книга интересная.|jobb|ei|boka,bøker,bøkene
+ord|слово|Hva betyr dette ordet?|Что значит это слово?|jobb|et|ordet,ord,ordene
+spørsmål|вопрос|Jeg har et spørsmål.|У меня есть вопрос.|jobb|et|spørsmålet,spørsmål,spørsmålene
+svar|ответ|Svaret er riktig.|Ответ правильный.|jobb|et|svaret,svar,svarene
+lærer|учитель|Læreren er snill.|Учитель добрый.|jobb|en|læreren,lærere,lærerne
+student|студент|Hun er student.|Она студентка.|jobb|en|studenten,studenter,studentene
+datamaskin|компьютер|Datamaskinen er treg.|Компьютер тормозит.|jobb|en|datamaskinen,datamaskiner,datamaskinene
+telefon|телефон|Telefonen ringer.|Звонит телефон.|jobb|en|telefonen,telefoner,telefonene
+
+# ── Время ────────────────────────────────────────────────────
+dag|день|Ha en fin dag!|Хорошего дня!|tid|en|dagen,dager,dagene
+natt|ночь|God natt!|Спокойной ночи!|tid|ei|natta,netter,nettene
+morgen|утро|Jeg står opp tidlig om morgenen.|Я встаю рано утром.|tid|en|morgenen,morgener,morgenene
+kveld|вечер|Hva gjør du i kveld?|Что ты делаешь вечером?|tid|en|kvelden,kvelder,kveldene
+uke|неделя|Uka har sju dager.|В неделе семь дней.|tid|ei|uka,uker,ukene
+måned|месяц|Neste måned reiser vi.|В следующем месяце мы уезжаем.|tid|en|måneden,måneder,månedene
+år|год|Godt nytt år!|С Новым годом!|tid|et|året,år,årene
+time|час; урок|Timen varer i en time.|Урок длится час.|tid|en|timen,timer,timene
+minutt|минута|Vent et minutt!|Подожди минутку!|tid|et|minuttet,minutter,minuttene
+klokke|часы|Klokka er åtte.|Сейчас восемь часов.|tid|ei|klokka,klokker,klokkene
+tid|время|Jeg har ikke tid.|У меня нет времени.|tid|en|tiden,tider,tidene
+i dag|сегодня|I dag er det fint vær.|Сегодня хорошая погода.|tid
+i morgen|завтра|Vi ses i morgen!|Увидимся завтра!|tid
+i går|вчера|I går var jeg syk.|Вчера я болел.|tid
+nå|сейчас|Jeg må gå nå.|Мне пора идти.|tid
+alltid|всегда|Han kommer alltid for sent.|Он всегда опаздывает.|tid
+aldri|никогда|Jeg har aldri vært i Tromsø.|Я никогда не был в Тромсё.|tid
+ofte|часто|Vi går ofte på tur.|Мы часто ходим в походы.|tid
+snart|скоро|Toget kommer snart.|Поезд скоро придёт.|tid
+mandag|понедельник|På mandag begynner jeg på jobb.|В понедельник я выхожу на работу.|tid
+fredag|пятница|Endelig fredag!|Наконец-то пятница!|tid
+helg|выходные|God helg!|Хороших выходных!|tid|ei|helga,helger,helgene
+
+# ── Природа и погода ─────────────────────────────────────────
+vær|погода|Været er dårlig i dag.|Сегодня плохая погода.|natur|et|været
+sol|солнце|Sola skinner.|Светит солнце.|natur|ei|sola,soler,solene
+regn|дождь|Det kommer regn i morgen.|Завтра будет дождь.|natur|et|regnet
+snø|снег|Det ligger snø på fjellet.|На горе лежит снег.|natur|en|snøen
+vind|ветер|Vinden er kald.|Ветер холодный.|natur|en|vinden,vinder,vindene
+fjell|гора|Vi går på fjellet.|Мы идём в горы.|natur|et|fjellet,fjell,fjellene
+sjø|море; озеро|Huset ligger ved sjøen.|Дом стоит у моря.|natur|en|sjøen,sjøer,sjøene
+skog|лес|Vi går tur i skogen.|Мы гуляем в лесу.|natur|en|skogen,skoger,skogene
+tre|дерево|Treet er høyt.|Дерево высокое.|natur|et|treet,trær,trærne
+blomst|цветок|Blomsten er gul.|Цветок жёлтый.|natur|en|blomsten,blomster,blomstene
+hund|собака|Hunden bjeffer.|Собака лает.|natur|en|hunden,hunder,hundene
+katt|кошка, кот|Katten sover.|Кошка спит.|natur|en|katten,katter,kattene
+sommer|лето|Sommeren er kort i Norge.|Лето в Норвегии короткое.|natur|en|sommeren,somrer,somrene
+vinter|зима|Vinteren er lang og mørk.|Зима длинная и тёмная.|natur|en|vinteren,vintrer,vintrene
+tur|прогулка, поход, поездка|Skal vi gå en tur?|Пойдём погуляем?|natur|en|turen,turer,turene
+
+# ── Тело и здоровье ──────────────────────────────────────────
+hode|голова|Jeg har vondt i hodet.|У меня болит голова.|kropp|et|hodet,hoder,hodene
+hånd|рука (кисть)|Vask hendene!|Мой руки!|kropp|ei|hånda,hender,hendene
+fot|нога (ступня)|Foten min er skadet.|Моя нога травмирована.|kropp|en|foten,føtter,føttene
+øye|глаз|Hun har blå øyne.|У неё голубые глаза.|kropp|et|øyet,øyne,øynene
+munn|рот|Lukk munnen!|Закрой рот!|kropp|en|munnen,munner,munnene
+mage|живот, желудок|Jeg har vondt i magen.|У меня болит живот.|kropp|en|magen,mager,magene
+rygg|спина|Ryggen min er stiv.|Спина затекла.|kropp|en|ryggen,rygger,ryggene
+syk|больной|Jeg er syk i dag.|Сегодня я болею.|kropp
+frisk|здоровый|Nå er jeg frisk igjen.|Теперь я снова здоров.|kropp
+
+# ── Одежда ───────────────────────────────────────────────────
+jakke|куртка|Ta på deg jakka!|Надень куртку!|klær|ei|jakka,jakker,jakkene
+bukse|брюки|Buksa er for lang.|Брюки слишком длинные.|klær|ei|buksa,bukser,buksene
+genser|свитер|Genseren er varm.|Свитер тёплый.|klær|en|genseren,gensere,genserne
+sko|ботинок, обувь|Skoene er våte.|Обувь мокрая.|klær|en|skoen,sko,skoene
+lue|шапка|Husk lua!|Не забудь шапку!|klær|ei|lua,luer,luene
+klær|одежда|Hun kjøper nye klær.|Она покупает новую одежду.|klær
+
+# ── Глаголы ──────────────────────────────────────────────────
+å være|быть|Jeg er fra Russland.|Я из России.|verb|v|er,var,har vært
+å ha|иметь|Jeg har en katt.|У меня есть кошка.|verb|v|har,hadde,har hatt
+å gjøre|делать|Hva gjør du?|Что ты делаешь?|verb|v|gjør,gjorde,har gjort
+å si|сказать|Hva sa du?|Что ты сказал?|verb|v|sier,sa,har sagt
+å gå|идти (пешком)|Vi går hjem.|Мы идём домой.|verb|v|går,gikk,har gått
+å komme|приходить, приезжать|Når kommer du?|Когда ты придёшь?|verb|v|kommer,kom,har kommet
+å se|видеть, смотреть|Jeg ser på TV.|Я смотрю телевизор.|verb|v|ser,så,har sett
+å få|получать|Jeg fikk et brev.|Я получил письмо.|verb|v|får,fikk,har fått
+å ta|брать|Ta en kopp kaffe!|Возьми чашку кофе!|verb|v|tar,tok,har tatt
+å gi|давать|Hun gir meg en gave.|Она дарит мне подарок.|verb|v|gir,ga,har gitt
+å vite|знать (факт)|Jeg vet ikke.|Я не знаю.|verb|v|vet,visste,har visst
+å kunne|мочь, уметь|Jeg kan snakke norsk.|Я умею говорить по-норвежски.|verb|v|kan,kunne,har kunnet
+å ville|хотеть|Jeg vil hjem.|Я хочу домой.|verb|v|vil,ville,har villet
+å måtte|быть должным|Jeg må jobbe.|Мне надо работать.|verb|v|må,måtte,har måttet
+å skulle|собираться (будущее)|Vi skal reise i morgen.|Мы завтра уезжаем.|verb|v|skal,skulle,har skullet
+å spise|есть (пищу)|Vi spiser middag.|Мы ужинаем.|verb|v|spiser,spiste,har spist
+å drikke|пить|Hva vil du drikke?|Что ты будешь пить?|verb|v|drikker,drakk,har drukket
+å sove|спать|Babyen sover.|Малыш спит.|verb|v|sover,sov,har sovet
+å snakke|говорить, разговаривать|Snakker du norsk?|Ты говоришь по-норвежски?|verb|v|snakker,snakket,har snakket
+å lære|учить(ся)|Jeg lærer norsk.|Я учу норвежский.|verb|v|lærer,lærte,har lært
+å forstå|понимать|Jeg forstår ikke.|Я не понимаю.|verb|v|forstår,forsto,har forstått
+å lese|читать|Hun leser en bok.|Она читает книгу.|verb|v|leser,leste,har lest
+å skrive|писать|Skriv navnet ditt her.|Напиши здесь своё имя.|verb|v|skriver,skrev,har skrevet
+å høre|слышать, слушать|Jeg hører på musikk.|Я слушаю музыку.|verb|v|hører,hørte,har hørt
+å bo|жить (проживать)|Jeg bor i Oslo.|Я живу в Осло.|verb|v|bor,bodde,har bodd
+å jobbe|работать|Han jobber i en bank.|Он работает в банке.|verb|v|jobber,jobbet,har jobbet
+å kjøpe|покупать|Jeg kjøper melk.|Я покупаю молоко.|verb|v|kjøper,kjøpte,har kjøpt
+å betale|платить|Kan jeg betale med kort?|Можно заплатить картой?|verb|v|betaler,betalte,har betalt
+å reise|путешествовать, ехать|Vi reiser til Norge.|Мы едем в Норвегию.|verb|v|reiser,reiste,har reist
+å kjøre|ехать (на машине), водить|Hun kjører bil.|Она водит машину.|verb|v|kjører,kjørte,har kjørt
+å like|нравиться, любить|Jeg liker kaffe.|Я люблю кофе.|verb|v|liker,likte,har likt
+å elske|любить|Jeg elsker deg.|Я люблю тебя.|verb|v|elsker,elsket,har elsket
+å tenke|думать|Hva tenker du på?|О чём ты думаешь?|verb|v|tenker,tenkte,har tenkt
+å tro|верить, полагать|Jeg tror det.|Думаю, да.|verb|v|tror,trodde,har trodd
+å finne|находить|Jeg finner ikke telefonen.|Я не могу найти телефон.|verb|v|finner,fant,har funnet
+å begynne|начинать|Filmen begynner nå.|Фильм начинается.|verb|v|begynner,begynte,har begynt
+å slutte|заканчивать, прекращать|Kurset slutter i juni.|Курс заканчивается в июне.|verb|v|slutter,sluttet,har sluttet
+å vente|ждать|Vent litt!|Подожди немного!|verb|v|venter,ventet,har ventet
+å hjelpe|помогать|Kan du hjelpe meg?|Можешь мне помочь?|verb|v|hjelper,hjalp,har hjulpet
+å spørre|спрашивать|Kan jeg spørre deg om noe?|Можно тебя кое о чём спросить?|verb|v|spør,spurte,har spurt
+å svare|отвечать|Hun svarer ikke.|Она не отвечает.|verb|v|svarer,svarte,har svart
+å åpne|открывать|Åpne vinduet!|Открой окно!|verb|v|åpner,åpnet,har åpnet
+å lukke|закрывать|Lukk døra!|Закрой дверь!|verb|v|lukker,lukket,har lukket
+å stå|стоять|Bussen står på stasjonen.|Автобус стоит на станции.|verb|v|står,sto,har stått
+å sitte|сидеть|Vi sitter i stua.|Мы сидим в гостиной.|verb|v|sitter,satt,har sittet
+å ligge|лежать|Boka ligger på bordet.|Книга лежит на столе.|verb|v|ligger,lå,har ligget
+å stå opp|вставать (утром)|Jeg står opp klokka sju.|Я встаю в семь.|verb|v|står opp,sto opp,har stått opp
+å legge seg|ложиться спать|Barna legger seg tidlig.|Дети рано ложатся спать.|verb|v|legger seg,la seg,har lagt seg
+å hete|зваться|Jeg heter Anna.|Меня зовут Анна.|verb|v|heter,het,har hett
+å bruke|использовать|Jeg bruker PC på jobben.|На работе я пользуюсь компьютером.|verb|v|bruker,brukte,har brukt
+å lage|делать, готовить|Han lager mat.|Он готовит еду.|verb|v|lager,laget,har laget
+å vaske|мыть, стирать|Jeg vasker klær.|Я стираю одежду.|verb|v|vasker,vasket,har vasket
+å ringe|звонить|Ring meg i kveld!|Позвони мне вечером!|verb|v|ringer,ringte,har ringt
+å trenge|нуждаться|Jeg trenger hjelp.|Мне нужна помощь.|verb|v|trenger,trengte,har trengt
+å glemme|забывать|Ikke glem nøkkelen!|Не забудь ключ!|verb|v|glemmer,glemte,har glemt
+å huske|помнить|Husker du meg?|Ты меня помнишь?|verb|v|husker,husket,har husket
+å bli|становиться; оставаться|Det blir kaldt.|Становится холодно.|verb|v|blir,ble,har blitt
+å kjenne|знать (кого-то)|Kjenner du Per?|Ты знаешь Пера?|verb|v|kjenner,kjente,har kjent
+å møte|встречать|Vi møtes i morgen.|Встретимся завтра.|verb|v|møter,møtte,har møtt
+
+# ── Прилагательные ───────────────────────────────────────────
+stor|большой|et stort hus|большой дом|adj
+liten|маленький|en liten gutt|маленький мальчик|adj
+god|хороший|God morgen!|Доброе утро!|adj
+dårlig|плохой|Været er dårlig.|Погода плохая.|adj
+ny|новый|en ny bil|новая машина|adj
+gammel|старый|et gammelt hus|старый дом|adj
+ung|молодой|Hun er ung.|Она молодая.|adj
+lang|длинный|en lang dag|длинный день|adj
+kort|короткий|Sommeren er kort.|Лето короткое.|adj
+varm|тёплый, горячий|Kaffen er varm.|Кофе горячий.|adj
+kald|холодный|Vannet er kaldt.|Вода холодная.|adj
+billig|дешёвый|Det er billig.|Это дёшево.|adj
+dyr|дорогой|Norge er et dyrt land.|Норвегия — дорогая страна.|adj
+fin|красивый, хороший|Det er fint vær i dag.|Сегодня хорошая погода.|adj
+pen|красивый, симпатичный|Hun har en pen kjole.|У неё красивое платье.|adj
+glad|радостный, довольный|Jeg er glad.|Я рад.|adj
+trøtt|усталый, сонный|Jeg er trøtt.|Я устал.|adj
+sulten|голодный|Er du sulten?|Ты голоден?|adj
+vanskelig|трудный|Norsk er ikke vanskelig.|Норвежский не трудный.|adj
+lett|лёгкий|Oppgaven er lett.|Задание лёгкое.|adj
+viktig|важный|Det er viktig.|Это важно.|adj
+riktig|правильный|Svaret er riktig.|Ответ правильный.|adj
+feil|неправильный; ошибка|Det er feil.|Это неправильно.|adj
+hvit|белый|Snøen er hvit.|Снег белый.|adj
+svart|чёрный|en svart katt|чёрная кошка|adj
+rød|красный|et rødt eple|красное яблоко|adj
+blå|синий, голубой|Himmelen er blå.|Небо голубое.|adj
+grønn|зелёный|Gresset er grønt.|Трава зелёная.|adj
+
+# ── Полезные слова и фразы ───────────────────────────────────
+hei|привет|Hei! Hvordan går det?|Привет! Как дела?|fraser
+ha det|пока|Ha det bra!|Всего хорошего!|fraser
+takk|спасибо|Tusen takk!|Большое спасибо!|fraser
+unnskyld|извините|Unnskyld, hvor er stasjonen?|Извините, где вокзал?|fraser
+vær så snill|пожалуйста (просьба)|Hjelp meg, vær så snill.|Помоги мне, пожалуйста.|fraser
+ja|да|Ja, gjerne!|Да, с удовольствием!|fraser
+nei|нет|Nei, takk.|Нет, спасибо.|fraser
+kanskje|может быть|Kanskje i morgen.|Может быть, завтра.|fraser
+gjerne|охотно, с удовольствием|Jeg vil gjerne ha en kopp te.|Я бы с удовольствием выпил чашку чая.|fraser
+velkommen|добро пожаловать|Velkommen til Norge!|Добро пожаловать в Норвегию!|fraser
+hvor|где|Hvor bor du?|Где ты живёшь?|fraser
+hva|что|Hva heter du?|Как тебя зовут?|fraser
+hvem|кто|Hvem er det?|Кто это?|fraser
+når|когда|Når kommer toget?|Когда придёт поезд?|fraser
+hvorfor|почему|Hvorfor er du trist?|Почему ты грустный?|fraser
+hvordan|как|Hvordan går det?|Как дела?|fraser
+hvor mye|сколько (о количестве, цене)|Hvor mye koster det?|Сколько это стоит?|fraser
+her|здесь|Jeg bor her.|Я живу здесь.|fraser
+der|там|Bussen står der.|Автобус стоит там.|fraser
+mye|много|Jeg har mye å gjøre.|У меня много дел.|fraser
+litt|немного|Jeg snakker litt norsk.|Я немного говорю по-норвежски.|fraser
+veldig|очень|Det er veldig bra.|Это очень хорошо.|fraser
+også|тоже|Jeg også!|Я тоже!|fraser
+men|но|Det er dyrt, men godt.|Дорого, но хорошо.|fraser
+og|и|kaffe og kake|кофе и торт|fraser
+eller|или|Te eller kaffe?|Чай или кофе?|fraser
+fordi|потому что|Jeg er glad fordi det er fredag.|Я рад, потому что пятница.|fraser
+ikke|не|Jeg vet ikke.|Я не знаю.|fraser
+alle|все|Alle er her.|Все здесь.|fraser
+noe|что-то|Vil du ha noe å drikke?|Хочешь что-нибудь выпить?|fraser
+ingenting|ничего|Jeg vet ingenting.|Я ничего не знаю.|fraser
+
+# ── Числа ────────────────────────────────────────────────────
+en|один|en kopp kaffe|одна чашка кофе|tall
+to|два|to barn|двое детей|tall
+tre|три|tre dager|три дня|tall
+fire|четыре|fire årstider|четыре времени года|tall
+fem|пять|klokka fem|в пять часов|tall
+seks|шесть|seks uker|шесть недель|tall
+sju|семь|sju dager i uka|семь дней в неделе|tall
+åtte|восемь|klokka åtte|в восемь часов|tall
+ni|девять|ni år gammel|девять лет|tall
+ti|десять|ti kroner|десять крон|tall
+tjue|двадцать|tjue minutter|двадцать минут|tall
+hundre|сто|hundre kroner|сто крон|tall
+tusen|тысяча|tusen takk|тысяча благодарностей = большое спасибо|tall
