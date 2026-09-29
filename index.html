@@ -234,6 +234,21 @@
         <label class="settings-row"><span>Новых слов в день<small>Повторения не ограничены. Как в Anki.</small></span><input type="number" id="set-new" min="0" max="200"></label>
         <label class="settings-row"><span>Цель дня (ответов)<small>Для стрика 🔥</small></span><input type="number" id="set-goal" min="1" max="500"></label>
         <label class="settings-row"><span>Произносить слово автоматически<small>При показе карточки</small></span><input type="checkbox" id="set-autospeak"></label>
+        <div class="settings-row">
+            <span>Скорость речи<small id="set-rate-label">×1</small></span>
+            <span class="rate-control">
+                <input type="range" id="set-rate" min="0.6" max="1.4" step="0.05" aria-label="Скорость речи">
+                <button type="button" class="outline-btn small" data-action="test-rate" title="Прослушать с этой скоростью">▶</button>
+            </span>
+        </div>
+        <label class="settings-row"><span>Карточки: сторона вопроса<small>Для экзамена полезнее RU → NO</small></span>
+            <select id="set-cards-dir">
+                <option value="mixed">вперемешку</option>
+                <option value="no-ru">норвежское слово → перевод</option>
+                <option value="ru-no">перевод → норвежское слово</option>
+            </select>
+        </label>
+        <label class="settings-row"><span>Автоперевод при добавлении<small>MyMemory; для norsk → русский часто ошибается</small></span><input type="checkbox" id="set-autotranslate"></label>
         <button class="action-btn wide" data-action="save-settings">Сохранить</button>
     </div>
 </div>

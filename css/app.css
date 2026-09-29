@@ -351,6 +351,9 @@ select { width: auto; cursor: pointer; padding: 8px 12px; }
 .settings-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
 .settings-row small { display: block; color: var(--text-3); font-size: 11px; }
 .settings-row input[type="number"] { width: 90px; text-align: center; }
+.rate-control { display: inline-flex; align-items: center; gap: 8px; }
+.rate-control input[type="range"] { width: 150px; accent-color: var(--accent); }
+.settings-row select { max-width: 230px; }
 
 .export-option { all: unset; display: flex; align-items: center; gap: 14px; padding: 12px 14px; background: var(--bg-2); border-radius: var(--r-md); cursor: pointer; border: 1px solid var(--border); transition: all 0.12s; }
 .export-option:hover { border-color: var(--accent); background: var(--accent-dim); }

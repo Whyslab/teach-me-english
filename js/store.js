@@ -10,6 +10,9 @@ export const DEFAULT_SETTINGS = {
     spellingDir: 'no-ru', // направление режима письма: no-ru | ru-no
     autoSpeak: false,
     muted: false,
+    speechRate: 1,         // скорость речи Piper/браузера: 0.6…1.4
+    cardsDir: 'mixed',     // направление карточек: mixed | no-ru | ru-no
+    autoTranslate: false,  // подсказка перевода от MyMemory при добавлении слова
 };
 
 export const state = {

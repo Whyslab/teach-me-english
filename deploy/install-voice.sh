@@ -96,6 +96,20 @@ if systemctl --user cat "$UNIT" >/dev/null 2>&1; then
     STATUS="$(curl -fsS "http://127.0.0.1:${PORT}/api/tts/status" || true)"
     echo "  /api/tts/status: $STATUS"
     if [[ "$STATUS" == *'"available":true'* ]]; then
+        # Первое слово загружает модель в постоянный процесс (tts_worker.py).
+        START=$(date +%s%N)
+        curl -fsS -o /dev/null "http://127.0.0.1:${PORT}/api/tts?text=Hei%2C%20velkommen" || true
+        MS=$(( ($(date +%s%N) - START) / 1000000 ))
+        log_info "Первое слово синтезировано за ${MS} мс (включая загрузку голоса)."
+        START=$(date +%s%N)
+        curl -fsS -o /dev/null "http://127.0.0.1:${PORT}/api/tts?text=Hvordan%20har%20du%20det" || true
+        MS=$(( ($(date +%s%N) - START) / 1000000 ))
+        log_info "Следующее новое слово — за ${MS} мс."
+        STATUS="$(curl -fsS "http://127.0.0.1:${PORT}/api/tts/status" || true)"
+        if [[ "$STATUS" == *'"mode":"cli"'* ]]; then
+            log_warn "Постоянный процесс не поднялся — каждое новое слово будет около секунды."
+            log_warn "Логи: journalctl --user -u $UNIT -n 30 --no-pager | grep TTS"
+        fi
         log_info "Готово. Открой http://127.0.0.1:${PORT}/ и нажми Ctrl+Shift+R."
     else
         log_err "Сервер не видит голос. Логи: journalctl --user -u $UNIT -n 30 --no-pager"

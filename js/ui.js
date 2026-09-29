@@ -151,7 +151,17 @@ if (window.speechSynthesis) {
 // ---------------------------------------------------------------------------
 let serverTts = null;          // null — ещё не проверяли, true/false — есть ли Piper
 let currentAudio = null;
-const ttsUrl = (text) => `/api/tts?text=${encodeURIComponent(String(text).trim())}`;
+
+// Скорость речи из настроек: 1 — как у голоса, 0.6…1.4.
+function speechRate(override) {
+    const r = Number(override ?? state.settings.speechRate ?? 1);
+    return Number.isFinite(r) && r > 0 ? Math.round(Math.min(1.4, Math.max(0.6, r)) * 20) / 20 : 1;
+}
+
+function ttsUrl(text, rate) {
+    const q = `/api/tts?text=${encodeURIComponent(String(text).trim())}`;
+    return rate === 1 ? q : `${q}&rate=${rate}`;
+}
 
 export async function initSpeech() {
     try {
@@ -168,27 +178,31 @@ export function hasNeuralVoice() { return serverTts === true; }
 // Готовит звук заранее (например, следующей карточки), чтобы он играл сразу.
 const prefetched = new Set();
 export function prefetchSpeech(text) {
-    if (!serverTts || !text || prefetched.has(text)) return;
-    prefetched.add(text);
-    fetch(ttsUrl(text)).catch(() => prefetched.delete(text));
+    if (!serverTts || !text) return;
+    const url = ttsUrl(text, speechRate());
+    if (prefetched.has(url)) return;
+    prefetched.add(url);
+    fetch(url).catch(() => prefetched.delete(url));
 }
 
-export function speak(text) {
+// options.rate — проверить скорость до сохранения настроек.
+export function speak(text, options = {}) {
     if (state.settings.muted || !text) return;
     stopSpeech();
+    const rate = speechRate(options.rate);
     if (serverTts) {
-        const audio = new Audio(ttsUrl(text));
+        const audio = new Audio(ttsUrl(text, rate));
         currentAudio = audio;
         audio.play().catch(() => {
             // Сервер не смог синтезировать — говорим браузерным голосом.
-            if (currentAudio === audio) browserSpeak(text);
+            if (currentAudio === audio) browserSpeak(text, rate);
         });
         return;
     }
-    browserSpeak(text);
+    browserSpeak(text, rate);
 }
 
-function browserSpeak(text) {
+function browserSpeak(text, rate = 1) {
     if (!window.speechSynthesis) return;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = SPEECH_LANG;
@@ -199,7 +213,7 @@ function browserSpeak(text) {
         voiceWarningShown = true;
         showToast('Нет норвежского голоса. Для качественной озвучки установи Piper: deploy/install-voice.sh', 'warning', 7000);
     }
-    utterance.rate = 0.9;
+    utterance.rate = 0.9 * rate;
     window.speechSynthesis.speak(utterance);
 }
 

@@ -11,7 +11,7 @@ import {
 import { normalizeWord } from './srs.js';
 import { stripParticle } from './norsk.js';
 import { plural, escapeHtml } from './util.js';
-import { $, showToast, showConfirm, openModal, closeModal, topModal, initSpeech } from './ui.js';
+import { $, showToast, showConfirm, openModal, closeModal, topModal, initSpeech, speak } from './ui.js';
 import { applyTheme, setTheme } from './themes.js';
 import { wordFormHtml, readWordForm, clearWordForm, syncGrammarVisibility, guessForms, insertChar } from './wordform.js';
 import { dedupeKey } from './format.js';
@@ -50,11 +50,13 @@ async function addWord() {
 }
 
 // Автоперевод норвежский → русский при уходе из поля слова.
+// По умолчанию выключен (⚙️ Настройки): для пары норвежский → русский MyMemory
+// часто подставляет редкое значение или английское слово.
 async function autoTranslate() {
     const no = $('add-no').value.trim();
     const ru = $('add-ru');
     $('tatoeba-fetch-btn').hidden = !no;
-    if (!no || ru.value.trim()) return;
+    if (!state.settings.autoTranslate || !no || ru.value.trim()) return;
     const query = stripParticle(no);
     ru.placeholder = '⏳ переводим…';
     try {
@@ -78,7 +80,16 @@ function openSettings() {
     $('set-new').value = state.settings.newPerDay;
     $('set-goal').value = state.settings.dailyGoal;
     $('set-autospeak').checked = !!state.settings.autoSpeak;
+    $('set-autotranslate').checked = !!state.settings.autoTranslate;
+    $('set-cards-dir').value = state.settings.cardsDir || 'mixed';
+    $('set-rate').value = state.settings.speechRate || 1;
+    renderRateLabel();
     openModal('settings-modal');
+}
+
+function renderRateLabel() {
+    const r = Number($('set-rate').value);
+    $('set-rate-label').textContent = r === 1 ? '×1 — как у голоса' : `×${r.toFixed(2)}${r < 1 ? ' — медленнее' : ' — быстрее'}`;
 }
 
 function saveSettingsForm() {
@@ -88,7 +99,14 @@ function saveSettingsForm() {
         showToast('Новых слов: 0–200, цель дня: 1–500', 'warning');
         return;
     }
-    Object.assign(state.settings, { newPerDay: n, dailyGoal: g, autoSpeak: $('set-autospeak').checked });
+    Object.assign(state.settings, {
+        newPerDay: n,
+        dailyGoal: g,
+        autoSpeak: $('set-autospeak').checked,
+        autoTranslate: $('set-autotranslate').checked,
+        cardsDir: $('set-cards-dir').value,
+        speechRate: Number($('set-rate').value) || 1,
+    });
     saveSettings();
     closeModal('settings-modal');
     renderAll();
@@ -126,6 +144,7 @@ const actions = {
     'set-theme'(el) { setTheme(el.dataset.theme); renderStats(); },
     'open-settings'() { openSettings(); },
     'save-settings'() { saveSettingsForm(); },
+    'test-rate'() { speak('Hei! Jeg lærer norsk.', { rate: Number($('set-rate').value) }); },
     'close-modal'(el) { el.closest('.modal-overlay')?.classList.remove('open'); },
     'toggle-mute'() {
         state.settings.muted = !state.settings.muted;
@@ -207,6 +226,7 @@ function initAddForm() {
         syncGrammarVisibility(p);
     }
     $('add-no').addEventListener('blur', autoTranslate);
+    $('set-rate').addEventListener('input', renderRateLabel);
     $('add-form').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.isComposing && e.target.matches('input')) {
             e.preventDefault();
