@@ -3,7 +3,7 @@ let timeLeft = 0;
 let timerId = null;
 let myWords = [];
 const inputRu = document.getElementById('input-ru');
-const inputEn = document.getElementById('input-en');
+const inputNo = document.getElementById('input-no');
 const inputEx = document.getElementById('input-example');
 const inputExRu = document.getElementById('input-ex-ru');
 const inputTags = document.getElementById('input-tags');
@@ -39,7 +39,9 @@ const importBtn = document.getElementById('import-btn');
 const importArea = document.getElementById('import-area');
 
 const resetLearnedBtn = document.getElementById('reset-learned-btn');
-const exportBtn = document.getElementById('export-btn');
+// Скрытая кнопка TXT-экспорта. Раньше этот обработчик вешался на видимую кнопку
+// «Экспорт / Бэкап» и затирал её onclick: вместо окна экспорта сразу скачивался txt.
+const exportBtn = document.getElementById('export-btn-txt');
 const learningCurveEl = document.getElementById('learning-curve');
 const activityHeatmapEl = document.getElementById('activity-heatmap');
 const weeklyChartEl = document.getElementById('weekly-progress-chart');
@@ -131,19 +133,6 @@ let streakData = safeParseStorage('streakData', {
 
 let dailyActivity = safeParseStorage('dailyActivity', {});
 
-const INTERVALS = {
-    0: 0,
-    1: 24 * 60 * 60 * 1000,
-    2: 3 * 24 * 60 * 60 * 1000,
-    3: 7 * 24 * 60 * 60 * 1000,
-    4: 14 * 24 * 60 * 60 * 1000,
-    5: 30 * 24 * 60 * 60 * 1000
-};
-const FORGET_STEPS = [
-    60 * 1000,
-    10 * 60 * 1000
-];
-
 // ============================================================
 // SM-2 АЛГОРИТМ (как в Anki)
 // quality: 0=снова, 1=сложно, 2=хорошо, 3=легко
@@ -209,21 +198,33 @@ function apiFetch(path, options = {}) {
 
 // === 2. ОСНОВНЫЕ ФУНКЦИИ ===
 
+// Приводит слово к форме, которую ждут остальной код и сервер. Заодно
+// выбрасывает поля старой английской версии — видеофрагменты и фото
+// (фото лежали в base64 и раздували localStorage).
+function normalizeWord(word) {
+    const id = Number(word.id);
+    return {
+        id: Number.isFinite(id) ? id : Date.now() + Math.random(),
+        original: String(word.original ?? ''),
+        translate: String(word.translate ?? ''),
+        example: word.example || "",
+        exampleTranslate: word.exampleTranslate || "",
+        level: Math.min(5, Math.max(0, Number(word.level) || 0)),
+        nextReview: Number(word.nextReview) || 0,
+        forgetStep: Number(word.forgetStep) || 0,
+        tags: sanitizeTags(word.tags || []),
+        sm2EF: Number(word.sm2EF) || 2.5,
+        sm2Interval: Number(word.sm2Interval) || 1,
+        sm2Reps: Number(word.sm2Reps) || 0,
+        history: Array.isArray(word.history) ? word.history.slice(-30) : [],
+        addedAt: Number(word.addedAt) || 0
+    };
+}
+
 async function loadWords() {
     const localData = safeParseStorage('myWords', []);
-    if (localData.length > 0) {
-        myWords = localData.map(word => ({
-            ...word,
-            example: word.example || "",
-            exampleTranslate: word.exampleTranslate || "",
-            forgetStep: Number(word.forgetStep) || 0,
-            tags: sanitizeTags(word.tags || []),
-            videoId: word.videoId || '',
-            startTime: Number(word.startTime) || 0,
-            endTime: Number(word.endTime) || 0,
-            subtitleText: word.subtitleText || '',
-            imageUrl: word.imageUrl || ''
-        }));
+    if (Array.isArray(localData) && localData.length > 0) {
+        myWords = localData.map(normalizeWord);
         isLoaded = true;
         render();
     }
@@ -233,18 +234,7 @@ async function loadWords() {
         if (!response.ok) throw new Error('Сервер недоступен');
         const data = await response.json();
         if (Array.isArray(data) && data.length > 0) {
-            myWords = data.map(word => ({
-                ...word,
-                example: word.example || "",
-                exampleTranslate: word.exampleTranslate || "",
-                forgetStep: Number(word.forgetStep) || 0,
-                tags: sanitizeTags(word.tags || []),
-                videoId: word.videoId || '',
-                startTime: Number(word.startTime) || 0,
-                endTime: Number(word.endTime) || 0,
-                subtitleText: word.subtitleText || '',
-                imageUrl: word.imageUrl || ''
-            }));
+            myWords = data.map(normalizeWord);
             safeSetLocalStorage('myWords', myWords);
         }
         isLoaded = true;
@@ -265,11 +255,41 @@ function safeSetClick(id, callback) {
     }
 }
 
+// Озвучка на норвежском (букмол). Голос выбираем явно: одного lang мало —
+// часть браузеров тогда читает норвежское слово английским голосом.
+// nb/no/nn — разные коды одного языка у разных движков синтеза.
+const SPEECH_LANG = 'nb-NO';
+let norwegianVoice = null;
+let voiceWarningShown = false;
+
+function pickNorwegianVoice() {
+    if (!window.speechSynthesis) return null;
+    const voices = window.speechSynthesis.getVoices();
+    norwegianVoice =
+        voices.find(v => /^nb([-_]|$)/i.test(v.lang)) ||
+        voices.find(v => /^no([-_]|$)/i.test(v.lang)) ||
+        voices.find(v => /^nn([-_]|$)/i.test(v.lang)) ||
+        null;
+    return norwegianVoice;
+}
+
+if (window.speechSynthesis) {
+    pickNorwegianVoice();
+    window.speechSynthesis.addEventListener?.('voiceschanged', pickNorwegianVoice);
+}
+
 function speak(text) {
-    if (!window.speechSynthesis || isMuted) return; 
+    if (!window.speechSynthesis || isMuted || !text) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
+    utterance.lang = SPEECH_LANG;
+    const voice = norwegianVoice || pickNorwegianVoice();
+    if (voice) {
+        utterance.voice = voice;
+    } else if (!voiceWarningShown && window.speechSynthesis.getVoices().length > 0) {
+        voiceWarningShown = true;
+        showToast('В системе нет норвежского голоса — произношение может быть неточным. Установи голос «Norsk» в настройках ОС.', 'warning', 6000);
+    }
     utterance.rate = 0.9;
     window.speechSynthesis.speak(utterance);
 }
@@ -280,8 +300,16 @@ const VIRT_THRESH = 300;    // px до конца — подгружаем ещ�
 let virtRendered = VIRT_PAGE;
 let virtWords = [];         // текущий отсортированный список
 
+// Состояние списка. Объявлено здесь, до первого render().
+let currentSort = 'default';
+let activeTagFilter = null;
+let levelFilter = 'all';
+let searchQuery = '';
+let selectedWordIds = new Set();
+let bulkSelectMode = false;
+
 function getSortedWords() {
-    const key = `${currentSort}|${activeTagFilter}|${myWords.length}`;
+    const key = `${currentSort}|${activeTagFilter}|${levelFilter}|${searchQuery}|${myWords.length}`;
     if (cacheKey === key && cachedSortedWords) {
         return cachedSortedWords;
     }
@@ -311,25 +339,22 @@ function buildCardHTML(word, now) {
     const reviewClass = (isReady && !isMaxLevel) ? 'needs-review' : '';
     const learnedStyle = isMaxLevel ? 'style="opacity: 0.5; background: rgba(40, 167, 69, 0.05);"' : '';
     const badge = `<span class="level-indicator">Ур. ${level}</span>`;
-    const tagsBadges = (word.tags || []).map(t => `<span class="word-tag">${escapeHtml(t)}</span>`).join('');
     const tagsText = (word.tags || []).join(', ');
     const isBulkSelected = selectedWordIds.has(word.id);
     const bulkClass = isBulkSelected ? ' bulk-selected' : '';
-    const tatoebaBtn = `<button class="speak-btn" title="Tatoeba" onclick="event.stopPropagation();openTatoebaModal('${escapeJsString(word.original)}')">📖</button>`;
-    const hasVideo = word.videoId
-        ? `<button class="speak-btn" style="font-size:10px;margin-left:4px" title="Послушать слово в реальной речи"
-                   aria-label="Фрагмент видео со словом ${escapeAttr(word.original)}"
-                   onclick="event.stopPropagation();openClipModal('${escapeJsString(word.id)}')">🎬</button>`
-        : '';
+    const tatoebaBtn = `<button class="speak-btn" title="Примеры с Tatoeba" onclick="event.stopPropagation();openTatoebaModal('${jsAttr(word.original)}')">📖</button>`;
+    const originalHtml = searchQuery ? highlightMatch(word.original, searchQuery) : escapeHtml(word.original);
+    const translateHtml = searchQuery ? highlightMatch(word.translate, searchQuery) : escapeHtml(word.translate);
+    const translationClass = searchQuery ? '' : ' hidden';
     const hardWord = word.sm2EF && word.sm2EF < 2.0 ? '<span style="font-size:10px;color:var(--red);margin-left:4px" title="Трудное слово">⚠️</span>' : '';
     return `<div class="card ${reviewClass}${bulkClass}" data-id="${word.id}" data-word-id="${word.id}" ${learnedStyle} onclick="if(bulkSelectMode)toggleWordSelection(${word.id})">
         <div class="card-content">
             ${badge}
-            <span class="original editable-text" contenteditable="${!bulkSelectMode}">${escapeHtml(word.original)}</span>
+            <span class="original editable-text" contenteditable="${!bulkSelectMode}" lang="nb">${originalHtml}</span>
             <span class="arrow"> —> </span>
-            <span class="translation hidden editable-text" contenteditable="${!bulkSelectMode}">${escapeHtml(word.translate)}</span>
+            <span class="translation${translationClass} editable-text" contenteditable="${!bulkSelectMode}">${translateHtml}</span>
             <span class="tags editable-text" contenteditable="${!bulkSelectMode}" title="Редактируйте теги через запятую">${escapeHtml(tagsText)}</span>
-            ${hasVideo}${hardWord}
+            ${hardWord}
         </div>
         <div class="actions">
             <button class="speak-btn" title="Прослушать">🔊</button>
@@ -417,52 +442,13 @@ function render() {
     const sorted = getSortedWords();
     // Для маленьких словарей (≤80) — рендерим всё сразу (нет смысла виртуализировать)
     if (sorted.length <= VIRT_PAGE) {
-        const cardsHTML = sorted.map(word => { 
-        const level = word.level || 0;
-        const isMaxLevel = level === 5;
-        
-        const isReady = !word.nextReview || word.nextReview <= now;
-        const reviewClass = (isReady && !isMaxLevel) ? 'needs-review' : '';
-        
-        const learnedStyle = isMaxLevel ? 'style="opacity: 0.5; background: rgba(40, 167, 69, 0.05);"' : '';
-        const badge = `<span class="level-indicator" style="font-size: 10px; color: #00d2ff; background: rgba(0, 210, 255, 0.1); padding: 2px 6px; border-radius: 4px; margin-right: 8px;">Ур. ${level}</span>`;
-        const tagsBadges = (word.tags || []).map(t => `<span class="word-tag">${escapeHtml(t)}</span>`).join('');
-        const tagsText = (word.tags || []).join(', ');
-        const hasVideo = word.videoId
-            ? `<button class="speak-btn" style="font-size:10px;margin-left:4px" title="Послушать слово в реальной речи"
-                       aria-label="Фрагмент видео со словом ${escapeAttr(word.original)}"
-                       onclick="event.stopPropagation();openClipModal('${escapeJsString(word.id)}')">🎬</button>`
-            : '';
-
-        const isBulkSelected = selectedWordIds.has(word.id);
-        const bulkClass = isBulkSelected ? ' bulk-selected' : '';
-        const tatoebaBtn = `<button class="speak-btn" title="Найти примеры Tatoeba" onclick="event.stopPropagation();openTatoebaModal('${escapeJsString(word.original)}')">📖</button>`;
-
-        return `
-        <div class="card ${reviewClass}${bulkClass}" data-id="${word.id}" data-word-id="${word.id}" ${learnedStyle} onclick="if(bulkSelectMode)toggleWordSelection(${word.id})">
-            <div class="card-content">
-                ${badge}
-                <span class="original editable-text" contenteditable="${!bulkSelectMode}">${escapeHtml(word.original)}</span>
-                <span class="arrow" style="color: #999"> —> </span>
-                <span class="translation hidden editable-text" contenteditable="${!bulkSelectMode}">${escapeHtml(word.translate)}</span>
-                <span class="tags editable-text" contenteditable="${!bulkSelectMode}" title="Редактируйте теги через запятую">${escapeHtml(tagsText)}</span>
-                ${hasVideo ? `<span style="font-size:10px;color:#b084f7;margin-left:4px;" title="Есть видео">${hasVideo}</span>` : ''}
-                ${word.sm2EF && word.sm2EF < 2.0 ? `<span style="font-size:10px;color:#ff4d4d;margin-left:4px;" title="Трудное слово">⚠️</span>` : ''}
-            </div>
-            <div class="actions">
-                <button class="speak-btn" title="Прослушать">🔊</button>
-                ${tatoebaBtn}
-                <button class="history-btn" title="История слова" onclick="event.stopPropagation();showWordHistory(${word.id})">📈</button>
-                <button class="delete-btn" title="Удалить">&times;</button>
-            </div>
-        </div>`;
-    }).join('');
-
-        element.innerHTML = cardsHTML;
+        element.innerHTML = sorted.map(word => buildCardHTML(word, now)).join('');
+        document.getElementById('virt-counter')?.remove();
     } else {
         // Большой словарь — виртуализация
         renderVirtual(true);
     }
+    renderEmptyState(sorted.length);
     updateOverallProgress();
     updateLevelStats();
     updateVisualProgress();
@@ -592,6 +578,15 @@ async function startTraining(mode) {
         if (timeLeft % 10 === 0) saveTimerToServer();
     }, 1000);
 
+    enterFlashcardTrainingUI();
+    updateFlashcard();
+}
+
+// Общий вход в экран карточек для обычной тренировки и марафона.
+// Раньше каждый режим делал это по-своему: обычная тренировка не прятала
+// мобильную навигацию и не возвращала кнопки «Сложно»/«Легко», если перед
+// этим был включён режим письма.
+function enterFlashcardTrainingUI() {
     document.getElementById('main-ui').style.display = 'none';
     document.getElementById('training-section').style.display = 'flex';
 
@@ -599,8 +594,11 @@ async function startTraining(mode) {
     if (levelStats) levelStats.style.display = 'none';
     if (mainHeader) mainHeader.style.display = 'none';
     if (progressWrapper) progressWrapper.style.display = 'none';
+    document.body.classList.add('training-mode');
+    window.scrollTo(0, 0);
+    const mobileNav = document.getElementById('mobile-nav');
+    if (mobileNav) mobileNav.style.display = 'none';
 
-    // FIX: Убеждаемся что UI карточек восстановлен (не quiz)
     const fc = document.querySelector('.flashcard-container');
     const tb = document.querySelector('.training-buttons');
     const tg = document.getElementById('toggle-mode-btn');
@@ -611,20 +609,24 @@ async function startTraining(mode) {
     if (qa) qa.style.display = 'none';
     isQuizMode = false;
 
-    // FIX: Показываем кнопки Know/DontKnow, скрываем Next
-    const btnKnow = document.getElementById('btn-know');
-    const btnDontKnow = document.getElementById('btn-dont-know');
+    ['btn-know', 'btn-dont-know', 'btn-hard', 'btn-easy'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.style.display = 'block';
+    });
     const btnBack = document.getElementById('btn-back');
     const btnNext = document.getElementById('btn-next');
-    if (btnKnow) btnKnow.style.display = 'block';
-    if (btnDontKnow) btnDontKnow.style.display = 'block';
     if (btnNext) btnNext.style.display = 'none';
-    if (btnBack) btnBack.classList.remove('full-width-btn');
+    if (btnBack) { btnBack.style.display = ''; btnBack.classList.remove('full-width-btn'); }
     if (tg) tg.innerHTML = '<span>🎴</span> Режим: Карточки';
     isSpellingMode = false;
+    spellingChecked = null;
     if (spellingArea) spellingArea.style.display = 'none';
 
-    updateFlashcard();
+    const spellingExtraBtns = document.getElementById('spelling-extra-btns');
+    const audioRow = document.getElementById('audio-mode-row');
+    if (spellingExtraBtns) spellingExtraBtns.style.display = 'none';
+    if (audioRow) audioRow.style.display = 'flex';
+    trainingHistory = [];
 }
 
 async function loadTimerFromServer() {
@@ -724,10 +726,13 @@ function updateFlashcard() {
     if (cardExRu) cardExRu.style.visibility = 'hidden';
     if (flashcard) flashcard.classList.remove('is-flipped');
 
-    // В режиме письма — всегда англ→рус (видим слово, пишем перевод)
+    spellingChecked = null;
+    // В режиме письма — всегда норв→рус (видим слово, пишем перевод)
     // В остальных режимах — рандомно
-    const isEnToRu = isSpellingMode ? true : Math.random() > 0.5;
-    if (isEnToRu) {
+    const isNoToRu = isSpellingMode ? true : Math.random() > 0.5;
+    cardFront.lang = isNoToRu ? 'nb' : 'ru';
+    cardBackText.lang = isNoToRu ? 'ru' : 'nb';
+    if (isNoToRu) {
         cardFront.innerText = word.original;
         cardBackText.innerText = word.translate;
         word.currentExpectedAnswer = word.translate;
@@ -742,9 +747,6 @@ function updateFlashcard() {
 
     document.getElementById('total-remaining').innerText = mainQueue.length;
     document.getElementById('current-pool-count').innerText = `${currentWordIndex + 1}/${activePool.length}`;
-
-    // Транскрипция и картинка (асинхронно, не блокируем рендер)
-    loadCardImage(word);
 }
 
 flashcard.onclick = () => {
@@ -794,6 +796,7 @@ function resetCardView() {
 function stopTraining() {
     clearInterval(timerId);
     timerId = null;
+    stopMarathon();
     document.body.classList.remove('training-mode');
     // Просим разрешение на уведомления после первой тренировки
     setTimeout(requestNotificationPermission, 2000);
@@ -820,6 +823,10 @@ function finishDay() {
 function finishTraining() {
     // FIX: Всегда восстанавливаем UI если был quiz
     if (isQuizMode) restoreTrainingUI();
+    stopMarathon();
+    document.body.classList.remove('training-mode');
+    const mobileNav = document.getElementById('mobile-nav');
+    if (mobileNav) mobileNav.style.display = '';
     
     const levelStats = document.getElementById('level-stats');
     const mainUI = document.getElementById('main-ui');
@@ -882,30 +889,20 @@ function updateSessionCounter() {
     el.innerHTML = `<span class="stat-correct">✓ ${sessionCorrect}</span> <span class="stat-wrong">✗ ${sessionWrong}</span>`;
 }
 
+// «Назад» раньше восстанавливал только level/nextReview/forgetStep, а SM-2
+// (EF, интервал, число повторений) и историю ответов оставлял изменёнными —
+// после отмены слово всё равно получало новый интервал.
 function saveToHistory(wasRemoved = false) {
-    const currentWord = activePool[currentWordIndex];
+    const w = activePool[currentWordIndex];
     trainingHistory.push({
-        wordId: currentWord.id, indexInPool: currentWordIndex,
-        oldLevel: currentWord.level, oldNextReview: currentWord.nextReview,
-        oldForgetStep: currentWord.forgetStep || 0,
-        wasRemoved: wasRemoved
+        wordId: w.id, indexInPool: currentWordIndex, wasRemoved,
+        snapshot: {
+            level: w.level, nextReview: w.nextReview, forgetStep: w.forgetStep || 0,
+            sm2EF: w.sm2EF, sm2Interval: w.sm2Interval, sm2Reps: w.sm2Reps,
+            history: Array.isArray(w.history) ? [...w.history] : []
+        }
     });
-}
-
-function applyForgetSchedule(word) {
-    if (!word) return;
-
-    const step = Number(word.forgetStep) || 0;
-    const nextDelay = FORGET_STEPS[Math.min(step, FORGET_STEPS.length - 1)];
-
-    word.level = 0;
-    word.nextReview = Date.now() + nextDelay;
-
-    if (step < FORGET_STEPS.length - 1) {
-        word.forgetStep = step + 1;
-    } else {
-        word.forgetStep = 0;
-    }
+    if (trainingHistory.length > 50) trainingHistory.shift();
 }
 
 // ============================================================
@@ -983,35 +980,20 @@ document.getElementById('btn-back').onclick = () => {
     if (trainingHistory.length === 0) return;
     const lastState = trainingHistory.pop();
     const mainWord = myWords.find(w => w.id === lastState.wordId);
-    if (mainWord) {
-        mainWord.level = lastState.oldLevel;
-        mainWord.nextReview = lastState.oldNextReview;
-        mainWord.forgetStep = lastState.oldForgetStep || 0;
-        save();
-    }
+    if (!mainWord) return;
+    Object.assign(mainWord, lastState.snapshot);
+    save();
     if (lastState.wasRemoved) activePool.splice(lastState.indexInPool, 0, mainWord);
     currentWordIndex = lastState.indexInPool;
     nextStep();
 };
 
+// «Далее» в режиме письма. Раньше слово всегда сбрасывалось на уровень 0 —
+// даже если перевод был написан правильно. Теперь оценка берётся из проверки:
+// верно → «Хорошо», неверно / не проверяли / подсмотрели → «Снова».
 document.getElementById('btn-next').onclick = () => {
-    const word = activePool[currentWordIndex];
-    if (!word) return;
-
-    saveToHistory(false); 
-
-    const mainWord = myWords.find(w => w.id === word.id);
-    if (mainWord) {
-        applyForgetSchedule(mainWord);
-        save();
-    }
-
-    currentWordIndex++;
-    if (currentWordIndex >= activePool.length) {
-        currentWordIndex = 0;
-    }
-    
-    nextStep();
+    if (!activePool[currentWordIndex]) return;
+    handleSM2Answer(spellingChecked === true ? 2 : 0);
 };
 
 // === 4. ОБРАБОТЧИКИ СОБЫТИЙ ===
@@ -1072,7 +1054,7 @@ function updateLevelStats() {
     if (!statsEl) return;
 
     const accentColor = getComputedStyle(document.documentElement)
-                        .getPropertyValue('--accent-color').trim() || '#00d2ff';
+                        .getPropertyValue('--accent').trim() || '#7c6af7';
 
     const counts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     myWords.forEach(w => {
@@ -1142,28 +1124,59 @@ toggleModeBtn.onclick = () => {
     }
 };
 
+// Результат проверки в режиме письма: null — ещё не проверяли,
+// true/false — верно/неверно.
+let spellingChecked = null;
+
+// Сравнение ответа в режиме письма. Перевод часто содержит несколько
+// вариантов («дом, здание»), поэтому засчитываем любой из них. Регистр,
+// лишние пробелы, ё/е и завершающая пунктуация не важны.
+function normalizeAnswer(value) {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/ё/g, 'е')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/[.!?…]+$/, '')
+        .trim();
+}
+
+function isSpellingMatch(input, expected) {
+    const answer = normalizeAnswer(input);
+    if (!answer) return false;
+    if (answer === normalizeAnswer(expected)) return true;
+    return String(expected || '')
+        .split(/[,;\/]/)
+        .map(normalizeAnswer)
+        .filter(Boolean)
+        .includes(answer);
+}
+
 spellingInput.onkeydown = (e) => {
     if (e.key !== 'Enter') return;
 
+    // Второй Enter переходит дальше. Раньше он всегда нажимал «Хорошо» —
+    // даже после неправильного ответа, и ошибка засчитывалась как успех.
     if (flashcard.classList.contains('is-flipped')) {
-        document.getElementById('btn-know').click();
+        handleSM2Answer(spellingChecked === true ? 2 : 0);
         return;
     }
 
     const word = activePool[currentWordIndex];
     if (!word) return;
 
-    const userValue = spellingInput.value.trim().toLowerCase();
-    const correctAnswer = (word.currentExpectedAnswer || '').trim().toLowerCase();
+    const expected = word.currentExpectedAnswer || '';
+    spellingChecked = isSpellingMatch(spellingInput.value, expected);
 
-    if (userValue === correctAnswer) {
+    if (spellingChecked) {
         spellingFeedback.innerText = "✅ Верно!";
         spellingFeedback.style.color = "#28a745";
     } else {
-        spellingFeedback.innerText = `❌ Правильно: ${correctAnswer}`;
+        spellingFeedback.innerText = `❌ Правильно: ${expected}`;
         spellingFeedback.style.color = "#dc3545";
     }
 
+    clearCardBlur();
     flashcard.classList.add('is-flipped');
     cardClickStage = 1;
 };
@@ -1330,13 +1343,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 addBtn.onclick = async () => {
-    const en = inputEn.value.trim();
+    const no = inputNo.value.trim();
     const ru = inputRu.value.trim();
-    if (!en || !ru) return;
+    if (!no || !ru) {
+        showToast('Заполни норвежское слово и перевод', 'info');
+        (no ? inputRu : inputNo).focus();
+        return;
+    }
 
     // Проверка дубликата
     const duplicate = myWords.find(w =>
-        w.original.toLowerCase() === en.toLowerCase()
+        w.original.toLowerCase() === no.toLowerCase()
     );
     if (duplicate) {
         const existingLevel = duplicate.level || 0;
@@ -1345,42 +1362,67 @@ addBtn.onclick = async () => {
             : '—';
         const confirmed = await showConfirm(
             `Слово уже есть в словаре:<br><br>
-            <b style="color:#fff">${duplicate.original}</b> — ${duplicate.translate}<br>
+            <b style="color:#fff">${escapeHtml(duplicate.original)}</b> — ${escapeHtml(duplicate.translate)}<br>
             <small style="color:#888">Уровень: ${existingLevel} · Повторение: ${nextRev}</small><br><br>
             Добавить ещё раз?`,
             'Добавить', 'Отмена'
         );
-        if (!confirmed) { inputEn.focus(); return; }
+        if (!confirmed) { inputNo.focus(); return; }
     }
 
     const tags = sanitizeTags(inputTags ? inputTags.value.split(',') : []);
-    myWords.push({
+    myWords.push(normalizeWord({
         id: Date.now(),
-        original: en, translate: ru,
+        original: no, translate: ru,
         example: inputEx.value.trim(),
         exampleTranslate: inputExRu.value.trim(),
         level: 0, nextReview: Date.now(), forgetStep: 0,
-        tags, videoId: '', startTime: 0,
-        imageUrl: '',
+        tags,
         addedAt: Date.now(),
         history: []
-    });
+    }));
     await save();
-    // 🔍 При добавлении слова очищаем фильтр — показываем ВСЕ слова
-    if (activeTagFilter) {
-        console.log('ℹ️ При добавлении слова очищаем активный фильтр');
-        clearTagFilter();
+    // При добавлении слова сбрасываем фильтры — новое слово должно быть видно
+    if (activeTagFilter || levelFilter !== 'all' || searchQuery) {
+        resetListFilters();
     } else {
         render();
-        renderTagFilterBar();
     }
-    inputEn.value = ''; inputRu.value = ''; inputEx.value = ''; inputExRu.value = '';
+    inputNo.value = ''; inputRu.value = ''; inputEx.value = ''; inputExRu.value = '';
     if (inputTags) inputTags.value = '';
-    inputEn.focus();
+    const tatoebaFetchBtn = document.getElementById('tatoeba-fetch-btn');
+    if (tatoebaFetchBtn) tatoebaFetchBtn.style.display = 'none';
+    inputNo.focus();
     checkAchievements();
-    updateXP();
-    checkWeeklyChallenge();
+    // XP_PER_ADD_WORD был объявлен, но не начислялся; а добавление слова
+    // засчитывалось в недельный челлендж «повторений», хотя повторением не является.
+    addXP(XP_PER_ADD_WORD);
 };
+
+// Кнопки æ ø å — для тех, у кого нет норвежской раскладки. Символ вставляется
+// в последнее поле ввода, где был курсор (по умолчанию — в поле слова).
+let lastTextInput = null;
+document.addEventListener('focusin', (e) => {
+    if (e.target.matches?.('input[type="text"], textarea')) lastTextInput = e.target;
+});
+
+function insertNorwegianChar(ch, event) {
+    const target = (lastTextInput && document.body.contains(lastTextInput)) ? lastTextInput : inputNo;
+    if (!target) return;
+    const upper = event?.shiftKey ? ch.toUpperCase() : ch;
+    const start = target.selectionStart ?? target.value.length;
+    const end = target.selectionEnd ?? target.value.length;
+    target.setRangeText(upper, start, end, 'end');
+    target.focus();
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// Enter в форме добавления = «Добавить слово»
+[inputNo, inputRu, inputEx, inputExRu, inputTags].forEach(inp => {
+    inp?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addBtn.click(); }
+    });
+});
 
 element.onclick = (e) => {
     if (e.target.classList.contains('editable-text')) return;
@@ -1448,7 +1490,7 @@ if (importBtn) importBtn.onclick = async () => {
     lines.forEach(line => {
         const parts = line.split('|').map(p => p.trim());
         
-        if (parts.length >= 2) {
+        if (parts.length >= 2 && parts[0] && parts[1]) {
             const originalText = parts[0];
             const translateText = parts[1];
             const originalKey = originalText.toLowerCase();
@@ -1459,21 +1501,18 @@ if (importBtn) importBtn.onclick = async () => {
             } else {
                 existingWords.add(originalKey);
                 const parsedTags = sanitizeTags((parts[4] || '').split(',').map(t => t.trim()).filter(Boolean));
-                const parsedVideoId = (parts[5] || '').trim();
-                const parsedStartTime = Number(parts[6]) || 0;
-                myWords.push({
+                myWords.push(normalizeWord({
                     id: Date.now() + Math.random(),
-                    original: originalText,
-                    translate: translateText,
+                    original: originalText.slice(0, 100),
+                    translate: translateText.slice(0, 500),
                     example: parts[2] || "",
                     exampleTranslate: parts[3] || "",
                     level: 0,
                     nextReview: Date.now(),
                     forgetStep: 0,
                     tags: parsedTags,
-                    videoId: parsedVideoId,
-                    startTime: parsedStartTime
-                });
+                    addedAt: Date.now()
+                }));
                 importedCount++;
             }
         }
@@ -1497,12 +1536,13 @@ if (importBtn) importBtn.onclick = async () => {
 };
 
 if (exportBtn) exportBtn.onclick = () => {
-    const textToSave = myWords.map(w => `${w.original}|${w.translate}|${w.example || ''}|${w.exampleTranslate || ''}|${(w.tags || []).join(',')}|${w.videoId || ''}|${w.startTime || 0}`).join('\n');
+    const textToSave = myWords.map(w => `${w.original}|${w.translate}|${w.example || ''}|${w.exampleTranslate || ''}|${(w.tags || []).join(',')}`).join('\n');
     const blob = new Blob([textToSave], { type: 'text/plain' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `словарь_${new Date().toLocaleDateString('ru-RU').replace(/\./g,'-')}.txt`;
+    link.download = `norsk_словарь_${new Date().toLocaleDateString('ru-RU').replace(/\./g,'-')}.txt`;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 };
 
 const backupBtn = document.getElementById('backup-btn');
@@ -1546,7 +1586,9 @@ if (restoreBtn && restoreInput) {
                 throw new Error('Поле "words" должно быть массивом');
             }
             if (await showConfirm(`Восстановить ${data.words.length} слов из резервной копии?<br><small style='color:#888'>Текущий словарь будет заменён</small>`, 'Восстановить', 'Отмена')) {
-                myWords = data.words;
+                myWords = data.words
+                    .filter(w => w && typeof w === 'object' && w.original && w.translate)
+                    .map(normalizeWord);
                 if (data.streak) { streakData = data.streak; }
                 if (data.activity) { dailyActivity = data.activity; }
                 await save();
@@ -1561,39 +1603,20 @@ if (restoreBtn && restoreInput) {
     };
 }
 
+// Поиск и фильтр по уровню раньше прятали уже отрисованные DOM-карточки.
+// При словаре больше 80 слов (виртуализация) слова за пределами первой порции
+// не находились вовсе. Теперь это часть состояния списка — см. getFilteredWords.
+let searchDebounce = null;
 if (searchInput) searchInput.oninput = () => {
-    const val = searchInput.value.trim().toLowerCase();
-    const cards = document.querySelectorAll('.card');
-
-    cards.forEach(card => {
-        const originalSpan = card.querySelector('.original');
-        const translationSpan = card.querySelector('.translation');
-        
-        const originalText = originalSpan.textContent;
-        const translationText = translationSpan.textContent;
-
-        if (val === "") {
-            card.style.display = 'flex';
-            originalSpan.innerHTML = originalText;
-            translationSpan.innerHTML = translationText;
-            return;
-        }
-
-        const matchOriginal = originalText.toLowerCase().includes(val);
-        const matchTranslation = translationText.toLowerCase().includes(val);
-
-        if (matchOriginal || matchTranslation) {
-            card.style.display = 'flex';
-            originalSpan.innerHTML = highlightMatch(originalText, val);
-            translationSpan.innerHTML = highlightMatch(translationText, val);
-        } else {
-            card.style.display = 'none';
-        }
-    });
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+        searchQuery = searchInput.value.trim().toLowerCase();
+        render();
+    }, 120);
 };
 
 function highlightMatch(text, term) {
-    if (!term || !text) return text;
+    if (!term || !text) return escapeHtml(text);
     const regex = new RegExp(`(${escapeRegex(term)})`, 'gi');
     const parts = text.split(regex);
     const fragment = document.createDocumentFragment();
@@ -1618,22 +1641,28 @@ function escapeRegex(str) {
 }
 
 function filterByLevel(level) {
-    const cards = document.querySelectorAll('.card');
-    
-    cards.forEach(card => {
-        const levelBadge = card.querySelector('.level-indicator');
-        if (!levelBadge) return;
+    levelFilter = level === 'all' ? 'all' : Number(level);
+    render();
+}
 
-        const cardLevel = levelBadge.innerText.replace('Ур. ', '');
+function renderEmptyState(visibleCount) {
+    if (!element) return;
+    if (visibleCount > 0) return;
+    let text;
+    if (myWords.length === 0) {
+        text = 'Словарь пуст. Добавь первое норвежское слово — например, <b lang="nb">hus</b> — дом.';
+    } else {
+        text = 'Ничего не найдено. <button class="outline-btn" onclick="resetListFilters()">Сбросить фильтры</button>';
+    }
+    element.innerHTML = `<div class="empty-state">${text}</div>`;
+}
 
-        if (level === 'all') {
-            card.style.display = 'flex';
-        } else if (cardLevel == level) {
-            card.style.display = 'flex';
-        } else {
-            card.style.display = 'none';
-        }
-    });
+function resetListFilters() {
+    activeTagFilter = null;
+    levelFilter = 'all';
+    searchQuery = '';
+    if (searchInput) searchInput.value = '';
+    render();
 }
 
 // ════════════════════════════════════
@@ -1940,28 +1969,13 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 // СОРТИРОВКА СПИСКА
 // ============================================================
-let currentSort = 'default';
-
-function getSortedWords() {
-    const arr = [...myWords];
-    switch (currentSort) {
-        case 'level-asc':  return arr.sort((a,b) => (a.level||0) - (b.level||0));
-        case 'level-desc': return arr.sort((a,b) => (b.level||0) - (a.level||0));
-        case 'alpha':      return arr.sort((a,b) => a.original.localeCompare(b.original));
-        case 'review':     return arr.sort((a,b) => (a.nextReview||0) - (b.nextReview||0));
-        default:           return arr;
-    }
-}
-
+// Раньше здесь была вторая функция getSortedWords. Она перекрывала первую
+// (объявленную выше, с кешем) и не учитывала фильтр по тегу — чипы тегов
+// подсвечивались, а список не фильтровался.
 function setSortMode(mode) {
     currentSort = mode;
     document.querySelectorAll('.sort-btn').forEach(b => {
-        b.style.background = b.dataset.sort === mode
-            ? 'rgba(0,210,255,0.2)'
-            : 'rgba(255,255,255,0.05)';
-        b.style.borderColor = b.dataset.sort === mode
-            ? 'var(--accent-color)'
-            : 'rgba(255,255,255,0.1)';
+        b.classList.toggle('active', b.dataset.sort === mode);
     });
     render();
 }
@@ -2144,7 +2158,7 @@ function showResults() {
         .slice(0, 5)
         .map(([id, cnt]) => {
             const w = myWords.find(x => x.id == id);
-            return w ? `<div class="results-hard-item"><span class="results-hard-word">${w.original}</span><span class="results-hard-cnt">${cnt}x X</span></div>` : '';
+            return w ? `<div class="results-hard-item"><span class="results-hard-word" lang="nb">${escapeHtml(w.original)}</span><span class="results-hard-cnt">${cnt}× ✗</span></div>` : '';
         }).filter(Boolean).join('');
 
     const hardEl = document.getElementById('results-hardest');
@@ -2246,8 +2260,8 @@ function showForgettingStats() {
                 const efColor = ef < 1.8 ? '#ff4d4d' : ef < 2.2 ? '#f39c12' : '#b084f7';
                 return `<div class="fst-hard-item">
                     <div>
-                        <span class="fst-word">${w.original}</span>
-                        <span class="fst-trans">${w.translate}</span>
+                        <span class="fst-word" lang="nb">${escapeHtml(w.original)}</span>
+                        <span class="fst-trans">${escapeHtml(w.translate)}</span>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;">
                         <span class="fst-tag" style="color:${efColor}">EF ${ef}</span>
@@ -2264,111 +2278,6 @@ function showForgettingStats() {
 function closeForgettingStats() {
     const modal = document.getElementById('forgetting-stats-modal');
     if (modal) modal.style.display = 'none';
-}
-
-// ============================================================
-// ЗАГРУЗКА ФОТО ДЛЯ КАРТОЧЕК
-// ============================================================
-function isValidImageUrl(url) {
-    if (!url) return false;
-    const trimmed = url.trim();
-    if (trimmed.startsWith('data:image/')) return true;
-    try {
-        const parsed = new URL(trimmed);
-        if (!['http:', 'https:'].includes(parsed.protocol)) return false;
-        return /(\.jpe?g|\.png|\.webp|\.gif|\.bmp|\.svg)(\?|$)/i.test(parsed.pathname + parsed.search);
-    } catch {
-        return false;
-    }
-}
-
-function updateImageControlsVisibility() {
-    const word = activePool[currentWordIndex];
-    const removeBtn = document.getElementById('remove-image-btn');
-    if (!removeBtn) return;
-    
-    if (word && word.imageUrl) {
-        removeBtn.style.display = 'inline-block';
-    } else {
-        removeBtn.style.display = 'none';
-    }
-}
-
-// Загрузка фото с компьютера
-function setupImageUpload() {
-    const uploadBtn = document.getElementById('upload-image-btn');
-    const fileInput = document.getElementById('image-file-input');
-    const searchBtn = document.getElementById('search-image-btn');
-    const urlBtn = document.getElementById('add-image-url-btn');
-    const removeBtn = document.getElementById('remove-image-btn');
-    
-    if (uploadBtn) {
-        uploadBtn.onclick = () => fileInput?.click();
-    }
-    
-    if (fileInput) {
-        fileInput.onchange = async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            
-            const word = activePool[currentWordIndex];
-            if (!word) return;
-            
-            // Конвертируем фото в base64
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                const base64 = event.target?.result;
-                if (base64) {
-                    word.imageUrl = base64;
-                    await save();
-                    await loadCardImage(word);
-                    showToast('✓ Фото добавлено', 'success');
-                }
-            };
-            reader.readAsDataURL(file);
-        };
-    }
-    
-    if (urlBtn) {
-        urlBtn.onclick = async () => {
-            const word = activePool[currentWordIndex];
-            if (!word) return;
-            const url = prompt('Вставьте прямую ссылку на изображение');
-            if (!url) return;
-            if (!isValidImageUrl(url)) {
-                showToast('Некорректная ссылка на изображение', 'error');
-                return;
-            }
-            word.imageUrl = url.trim();
-            await save();
-            await loadCardImage(word);
-            showToast('✓ Фото по ссылке добавлено', 'success');
-        };
-    }
-    
-    if (searchBtn) {
-        searchBtn.onclick = () => {
-            const word = activePool[currentWordIndex];
-            if (!word) return;
-            
-            const googleImagesUrl = `https://www.google.com/search?q=${encodeURIComponent(word.original)}&tbm=isch`;
-            window.open(googleImagesUrl, '_blank');
-            showToast('🔍 Открыл Google Images', 'info');
-        };
-    }
-    
-    if (removeBtn) {
-        removeBtn.onclick = async () => {
-            const word = activePool[currentWordIndex];
-            if (word) {
-                word.imageUrl = '';
-                await save();
-                await loadCardImage(word);
-                updateImageControlsVisibility();
-                showToast('✓ Фото удалено', 'success');
-            }
-        };
-    }
 }
 
 // ============================================================
@@ -2415,7 +2324,7 @@ function showAchievementToast(ach) {
 async function autoTranslate(word) {
     if (!word) return '';
     try {
-        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ru`;
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=nb-NO|ru-RU`;
         const res = await fetch(url);
         const data = await res.json();
         if (data.responseStatus === 200) {
@@ -2425,12 +2334,12 @@ async function autoTranslate(word) {
     return '';
 }
 
-document.getElementById('input-en')?.addEventListener('blur', async () => {
-    const en = document.getElementById('input-en')?.value.trim();
+inputNo?.addEventListener('blur', async () => {
+    const no = inputNo.value.trim();
     const ruField = document.getElementById('input-ru');
-    if (!en || !ruField || ruField.value.trim()) return;
+    if (!no || !ruField || ruField.value.trim()) return;
     ruField.placeholder = '⏳ Переводим...';
-    const translation = await autoTranslate(en);
+    const translation = await autoTranslate(no);
     ruField.placeholder = 'русский перевод';
     if (translation && !ruField.value) ruField.value = translation;
 });
@@ -2439,8 +2348,6 @@ document.getElementById('input-en')?.addEventListener('blur', async () => {
 // ============================================================
 // ТЕГИ / ГРУППЫ
 // ============================================================
-let activeTagFilter = null;
-
 function getAllTags() {
     const set = new Set();
     myWords.forEach(w => (w.tags || []).forEach(t => set.add(t)));
@@ -2450,65 +2357,41 @@ function getAllTags() {
 function renderTagFilterBar() {
     const bar = document.getElementById('tag-filter-bar');
     const chips = document.getElementById('tag-chips');
-    if (!bar || !chips) {
-        console.warn('⚠️ renderTagFilterBar: элементы tag-filter-bar или tag-chips не найдены');
+    if (!bar || !chips) return;
+    const tags = getAllTags();
+    if (tags.length === 0) {
+        bar.style.display = 'none';
         return;
     }
-    const tags = getAllTags();
-    console.log('🏷️ renderTagFilterBar: найдено тегов:', tags, 'activeTagFilter:', activeTagFilter);
-    
-    if (tags.length === 0) { 
-        bar.style.display = 'none'; 
-        console.log('ℹ️ Тегов не найдено, скрываем фильтр');
-        return; 
-    }
-    bar.style.display = 'block';
+    bar.style.display = 'flex';
     chips.innerHTML = `
         <button class="tag-chip${!activeTagFilter ? ' active' : ''}" onclick="clearTagFilter()" title="Показать все слова">✕ Все</button>
-        ${tags.map(t => `<button class="tag-chip${activeTagFilter === t ? ' active' : ''}" onclick="setTagFilter('${t}')" title="Фильтр: ${t}">${t}</button>`).join('')}
+        ${tags.map(t => `<button class="tag-chip${activeTagFilter === t ? ' active' : ''}" onclick="setTagFilter('${jsAttr(t)}')" title="Фильтр: ${escapeAttr(t)}">${escapeHtml(t)}</button>`).join('')}
     `;
-    console.log('✓ renderTagFilterBar: чипы созданы, activeTagFilter:', activeTagFilter);
 }
 
 function clearTagFilter() {
-    console.log('🗑️ clearTagFilter: очищаем фильтр');
     activeTagFilter = null;
-    renderTagFilterBar();
     render();
 }
 
 function setTagFilter(tag) {
-    console.log('🏷️ setTagFilter вызван:', tag);
     activeTagFilter = tag;
-    console.log('✓ activeTagFilter установлен:', activeTagFilter);
-    renderTagFilterBar();
-    console.log('✓ renderTagFilterBar() вызван');
     render();
-    console.log('✓ render() вызван');
 }
 
 function getFilteredWords() {
-    if (!activeTagFilter) {
-        console.log(`🔍 getFilteredWords: нет активного фильтра, возвращаем все ${myWords.length} слов`);
-        return myWords;
-    }
-    // Логируем что происходит
-    console.log(`🔍 Ищу слова с тегом: "${activeTagFilter}"`);
-    myWords.forEach((w, idx) => {
-        const tags = w.tags || [];
-        const has = tags.includes(activeTagFilter);
-        console.log(`   [${idx}] "${w.original}" (теги: [${tags.join(', ')}]) → ${has ? '✓' : '✗'}`);
+    if (!activeTagFilter && levelFilter === 'all' && !searchQuery) return myWords;
+    return myWords.filter(w => {
+        if (activeTagFilter && !(w.tags || []).includes(activeTagFilter)) return false;
+        if (levelFilter !== 'all' && (w.level || 0) !== levelFilter) return false;
+        if (searchQuery) {
+            const o = (w.original || '').toLowerCase();
+            const t = (w.translate || '').toLowerCase();
+            if (!o.includes(searchQuery) && !t.includes(searchQuery)) return false;
+        }
+        return true;
     });
-    
-    const filtered = myWords.filter(w => {
-        const hasTag = (w.tags || []).includes(activeTagFilter);
-        return hasTag;
-    });
-    console.log(`🔍 Результат: ${filtered.length} из ${myWords.length}`);
-    if (filtered.length === 0) {
-        console.warn(`⚠️ Слов с тегом "${activeTagFilter}" не найдено!`);
-    }
-    return filtered;
 }
 
 // ============================================================
@@ -2550,6 +2433,7 @@ let isQuizMode = false;
 let quizQueue = [];
 let quizIndex = 0;
 let quizWaiting = false;
+let quizOptions = [];
 
 function normalizeText(value) {
     return String(value || '').trim().toLowerCase();
@@ -2627,40 +2511,46 @@ function showQuizQuestion() {
     if (!wordEl || !optionsEl) return;
 
     wordEl.textContent = word.original;
+    wordEl.lang = 'nb';
     feedbackEl.textContent = '';
     // Произносим слово если не мут
     if (!isMuted) { window.speechSynthesis.cancel(); setTimeout(() => speak(word.original), 100); }
 
-    const others = myWords.filter(w => w.id !== word.id);
-    const wrong3 = others.sort(() => Math.random() - 0.5).slice(0, 3).map(w => w.translate);
+    // Дистракторы — уникальные переводы, не совпадающие с правильным: иначе
+    // среди вариантов могли оказаться два одинаковых «правильных» ответа.
+    const pool = [...new Set(myWords.filter(w => w.id !== word.id).map(w => w.translate))]
+        .filter(t => t !== word.translate);
+    const wrong3 = pool.sort(() => Math.random() - 0.5).slice(0, 3);
     const options = [...wrong3, word.translate].sort(() => Math.random() - 0.5);
 
-    optionsEl.innerHTML = options.map(opt => `
-        <button class="quiz-option" onclick="handleQuizAnswer(this, '${word.translate.replace(/'/g, "\\'")}', '${opt.replace(/'/g, "\\'")}')">
-            ${opt}
-        </button>
+    // Раньше варианты подставлялись в onclick строкой с экранированием только
+    // одинарной кавычки: перевод с " или \\ ломал кнопку, а с разметкой —
+    // исполнялся как HTML. Теперь в разметку попадает только индекс.
+    quizOptions = options;
+    optionsEl.innerHTML = options.map((opt, i) => `
+        <button class="quiz-option" onclick="handleQuizAnswer(this, ${i})">${escapeHtml(opt)}</button>
     `).join('');
 
     document.getElementById('total-remaining').textContent = quizQueue.length - quizIndex;
     document.getElementById('current-pool-count').textContent = `${quizIndex + 1}/${quizQueue.length}`;
 }
 
-function handleQuizAnswer(btn, correct, chosen) {
+function handleQuizAnswer(btn, chosenIndex) {
     if (quizWaiting) return;
     quizWaiting = true;
 
-    const isCorrect = chosen === correct;
+    const word = quizQueue[quizIndex];
+    const correct = word.translate;
+    const isCorrect = quizOptions[chosenIndex] === correct;
     const feedbackEl = document.getElementById('quiz-feedback');
     const btns = document.querySelectorAll('.quiz-option');
 
-    btns.forEach(b => {
+    btns.forEach((b, i) => {
         b.disabled = true;
-        const bText = b.textContent.trim();
-        if (bText === correct) b.classList.add('correct');
+        if (quizOptions[i] === correct) b.classList.add('correct');
         else if (b === btn && !isCorrect) b.classList.add('wrong');
     });
 
-    const word = quizQueue[quizIndex];
     const mw = myWords.find(w => w.id === word.id);
 
     if (isCorrect) {
@@ -2745,7 +2635,7 @@ function scheduleReviewReminder() {
     if (due === 0) return;
     // Показываем уведомление (если вкладка в фоне)
     if (document.hidden) {
-        new Notification('Легкий Словарь 📚', {
+        new Notification('Лёгкий Словарь · Norsk 🇳🇴', {
             body: `${due} ${pluralWords(due)} ждут повторения!`,
             icon: '/icon-192.png',
             badge: '/icon-96.png',
@@ -2870,13 +2760,6 @@ if (fileUpload) {
     };
 }
 
-(function addFavicon() {
-    const link = document.createElement('link');
-    link.rel = 'icon';
-    link.href = 'data:,';
-    document.head.appendChild(link);
-})();
-
 // === 5. ИНИЦИАЛИЗАЦИЯ ===
 window.addEventListener('DOMContentLoaded', async () => {
     localStorage.removeItem('isTrainingActive');
@@ -2926,7 +2809,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     renderWeeklyChallenge();
     renderForecast();
     checkWeekReset();
-    setupImageUpload();
 });
 
 // ============================================================
@@ -2980,6 +2862,8 @@ function clearCardBlur() {
 function revealTranslation() {
     const word = activePool[currentWordIndex];
     if (!word) return;
+    // Подсмотренный перевод — это «не вспомнил», даже если потом ввести верно.
+    spellingChecked = false;
     clearCardBlur();
     // Переворачиваем карточку чтобы показать перевод
     if (!flashcard.classList.contains('is-flipped')) {
@@ -2999,9 +2883,6 @@ function revealTranslation() {
 // ============================================================
 // ГРУППОВОЕ РЕДАКТИРОВАНИЕ СЛОВ
 // ============================================================
-let selectedWordIds = new Set();
-let bulkSelectMode = false;
-
 function toggleBulkSelectMode() {
     bulkSelectMode = !bulkSelectMode;
     selectedWordIds.clear();
@@ -3074,6 +2955,13 @@ async function bulkResetLevel() {
     render();
 }
 
+// Разметка вызывала closeBulkTagModal(), а функции не было — крестик и клик
+// по фону бросали ReferenceError, и окно не закрывалось.
+function closeBulkTagModal() {
+    const modal = document.getElementById('bulk-tag-modal');
+    if (modal) modal.style.display = 'none';
+}
+
 function showBulkTagModal() {
     if (selectedWordIds.size === 0) return;
     const modal = document.getElementById('bulk-tag-modal');
@@ -3093,7 +2981,7 @@ async function applyBulkTag() {
     });
     await save();
     document.getElementById('bulk-tag-modal').style.display = 'none';
-    showToast(`Тег «${tag}» добавлен к ${selectedWordIds.size} словам`, 'success');
+    showToast(`Тег «${escapeHtml(tag)}» добавлен к ${selectedWordIds.size} словам`, 'success');
     selectedWordIds.clear();
     toggleBulkSelectMode();
     render();
@@ -3121,12 +3009,13 @@ function exportCSV() {
 function exportAnki() {
     // Anki import format: front TAB back [TAB tags]
     const rows = myWords.map(w => {
+        const clean = s => escapeHtml(String(s || '').replace(/[\t\r\n]+/g, ' '));
         const front = w.example
-            ? `${w.original}<br><small style='color:#aaa'>${w.example}</small>`
-            : w.original;
+            ? `${clean(w.original)}<br><small style='color:#aaa'>${clean(w.example)}</small>`
+            : clean(w.original);
         const back = w.exampleTranslate
-            ? `${w.translate}<br><small style='color:#aaa'>${w.exampleTranslate}</small>`
-            : w.translate;
+            ? `${clean(w.translate)}<br><small style='color:#aaa'>${clean(w.exampleTranslate)}</small>`
+            : clean(w.translate);
         const tags = (w.tags||[]).join(' ');
         return `${front}	${back}${tags ? '	' + tags : ''}`;
     });
@@ -3174,7 +3063,7 @@ async function fetchTatoebaExamples(word) {
             // Текст приходит со стороннего сервиса — в разметку он попадает
             // только экранированным, и в onclick тоже.
             return `<div class="tatoeba-item" role="button" tabindex="0"
-                         onclick="useTatoebaExample('${escapeJsString(enText)}', '${escapeJsString(ruText)}')"
+                         onclick="useTatoebaExample('${jsAttr(enText)}', '${jsAttr(ruText)}')"
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
                 <div class="tatoeba-en">${escapeHtml(enText)}</div>
                 ${ruText ? `<div class="tatoeba-ru">${escapeHtml(ruText)}</div>` : ''}
@@ -3208,6 +3097,13 @@ function escapeAttr(value) {
     return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// Строка для JS-литерала в одинарных кавычках внутри HTML-атрибута в двойных:
+// onclick="f('${jsAttr(x)}')". Одного escapeJsString мало — \" для HTML не
+// экранирование, и кавычка из данных закрывала бы сам атрибут.
+function jsAttr(value) {
+    return escapeAttr(escapeJsString(value));
+}
+
 function escapeJsString(value) {
     return String(value ?? '')
         .replace(/\\/g, '\\\\')
@@ -3215,99 +3111,6 @@ function escapeJsString(value) {
         .replace(/"/g, '\\"')
         .replace(/</g, '\\x3C')
         .replace(/\r?\n/g, ' ');
-}
-
-// ---------------------------------------------------------------------------
-// Фрагмент видео, где слово произносят вслух
-//
-// Колонки videoId / startTime / endTime / subtitleText заполняются офлайн
-// скриптами из tools/. Раньше значок 🎬 показывался, но не был кликабельным —
-// плеера в приложении не существовало вовсе. Теперь значок открывает фрагмент.
-//
-// Используется youtube-nocookie.com: домен без рекламных кук, API-ключ не нужен.
-// ---------------------------------------------------------------------------
-let currentClip = null;
-
-function buildClipEmbedUrl(clip) {
-    const params = new URLSearchParams({
-        start: String(Math.max(0, Math.floor(clip.startTime || 0))),
-        autoplay: '1',
-        rel: '0',
-        modestbranding: '1'
-    });
-    // end имеет смысл только если он позже начала.
-    if (clip.endTime && clip.endTime > clip.startTime) {
-        params.set('end', String(Math.ceil(clip.endTime)));
-    }
-    return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(clip.videoId)}?${params}`;
-}
-
-function openClipModal(wordId) {
-    const word = words.find(w => String(w.id) === String(wordId));
-    if (!word || !word.videoId) {
-        showToast('К этому слову ещё не привязан фрагмент', 'info');
-        return;
-    }
-
-    // Идентификатор видео на YouTube — 11 символов из ограниченного алфавита.
-    // Проверяем прежде, чем подставлять его в URL.
-    if (!/^[A-Za-z0-9_-]{11}$/.test(word.videoId)) {
-        showToast('Некорректный идентификатор видео', 'error');
-        return;
-    }
-
-    currentClip = word;
-
-    const modal = document.getElementById('clip-modal');
-    const titleEl = document.getElementById('clip-word-title');
-    const subEl = document.getElementById('clip-subtitle');
-    const linkEl = document.getElementById('clip-youtube-link');
-    const frame = document.getElementById('clip-frame');
-    if (!modal || !frame) return;
-
-    if (titleEl) titleEl.textContent = word.original || '';
-
-    if (subEl) {
-        if (word.subtitleText) {
-            // Подсвечиваем само слово в реплике, не собирая HTML из данных.
-            subEl.replaceChildren();
-            const re = new RegExp(`(${escapeRegex(word.original)})`, 'ig');
-            word.subtitleText.split(re).forEach((part, i) => {
-                if (!part) return;
-                if (i % 2 === 1) {
-                    const mark = document.createElement('mark');
-                    mark.textContent = part;
-                    subEl.appendChild(mark);
-                } else {
-                    subEl.appendChild(document.createTextNode(part));
-                }
-            });
-        } else {
-            subEl.textContent = '';
-        }
-    }
-
-    if (linkEl) {
-        const t = Math.max(0, Math.floor(word.startTime || 0));
-        linkEl.href = `https://www.youtube.com/watch?v=${encodeURIComponent(word.videoId)}&t=${t}s`;
-    }
-
-    frame.src = buildClipEmbedUrl(word);
-    modal.style.display = 'flex';
-}
-
-function closeClipModal() {
-    const modal = document.getElementById('clip-modal');
-    const frame = document.getElementById('clip-frame');
-    // Снимаем src, иначе ролик продолжает играть за закрытым окном.
-    if (frame) frame.src = '';
-    if (modal) modal.style.display = 'none';
-    currentClip = null;
-}
-
-function replayClip() {
-    const frame = document.getElementById('clip-frame');
-    if (frame && currentClip) frame.src = buildClipEmbedUrl(currentClip);
 }
 
 function openTatoebaModal(word) {
@@ -3335,8 +3138,8 @@ function useTatoebaExample(en, ru) {
 }
 
 // Кнопка "Найти примеры" в форме добавления слов
-document.getElementById('input-en')?.addEventListener('blur', () => {
-    const word = document.getElementById('input-en')?.value.trim();
+inputNo?.addEventListener('blur', () => {
+    const word = inputNo.value.trim();
     const btn = document.getElementById('tatoeba-fetch-btn');
     if (btn) btn.style.display = word ? 'inline-flex' : 'none';
 });
@@ -3448,47 +3251,7 @@ async function startMarathon() {
     wordMistakes = {};
     fillPool();
 
-    document.getElementById('main-ui').style.display = 'none';
-    document.getElementById('training-section').style.display = 'flex';
-    const levelStats = document.getElementById('level-stats');
-    if (levelStats) levelStats.style.display = 'none';
-    if (mainHeader) mainHeader.style.display = 'none';
-    if (progressWrapper) progressWrapper.style.display = 'none';
-    document.body.classList.add('training-mode');
-    window.scrollTo(0, 0);
-    const mobileNav = document.getElementById('mobile-nav');
-    if (mobileNav) mobileNav.style.display = 'none';
-
-    const fc = document.querySelector('.flashcard-container');
-    const tb = document.querySelector('.training-buttons');
-    const tg = document.getElementById('toggle-mode-btn');
-    const qa = document.getElementById('quiz-area');
-    if (fc) fc.style.display = '';
-    if (tb) tb.style.display = '';
-    if (tg) tg.style.display = '';
-    if (qa) qa.style.display = 'none';
-    isQuizMode = false;
-
-    const btnKnow = document.getElementById('btn-know');
-    const btnDontKnow = document.getElementById('btn-dont-know');
-    const btnNext = document.getElementById('btn-next');
-    const btnBack = document.getElementById('btn-back');
-    const btnHard = document.getElementById('btn-hard');
-    const btnEasy = document.getElementById('btn-easy');
-    if (btnKnow) btnKnow.style.display = 'block';
-    if (btnDontKnow) btnDontKnow.style.display = 'block';
-    if (btnHard) btnHard.style.display = 'block';
-    if (btnEasy) btnEasy.style.display = 'block';
-    if (btnNext) btnNext.style.display = 'none';
-    if (btnBack) btnBack.classList.remove('full-width-btn');
-    if (tg) tg.innerHTML = '<span>🎴</span> Режим: Карточки';
-    isSpellingMode = false;
-    if (spellingArea) spellingArea.style.display = 'none';
-
-    const spellingExtraBtns = document.getElementById('spelling-extra-btns');
-    const audioRow = document.getElementById('audio-mode-row');
-    if (spellingExtraBtns) spellingExtraBtns.style.display = 'none';
-    if (audioRow) audioRow.style.display = 'flex';
+    enterFlashcardTrainingUI();
 
     // Показываем марафон-бейдж
     const badge = document.getElementById('marathon-badge');
@@ -3603,57 +3366,6 @@ function closeWordHistory() {
 }
 
 // ============================================================
-
-// ============================================================
-// КАРТИНКИ К СЛОВАМ (Unsplash)
-// ============================================================
-const UNSPLASH_ACCESS_KEY = 'SB_demo'; // демо-режим через прокси на сервере
-
-async function fetchWordImage(word) {
-    try {
-        const res = await fetch(`/api/word-image?word=${encodeURIComponent(word)}`);
-        const data = await res.json();
-        return data.url || null;
-    } catch { return null; }
-}
-
-async function loadCardImage(word) {
-    const previewCard = document.getElementById('photo-preview-card');
-    const previewEl = document.getElementById('card-image-preview');
-    if (!previewCard || !previewEl) return;
-    if (!word || !word.original) {
-        previewCard.style.display = 'none';
-        previewEl.style.display = 'none';
-        return;
-    }
-    
-    let imgUrl = null;
-    
-    // Сначала проверяем есть ли уже загруженное фото у слова
-    if (word.imageUrl) {
-        imgUrl = word.imageUrl;
-    } else {
-        // Иначе ищем в интернете
-        imgUrl = await fetchWordImage(word.original);
-    }
-    
-    if (imgUrl) {
-        previewEl.src = imgUrl;
-        previewEl.style.display = 'block';
-        previewCard.style.display = 'flex';
-        previewEl.onerror = () => {
-            previewEl.style.display = 'none';
-            previewCard.style.display = 'none';
-        };
-    } else {
-        previewEl.style.display = 'none';
-        previewCard.style.display = 'none';
-    }
-    
-    updateImageControlsVisibility();
-}
-
-// ============================================================
 // НЕДЕЛЬНЫЙ ЧЕЛЛЕНДЖ
 // ============================================================
 let weeklyChallenge = safeParseStorage('weeklyChallenge', {
@@ -3708,96 +3420,4 @@ function setWeeklyGoal(val) {
     localStorage.setItem('weeklyChallenge', JSON.stringify(weeklyChallenge));
     renderWeeklyChallenge();
     showToast(`Цель на неделю: ${n} повторений`, 'info');
-}
-
-// ============================================================
-// YOUGLISH — открываем слово в popup-окне браузера
-// ============================================================
-
-let youglishWindow = null;
-
-function openYouglish() {
-    // Если идёт тренировка — берём текущее слово и сразу открываем
-    const trainSect = document.getElementById('training-section');
-    const isTraining = trainSect && trainSect.style.display !== 'none';
-
-    if (isTraining && activePool && activePool[currentWordIndex]) {
-        const word = activePool[currentWordIndex].original || '';
-        if (word) {
-            launchYouglish(word);
-            return;
-        }
-    }
-
-    // Иначе показываем пикер слова
-    showYouglishPicker();
-}
-
-function launchYouglish(word) {
-    if (!word || !word.trim()) return;
-    const url = `https://youglish.com/pronounce/${encodeURIComponent(word.trim())}/english`;
-
-    // Открываем popup — выглядит как отдельное окно, не новая вкладка
-    const w = Math.min(1100, window.screen.availWidth - 40);
-    const h = Math.min(800, window.screen.availHeight - 60);
-    const left = Math.round((window.screen.availWidth - w) / 2);
-    const top = Math.round((window.screen.availHeight - h) / 2);
-
-    if (youglishWindow && !youglishWindow.closed) {
-        youglishWindow.location.href = url;
-        youglishWindow.focus();
-    } else {
-        youglishWindow = window.open(
-            url,
-            'YouGlish',
-            `width=${w},height=${h},left=${left},top=${top},toolbar=0,menubar=0,location=1,status=0,scrollbars=1,resizable=1`
-        );
-    }
-
-    // Обновляем badge в пикере если он открыт
-    const badge = document.getElementById('youglish-word-badge');
-    if (badge) badge.textContent = word.trim();
-}
-
-function showYouglishPicker() {
-    const modal = document.getElementById('youglish-modal');
-    if (!modal) return;
-    renderYouglishWordPills();
-    modal.style.display = 'flex';
-    const input = document.getElementById('youglish-search-input');
-    if (input) { input.value = ''; setTimeout(() => input.focus(), 100); }
-}
-
-function closeYouglish() {
-    const modal = document.getElementById('youglish-modal');
-    if (modal) modal.style.display = 'none';
-}
-
-function youglishSearch() {
-    const input = document.getElementById('youglish-search-input');
-    if (!input || !input.value.trim()) return;
-    launchYouglish(input.value.trim());
-}
-
-function youglishSearchEnter(e) {
-    if (e.key === 'Enter') youglishSearch();
-}
-
-function renderYouglishWordPills(filter = '') {
-    const container = document.getElementById('youglish-word-pills');
-    if (!container) return;
-    const words = [...myWords]
-        .sort((a, b) => (a.level || 0) - (b.level || 0))
-        .filter(w => !filter || w.original.toLowerCase().includes(filter.toLowerCase()) || (w.translate||'').toLowerCase().includes(filter.toLowerCase()));
-    container.innerHTML = words.map(w => {
-        const safe = w.original.replace(/'/g, "\'").replace(/"/g, '&quot;');
-        const lvlColor = w.level >= 4 ? '#28a745' : w.level >= 2 ? '#f39c12' : '#b084f7';
-        return `<button class="yg-pill" style="border-color:${lvlColor}33;color:${lvlColor};" onclick="launchYouglish('${safe}'); document.getElementById('youglish-search-input').value='${safe}'; document.getElementById('youglish-word-badge').textContent='${safe}';">${w.original}</button>`;
-    }).join('');
-}
-
-
-// ===== PWA: Service Worker =====
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
 }

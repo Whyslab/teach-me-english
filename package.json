@@ -1,7 +1,7 @@
 {
-  "name": "teach-me-english",
+  "name": "teach-me-norwegian",
   "version": "1.0.0",
-  "description": "Offline-first PWA for learning English vocabulary with spaced repetition, backed by Express and SQLite.",
+  "description": "Offline-first PWA for learning Norwegian (Bokmål) vocabulary with spaced repetition, backed by Express and SQLite.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -11,6 +11,9 @@
     "pwa",
     "spaced-repetition",
     "vocabulary",
+    "norwegian",
+    "bokmal",
+    "norsk",
     "sqlite",
     "express",
     "offline-first"

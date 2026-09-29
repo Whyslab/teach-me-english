@@ -20,7 +20,7 @@ test.after(() => {
 
 const word = (over = {}) => ({
   id: 1,
-  original: 'cat',
+  original: 'katt',
   translate: 'кот',
   ...over,
 });
@@ -86,27 +86,27 @@ test('POST /api/sync accepts words without tags', async () => {
   // The end-to-end form of the regression above.
   await request(app)
     .post('/api/sync')
-    .send([{ id: 1, original: 'cat', translate: 'кот' }])
+    .send([{ id: 1, original: 'katt', translate: 'кот' }])
     .expect(200);
 });
 
 test('POST /api/sync rejects a malformed word', async () => {
   await request(app)
     .post('/api/sync')
-    .send([{ id: 'not-a-number', original: 'cat', translate: 'кот' }])
+    .send([{ id: 'not-a-number', original: 'katt', translate: 'кот' }])
     .expect(400);
 });
 
 test('POST /api/sync round-trips a word', async () => {
   const deck = [
-    { id: 10, original: 'fox', translate: 'лиса', level: 2, tags: ['animals'] },
+    { id: 10, original: 'rev', translate: 'лиса', level: 2, tags: ['animals'] },
   ];
   await request(app).post('/api/sync').send(deck).expect(200);
 
   const res = await request(app).get('/api/words').expect(200);
   const saved = res.body.find(w => w.id === 10);
   assert.ok(saved, 'the synced word should come back');
-  assert.strictEqual(saved.original, 'fox');
+  assert.strictEqual(saved.original, 'rev');
   assert.strictEqual(saved.level, 2);
   assert.deepStrictEqual(saved.tags, ['animals']);
 });
@@ -114,7 +114,7 @@ test('POST /api/sync round-trips a word', async () => {
 test('GET /api/words normalises tags into an array', async () => {
   await request(app)
     .post('/api/sync')
-    .send([{ id: 11, original: 'owl', translate: 'сова' }])
+    .send([{ id: 11, original: 'ugle', translate: 'сова' }])
     .expect(200);
 
   const res = await request(app).get('/api/words').expect(200);
@@ -144,48 +144,6 @@ test('GET /favicon.ico returns a real image', async () => {
   const res = await request(app).get('/favicon.ico').expect(200);
   assert.match(res.headers['content-type'], /image/);
   assert.ok(res.body.length > 0, 'favicon must not be empty');
-});
-
-// ---------------------------------------------------------------------------
-// Картинка к слову
-//
-// Прежний эндпоинт проксировал source.unsplash.com, не проверял статус ответа
-// и возвращал ссылку на мёртвый адрес независимо от того, что ответил апстрим.
-// Эти тесты фиксируют новый контракт: валидация входа, честный null и кеш.
-// ---------------------------------------------------------------------------
-test('GET /api/word-image rejects an empty word', async () => {
-    const res = await request(app).get('/api/word-image?word=');
-    assert.equal(res.status, 400);
-});
-
-test('GET /api/word-image rejects an over-long word', async () => {
-    const res = await request(app).get('/api/word-image?word=' + 'a'.repeat(150));
-    assert.equal(res.status, 400);
-});
-
-test('GET /api/word-image serves a cached url without calling upstream', async () => {
-    const id = Date.now() + 1;
-    await request(app).post('/api/sync').send([{
-        id, original: 'cachedword', translate: 'кешслово',
-        example: '', exampleTranslate: '', level: 0, nextReview: Date.now()
-    }]);
-
-    await new Promise((resolve, reject) => {
-        db.run("UPDATE words SET imageUrl = ? WHERE id = ?",
-            ['https://example.test/cached.jpg', id],
-            (err) => (err ? reject(err) : resolve()));
-    });
-
-    const res = await request(app).get('/api/word-image?word=cachedword');
-    assert.equal(res.status, 200);
-    assert.equal(res.body.url, 'https://example.test/cached.jpg');
-    assert.equal(res.body.cached, true);
-});
-
-test('GET /api/word-image matches the cache case-insensitively', async () => {
-    const res = await request(app).get('/api/word-image?word=CachedWord');
-    assert.equal(res.body.url, 'https://example.test/cached.jpg');
-    assert.equal(res.body.cached, true);
 });
 
 // ---------------------------------------------------------------------------
@@ -226,4 +184,84 @@ test('a rejected timer value never reaches the database', async () => {
     await request(app).post('/api/timer').send({ timeLeft: {} });
     const back = await request(app).get('/api/timer');
     assert.equal(back.body.timeLeft, 1800);
+});
+
+// ---------------------------------------------------------------------------
+// Раздача статики
+//
+// express.static раздавал весь каталог проекта — включая базу со словарём.
+// ---------------------------------------------------------------------------
+for (const file of ['vocab.db', 'server.js', 'package.json', 'deploy/install.sh', '.env', 'README.md']) {
+    test(`GET /${file} is not served`, async () => {
+        const res = await request(app).get('/' + file);
+        assert.equal(res.status, 404);
+    });
+}
+
+test('GET /app.js is served as JavaScript', async () => {
+    const res = await request(app).get('/app.js').expect(200);
+    assert.match(res.headers['content-type'], /javascript/);
+});
+
+test('the photo endpoint is gone', async () => {
+    const res = await request(app).get('/api/word-image?word=hus');
+    assert.equal(res.status, 404);
+});
+
+// ---------------------------------------------------------------------------
+// Состояние SM-2
+//
+// /api/sync не сохранял sm2EF/sm2Interval/sm2Reps/history, и при следующей
+// загрузке интервалы всех слов откатывались к началу.
+// ---------------------------------------------------------------------------
+test('POST /api/sync round-trips the SM-2 state and answer history', async () => {
+    const history = [{ ts: 1700000000000, q: 2, ef: 2.5 }, { ts: 1700000500000, q: 3, ef: 2.6 }];
+    await request(app).post('/api/sync').send([{
+        id: 20, original: 'hus', translate: 'дом', level: 3,
+        sm2EF: 2.36, sm2Interval: 15, sm2Reps: 4, history, addedAt: 1690000000000
+    }]).expect(200);
+
+    const res = await request(app).get('/api/words').expect(200);
+    const saved = res.body.find(w => w.id === 20);
+    assert.ok(saved);
+    assert.equal(saved.sm2EF, 2.36);
+    assert.equal(saved.sm2Interval, 15);
+    assert.equal(saved.sm2Reps, 4);
+    assert.equal(saved.addedAt, 1690000000000);
+    assert.deepStrictEqual(saved.history, history);
+});
+
+test('GET /api/words does not leak legacy video/photo columns', async () => {
+    const res = await request(app).get('/api/words').expect(200);
+    for (const w of res.body) {
+        for (const legacy of ['imageUrl', 'videoId', 'startTime', 'endTime', 'subtitleText']) {
+            assert.ok(!(legacy in w), `${legacy} should not be returned`);
+        }
+    }
+});
+
+test('concurrent syncs do not collide on the transaction', async () => {
+    const decks = [1, 2, 3, 4].map(n => [{ id: 100 + n, original: `ord${n}`, translate: `слово${n}` }]);
+    const results = await Promise.all(decks.map(d => request(app).post('/api/sync').send(d)));
+    for (const r of results) assert.equal(r.status, 200);
+    const res = await request(app).get('/api/words').expect(200);
+    assert.equal(res.body.length, 1, 'the last sync wins and leaves exactly one word');
+});
+
+test('validateWord: null and non-objects are rejected, not thrown on', () => {
+    assert.strictEqual(validateWord(null), false);
+    assert.strictEqual(validateWord('hus'), false);
+});
+
+test('validateWord: a non-finite id is rejected', () => {
+    assert.strictEqual(validateWord(word({ id: NaN })), false);
+    assert.strictEqual(validateWord(word({ id: Infinity })), false);
+});
+
+test('GET /api/tatoeba rejects an empty word', async () => {
+    await request(app).get('/api/tatoeba?word=').expect(400);
+});
+
+test('GET /api/tatoeba rejects an over-long word', async () => {
+    await request(app).get('/api/tatoeba?word=' + 'a'.repeat(150)).expect(400);
 });

@@ -3,7 +3,6 @@ const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
 const https = require('https');
-const http = require('http');
 const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -25,24 +24,27 @@ app.use(cors({
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'X-User-Id']
 }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname), {
-    setHeaders: (res, filePath) => {
-        // Service Worker — no cache, чтобы всегда получать свежую версию
-        if (filePath.endsWith('sw.js')) {
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            res.setHeader('Service-Worker-Allowed', '/');
-        }
-        // Манифест — короткий кеш
-        else if (filePath.endsWith('manifest.json')) {
-            res.setHeader('Cache-Control', 'max-age=86400');
-        }
-        // Иконки — долгий кеш
-        else if (filePath.match(/icon-\d+\.png$/)) {
-            res.setHeader('Cache-Control', 'max-age=604800, immutable');
-        }
-    }
-}));
+// Лимит был 50 МБ — ради фото в base64. Фото больше нет, а текстовый словарь
+// даже на 10 000 слов укладывается в пару мегабайт.
+app.use(express.json({ limit: '5mb' }));
+
+// Раньше express.static раздавал весь каталог проекта: GET /vocab.db отдавал
+// базу со словарём, GET /server.js — исходники, GET /deploy/... — скрипты.
+// Теперь наружу видны только файлы, из которых состоит фронтенд.
+const PUBLIC_FILES = new Set([
+    'index.html', 'app.js', 'manifest.json', 'screenshot.png',
+    ...[72, 96, 128, 144, 152, 192, 384, 512].map(n => `icon-${n}.png`)
+]);
+
+app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    const name = req.path.replace(/^\/+/, '');
+    if (!PUBLIC_FILES.has(name)) return next();
+    const headers = {};
+    if (name === 'manifest.json') headers['Cache-Control'] = 'max-age=86400';
+    else if (/^icon-\d+\.png$/.test(name)) headers['Cache-Control'] = 'max-age=604800, immutable';
+    res.sendFile(path.join(__dirname, name), { headers, dotfiles: 'deny' });
+});
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -73,6 +75,10 @@ db.serialize(() => {
         }
     });
 
+    // Колонки videoId/startTime/endTime/subtitleText/imageUrl остались в старых
+    // базах от английской версии (видеофрагменты и фото). Сервер их больше не
+    // читает и не пишет; при следующей синхронизации они заполняются пустыми
+    // значениями по умолчанию.
     db.run(`CREATE TABLE IF NOT EXISTS words (
         id REAL,
         original TEXT,
@@ -83,24 +89,28 @@ db.serialize(() => {
         nextReview REAL,
         forgetStep INTEGER DEFAULT 0,
         tags TEXT DEFAULT '[]',
-        videoId TEXT DEFAULT '',
-        startTime REAL DEFAULT 0,
-        endTime REAL DEFAULT 0,
-        subtitleText TEXT DEFAULT '',
-        imageUrl TEXT DEFAULT ''
+        sm2EF REAL DEFAULT 2.5,
+        sm2Interval REAL DEFAULT 1,
+        sm2Reps INTEGER DEFAULT 0,
+        history TEXT DEFAULT '[]',
+        addedAt REAL DEFAULT 0
     )`, (err) => {
         if (err) console.error("Ошибка создания таблицы слов:", err.message);
         else {
-            console.log("Таблица слов готова: OK");
+            if (process.env.NODE_ENV !== 'test') console.log("Таблица слов готова: OK");
 
+            // Состояние SM-2 и история ответов раньше жили только в браузере:
+            // /api/sync их не сохранял, а GET /api/words при следующей загрузке
+            // перезаписывал локальные данные серверными — и интервалы каждого
+            // слова откатывались к началу.
             const migrations = [
-                ["forgetStep",    "ALTER TABLE words ADD COLUMN forgetStep INTEGER DEFAULT 0"],
-                ["tags",          "ALTER TABLE words ADD COLUMN tags TEXT DEFAULT '[]'"],
-                ["videoId",       "ALTER TABLE words ADD COLUMN videoId TEXT DEFAULT ''"],
-                ["startTime",     "ALTER TABLE words ADD COLUMN startTime REAL DEFAULT 0"],
-                ["endTime",       "ALTER TABLE words ADD COLUMN endTime REAL DEFAULT 0"],
-                ["subtitleText",  "ALTER TABLE words ADD COLUMN subtitleText TEXT DEFAULT ''"],
-                ["imageUrl",      "ALTER TABLE words ADD COLUMN imageUrl TEXT DEFAULT ''"],
+                ["forgetStep",  "ALTER TABLE words ADD COLUMN forgetStep INTEGER DEFAULT 0"],
+                ["tags",        "ALTER TABLE words ADD COLUMN tags TEXT DEFAULT '[]'"],
+                ["sm2EF",       "ALTER TABLE words ADD COLUMN sm2EF REAL DEFAULT 2.5"],
+                ["sm2Interval", "ALTER TABLE words ADD COLUMN sm2Interval REAL DEFAULT 1"],
+                ["sm2Reps",     "ALTER TABLE words ADD COLUMN sm2Reps INTEGER DEFAULT 0"],
+                ["history",     "ALTER TABLE words ADD COLUMN history TEXT DEFAULT '[]'"],
+                ["addedAt",     "ALTER TABLE words ADD COLUMN addedAt REAL DEFAULT 0"],
             ];
 
             db.all("PRAGMA table_info(words)", [], (err, cols) => {
@@ -109,7 +119,7 @@ db.serialize(() => {
                 migrations.forEach(([col, sql]) => {
                     if (!existingCols.has(col)) {
                         db.run(sql, (err) => {
-                            if (!err) console.log(`Колонка '${col}' добавлена`);
+                            if (!err && process.env.NODE_ENV !== 'test') console.log(`Колонка '${col}' добавлена`);
                         });
                     }
                 });
@@ -137,176 +147,78 @@ app.get('/favicon.ico', (req, res) => {
 
 // ============================================================
 // TATOEBA PROXY — примеры предложений (обходим CORS)
+// nob — норвежский букмол, rus — русский (коды ISO 639-3, как их ждёт Tatoeba).
 // ============================================================
+const TATOEBA_TIMEOUT = 8000;
+
 app.get('/api/tatoeba', limiter, (req, res) => {
-    const word = req.query.word;
+    const word = typeof req.query.word === 'string' ? req.query.word.trim() : '';
     if (!word || word.length > 100) return res.status(400).json({ error: 'Invalid word' });
+
+    // Раньше ответ мог уйти дважды: таймаут отвечал 504, потом destroy() порождал
+    // 'error', и обработчик пытался ответить 502 уже отправленному клиенту —
+    // ERR_HTTP_HEADERS_SENT вылетал из колбэка и ронял весь сервер.
+    let done = false;
+    const reply = (status, body) => {
+        if (done || res.headersSent) return;
+        done = true;
+        res.status(status).json(body);
+    };
 
     const options = {
         hostname: 'tatoeba.org',
-        path: `/en/api_v0/search?from=eng&to=rus&query=${encodeURIComponent(word)}&limit=6`,
+        path: `/en/api_v0/search?from=nob&to=rus&query=${encodeURIComponent(word)}&limit=6`,
         method: 'GET',
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120',
+            'User-Agent': 'teach-me-norwegian/1.0 (self-hosted vocabulary trainer)',
             'Accept': 'application/json'
         },
-        timeout: 8000
+        timeout: TATOEBA_TIMEOUT
     };
 
     let body = '';
     const proxyReq = https.request(options, (proxyRes) => {
         if (proxyRes.statusCode !== 200) {
-            return res.status(proxyRes.statusCode).json({ error: 'Service unavailable' });
+            proxyRes.resume();
+            return reply(502, { error: 'Service unavailable' });
         }
-        
+        proxyRes.setEncoding('utf8');
         proxyRes.on('data', chunk => {
             body += chunk;
             if (body.length > 1024 * 1024) { // 1MB limit
-                proxyReq.abort();
-                res.status(413).json({ error: 'Response too large' });
+                reply(413, { error: 'Response too large' });
+                proxyReq.destroy();
             }
         });
-        
         proxyRes.on('end', () => {
             try {
                 const data = JSON.parse(body);
                 if (!data.results || !Array.isArray(data.results)) {
                     throw new Error('Invalid response format');
                 }
-                res.json({ results: data.results.slice(0, 10) }); // Лимитируем результаты
+                reply(200, { results: data.results.slice(0, 10) });
             } catch (e) {
-                res.status(502).json({ error: 'Invalid response from service' });
+                reply(502, { error: 'Invalid response from service' });
             }
         });
     });
 
     proxyReq.on('error', (e) => {
-        console.error('Tatoeba proxy error:', e.message);
-        res.status(502).json({ error: e.message });
+        if (!done) console.error('Tatoeba proxy error:', e.message);
+        reply(502, { error: 'Tatoeba unavailable' });
     });
 
     proxyReq.on('timeout', () => {
+        reply(504, { error: 'timeout' });
         proxyReq.destroy();
-        res.status(504).json({ error: 'timeout' });
     });
 
     proxyReq.end();
 });
 
-
-// ============================================================
-// UNSPLASH PROXY — картинки к словам
-// ============================================================
-// ---------------------------------------------------------------------------
-// Картинка к слову.
-//
-// Раньше здесь проксировался source.unsplash.com. Unsplash этот эндпоинт
-// закрыл — он отвечает 503, — а код не проверял статус ответа и в любом случае
-// возвращал клиенту ссылку на мёртвый адрес. Наружу это выглядело как "функция
-// работает, просто картинка не грузится".
-//
-// Теперь: Openverse (агрегатор Flickr/Wikimedia, ключ не нужен), с откатом на
-// Wikimedia Commons. Анонимный лимит Openverse — 200 запросов в сутки, поэтому
-// найденный адрес сохраняется в колонку words.imageUrl и повторно не ищется.
-// ---------------------------------------------------------------------------
-
 // Верхняя граница таймера сессии — сутки. Больше не бывает осмысленным,
 // а без границы в базу попадало любое число.
 const MAX_TIMER_SECONDS = 24 * 60 * 60;
-
-const IMAGE_LOOKUP_TIMEOUT = 8000;
-
-function fetchJson(url, headers = {}) {
-    return new Promise((resolve) => {
-        const req = https.request(url, {
-            method: 'GET',
-            headers: { 'User-Agent': 'teach-me-english/1.0 (self-hosted vocabulary trainer)', ...headers },
-            timeout: IMAGE_LOOKUP_TIMEOUT
-        }, (res) => {
-            if (res.statusCode < 200 || res.statusCode >= 300) {
-                res.resume();
-                return resolve(null);
-            }
-            let body = '';
-            res.setEncoding('utf8');
-            res.on('data', (chunk) => {
-                body += chunk;
-                // Ответ поиска не бывает большим; обрываем явную аномалию.
-                if (body.length > 2 * 1024 * 1024) { req.destroy(); resolve(null); }
-            });
-            res.on('end', () => {
-                try { resolve(JSON.parse(body)); } catch { resolve(null); }
-            });
-        });
-        req.on('error', () => resolve(null));
-        req.on('timeout', () => { req.destroy(); resolve(null); });
-        req.end();
-    });
-}
-
-async function lookupOpenverse(word) {
-    const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(word)}` +
-                '&page_size=1&license_type=all&mature=false';
-    const data = await fetchJson(url);
-    const hit = data?.results?.[0];
-    return hit?.thumbnail || hit?.url || null;
-}
-
-async function lookupWikimedia(word) {
-    const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json' +
-                '&generator=search&gsrnamespace=6&gsrlimit=1' +
-                `&gsrsearch=${encodeURIComponent(word)}` +
-                '&prop=imageinfo&iiprop=url&iiurlwidth=320';
-    const data = await fetchJson(url);
-    const pages = data?.query?.pages;
-    if (!pages) return null;
-    for (const page of Object.values(pages)) {
-        const thumb = page?.imageinfo?.[0]?.thumburl;
-        if (thumb) return thumb;
-    }
-    return null;
-}
-
-app.get('/api/word-image', limiter, async (req, res) => {
-    const word = typeof req.query.word === 'string' ? req.query.word.trim() : '';
-    if (!word || word.length > 100) {
-        return res.status(400).json({ error: 'word required' });
-    }
-
-    // 1. Кеш: уже искали для этого слова — отдаём сохранённое.
-    const cached = await new Promise((resolve) => {
-        db.get(
-            "SELECT imageUrl FROM words WHERE lower(original) = lower(?) AND imageUrl IS NOT NULL AND imageUrl != '' LIMIT 1",
-            [word],
-            (err, row) => resolve(err ? null : row?.imageUrl || null)
-        );
-    });
-    if (cached) return res.json({ url: cached, cached: true });
-
-    // 2. Ищем во внешних источниках.
-    let url = null;
-    try {
-        url = await lookupOpenverse(word);
-        if (!url) url = await lookupWikimedia(word);
-    } catch {
-        url = null;
-    }
-
-    if (!url) {
-        // Честный ответ: ничего не нашли. Клиент показывает это явно,
-        // а не оставляет пустую рамку.
-        return res.json({ url: null });
-    }
-
-    // 3. Запоминаем, чтобы больше не тратить дневной лимит на это слово.
-    db.run(
-        "UPDATE words SET imageUrl = ? WHERE lower(original) = lower(?) AND (imageUrl IS NULL OR imageUrl = '')",
-        [url, word],
-        (err) => { if (err) console.error('Не удалось закешировать картинку:', err.message); }
-    );
-
-    res.json({ url, cached: false });
-});
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
@@ -350,22 +262,40 @@ app.post('/api/register', (req, res) => {
 
 // --- API ДЛЯ СЛОВ ---
 
+function parseJsonArray(raw) {
+    try {
+        const v = JSON.parse(raw || '[]');
+        return Array.isArray(v) ? v : [];
+    } catch {
+        return [];
+    }
+}
+
+// Отдаём только те поля, которые знает клиент. SELECT * тащил бы наружу
+// и мёртвые колонки старой английской версии (видео, фото в base64).
+function rowToWord(row) {
+    return {
+        id: row.id,
+        original: row.original,
+        translate: row.translate,
+        example: row.example || '',
+        exampleTranslate: row.exampleTranslate || '',
+        level: Number(row.level) || 0,
+        nextReview: Number(row.nextReview) || 0,
+        forgetStep: Number(row.forgetStep) || 0,
+        tags: parseJsonArray(row.tags),
+        sm2EF: Number(row.sm2EF) || 2.5,
+        sm2Interval: Number(row.sm2Interval) || 1,
+        sm2Reps: Number(row.sm2Reps) || 0,
+        history: parseJsonArray(row.history),
+        addedAt: Number(row.addedAt) || 0
+    };
+}
+
 app.get('/api/words', (req, res) => {
     db.all("SELECT * FROM words", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        const safeRows = rows.map(row => ({
-            ...row,
-            forgetStep: Number(row.forgetStep) || 0,
-            example: row.example || "",
-            exampleTranslate: row.exampleTranslate || "",
-            tags: (() => { try { return JSON.parse(row.tags || '[]'); } catch { return []; } })(),
-            videoId: row.videoId || '',
-            startTime: Number(row.startTime) || 0,
-            endTime: Number(row.endTime) || 0,
-            subtitleText: row.subtitleText || '',
-            imageUrl: row.imageUrl || ''
-        }));
-        res.json(safeRows);
+        res.json(rows.map(rowToWord));
     });
 });
 
@@ -374,49 +304,52 @@ function validateWord(w) {
     // which evaluates to undefined when tags is absent — so a word without
     // tags failed validation, and because /api/sync validates with .every(),
     // a single such word rejected the entire deck with a 400.
+    if (!w || typeof w !== 'object') return false;
+
     const tagsOk =
         w.tags === undefined ||
         w.tags === null ||
         (Array.isArray(w.tags) &&
             w.tags.every(t => typeof t === 'string' && t.length <= 50));
 
+    const historyOk =
+        w.history === undefined ||
+        w.history === null ||
+        (Array.isArray(w.history) && w.history.length <= 100);
+
     return Boolean(
-        w &&
-        typeof w.id === 'number' &&
+        typeof w.id === 'number' && Number.isFinite(w.id) &&
         typeof w.original === 'string' && w.original.length <= 100 &&
         typeof w.translate === 'string' && w.translate.length <= 500 &&
-        tagsOk
+        tagsOk && historyOk
     );
 }
 
-app.post('/api/sync', (req, res) => {
-    if (!Array.isArray(req.body)) {
-        return res.status(400).json({ error: "Invalid request format" });
-    }
-    
-    if (req.body.length > 10000) {
-        return res.status(413).json({ error: "Payload too large" });
-    }
-    
-    if (!req.body.every(validateWord)) {
-        return res.status(400).json({ error: "Invalid word format" });
-    }
+// Каждая синхронизация — это одна транзакция DELETE + INSERT. Два запроса,
+// пришедшие одновременно, раньше пытались открыть вторую транзакцию внутри
+// первой и падали с SQLITE_ERROR. Теперь они выстраиваются в очередь.
+let syncQueue = Promise.resolve();
 
-    const words = req.body;
+function replaceAllWords(words) {
+    return new Promise((resolve, reject) => {
+        let failed = null;
+        const fail = (err) => { if (err && !failed) failed = err; };
 
-    db.serialize(() => {
-        db.run("BEGIN TRANSACTION");
-        db.run("DELETE FROM words");
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION", fail);
+            db.run("DELETE FROM words", fail);
 
-        const stmt = db.prepare(`
-            INSERT INTO words (id, original, translate, example, exampleTranslate, level, nextReview, forgetStep, tags, videoId, startTime, endTime, subtitleText, imageUrl)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
+            const stmt = db.prepare(`
+                INSERT INTO words (id, original, translate, example, exampleTranslate, level,
+                                   nextReview, forgetStep, tags, sm2EF, sm2Interval, sm2Reps,
+                                   history, addedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `);
 
-        words.forEach(w => {
-            if (w.original && w.translate) {
+            words.forEach(w => {
+                if (!w.original || !w.translate) return;
                 stmt.run(
-                    Number(w.id) || Date.now(),
+                    w.id,
                     String(w.original),
                     String(w.translate),
                     String(w.example || ''),
@@ -425,39 +358,52 @@ app.post('/api/sync', (req, res) => {
                     Number(w.nextReview) || Date.now(),
                     parseInt(w.forgetStep) || 0,
                     JSON.stringify(Array.isArray(w.tags) ? w.tags : []),
-                    String(w.videoId || ''),
-                    Number(w.startTime) || 0,
-                    Number(w.endTime) || 0,
-                    String(w.subtitleText || ''),
-                    String(w.imageUrl || '')
+                    Number(w.sm2EF) || 2.5,
+                    Number(w.sm2Interval) || 1,
+                    parseInt(w.sm2Reps) || 0,
+                    JSON.stringify(Array.isArray(w.history) ? w.history.slice(-30) : []),
+                    Number(w.addedAt) || 0,
+                    fail
                 );
-            }
-        });
+            });
 
-        stmt.finalize((err) => {
-            if (err) {
-                db.run("ROLLBACK");
-                console.error("Ошибка финализации:", err.message);
-                res.status(500).json({ error: "Ошибка финализации" });
-            } else {
-                db.run("COMMIT");
-                console.log(`Синхронизировано слов: ${words.length}`);
-                res.json({ status: "success", count: words.length });
-            }
+            stmt.finalize((err) => {
+                fail(err);
+                if (failed) {
+                    db.run("ROLLBACK", () => reject(failed));
+                } else {
+                    db.run("COMMIT", (commitErr) => commitErr ? reject(commitErr) : resolve());
+                }
+            });
         });
     });
-});
+}
 
-// ============================================================
-// YOUGLISH PROXY — обходим X-Frame-Options через сервер
-// ============================================================
-// /api/youglish-proxy удалён.
-//
-// Эндпоинт скачивал страницу youglish.com и вырезал из ответа заголовки
-// X-Frame-Options и Content-Security-Policy, чтобы чужой сайт можно было
-// показать в iframe. Клиент его никогда не вызывал — произношение открывается
-// обычным window.open на youglish.com (см. app.js). То есть 76 строк кода
-// обходили защиту стороннего сайта от встраивания и при этом не использовались.
+app.post('/api/sync', (req, res) => {
+    if (!Array.isArray(req.body)) {
+        return res.status(400).json({ error: "Invalid request format" });
+    }
+
+    if (req.body.length > 10000) {
+        return res.status(413).json({ error: "Payload too large" });
+    }
+
+    if (!req.body.every(validateWord)) {
+        return res.status(400).json({ error: "Invalid word format" });
+    }
+
+    const words = req.body;
+    const job = syncQueue.then(() => replaceAllWords(words));
+    syncQueue = job.catch(() => {});
+
+    job.then(() => {
+        if (process.env.NODE_ENV !== 'test') console.log(`Синхронизировано слов: ${words.length}`);
+        res.json({ status: "success", count: words.length });
+    }).catch((err) => {
+        console.error("Ошибка синхронизации:", err.message);
+        res.status(500).json({ error: "Ошибка синхронизации" });
+    });
+});
 
 // Слушать порт только при прямом запуске (`node server.js`).
 // При импорте из тестов сервер подниматься не должен.

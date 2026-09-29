@@ -1,9 +1,11 @@
 // ═══════════════════════════════════════════════════
-// SERVICE WORKER — Легкий Словарь PWA
+// SERVICE WORKER — Лёгкий Словарь · Norsk PWA
 // Стратегия: Cache First для статики, Network First для API
 // ═══════════════════════════════════════════════════
 
-const VERSION    = 'slovar-v3';
+// Версию нужно поднимать при каждом изменении фронтенда, иначе браузер
+// ещё один запуск будет отдавать старые app.js/index.html из кеша.
+const VERSION    = 'norsk-v1';
 const CACHE_STATIC  = `${VERSION}-static`;
 const CACHE_DYNAMIC = `${VERSION}-dynamic`;
 
@@ -57,6 +59,11 @@ self.addEventListener('fetch', event => {
         event.respondWith(cacheFirst(request, CACHE_DYNAMIC));
         return;
     }
+
+    // Чужие домены (автоперевод MyMemory и т.п.) не трогаем. Раньше они попадали
+    // в stale-while-revalidate ниже: ответы переводчика оседали в статическом
+    // кеше навсегда, а при ошибке сети подменялись на 503.
+    if (url.origin !== self.location.origin) return;
 
     // Всё остальное (HTML, JS, иконки) — Cache First, обновляем в фоне
     if (request.method === 'GET') {
@@ -120,8 +127,8 @@ async function staleWhileRevalidate(request) {
 self.addEventListener('push', event => {
     if (!event.data) return;
     const data = event.data.json();
-    self.registration.showNotification(data.title || 'Легкий Словарь', {
-        body: data.body || 'Время повторить слова!',
+    self.registration.showNotification(data.title || 'Лёгкий Словарь · Norsk', {
+        body: data.body || 'Tid for repetisjon! Время повторить слова.',
         icon: '/icon-192.png',
         badge: '/icon-96.png',
         tag: 'review-reminder',

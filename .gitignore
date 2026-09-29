@@ -5,12 +5,8 @@ node_modules/
 vocab.db
 vocab.db-shm
 vocab.db-wal
-tools/vocab.db
 
-# credentials and scraping inputs — never commit these
-cookies.txt
-tools/cookies.txt.txt
-tools/proxies.txt
+# credentials — never commit these
 .env
 
 # scratch

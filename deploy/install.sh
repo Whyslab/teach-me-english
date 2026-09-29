@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/install.sh — ставит teach-me-english как systemd user-сервис.
+# deploy/install.sh — ставит teach-me-norwegian как systemd user-сервис.
 #
 # Делает ровно четыре вещи: проверяет Node, ставит зависимости, собирает юнит
 # из шаблона под фактический путь репозитория и запускает сервис. Sudo не
@@ -23,7 +23,7 @@ fi
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-UNIT_NAME="teach-me-english.service"
+UNIT_NAME="teach-me-norwegian.service"
 
 # ---------------------------------------------------------------------------
 log_step "Проверка Node.js"
@@ -70,6 +70,15 @@ fi
 log_step "systemd-юнит"
 # ---------------------------------------------------------------------------
 mkdir -p "$UNIT_DIR"
+
+# До перехода на норвежский юнит назывался teach-me-english.service. Если он
+# остался, он держит тот же порт, и новый сервис не сможет стартовать.
+LEGACY_UNIT="teach-me-english.service"
+if [[ -f "${UNIT_DIR}/${LEGACY_UNIT}" ]]; then
+    systemctl --user disable --now "$LEGACY_UNIT" 2>/dev/null || true
+    mv -f "${UNIT_DIR}/${LEGACY_UNIT}" "${UNIT_DIR}/${LEGACY_UNIT}.bak-$(date +%Y%m%d_%H%M%S)"
+    log_warn "Старый юнит ${LEGACY_UNIT} остановлен и переименован в .bak-*"
+fi
 
 if [[ -f "${UNIT_DIR}/${UNIT_NAME}" ]]; then
     cp -f "${UNIT_DIR}/${UNIT_NAME}" "${UNIT_DIR}/${UNIT_NAME}.bak-$(date +%Y%m%d_%H%M%S)"

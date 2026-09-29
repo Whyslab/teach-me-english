@@ -1,10 +1,10 @@
-# systemd user-юнит для teach-me-english.
+# systemd user-юнит для teach-me-norwegian.
 #
 # Не редактируй этот файл напрямую: %REPO% подставляет deploy/install.sh.
-# Готовый юнит окажется в ~/.config/systemd/user/teach-me-english.service.
+# Готовый юнит окажется в ~/.config/systemd/user/teach-me-norwegian.service.
 
 [Unit]
-Description=teach-me-english — тренажёр английских слов
+Description=teach-me-norwegian — тренажёр норвежских слов
 Documentation=https://github.com/Whyslab/teach-me-english
 After=network-online.target
 

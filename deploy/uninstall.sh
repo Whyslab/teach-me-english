@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/uninstall.sh — убирает systemd user-сервис teach-me-english.
+# deploy/uninstall.sh — убирает systemd user-сервис teach-me-norwegian.
 #
 # База данных и .env НЕ удаляются: там твои слова и настройки. Что с ними
 # делать, скрипт скажет в конце — решение за тобой.
@@ -12,7 +12,7 @@ log_step() { echo -e "\n${BLUE}==>${NC} $1"; }
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-UNIT_NAME="teach-me-english.service"
+UNIT_NAME="teach-me-norwegian.service"
 
 log_step "Остановка сервиса"
 systemctl --user disable --now "$UNIT_NAME" 2>/dev/null || log_warn "Сервис и так не запущен."
