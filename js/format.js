@@ -2,10 +2,12 @@
 //
 // Строка импорта/экспорта TXT:
 //   слово|перевод|пример|перевод примера|теги|грамматика|формы
-// грамматика: en / ei / et — существительное этого рода, v — глагол, пусто — нет.
+// грамматика: en / ei / et — существительное этого рода, v — глагол,
+//             a — прилагательное, пусто — нет.
 // формы: через запятую, в порядке formsFor(pos):
 //   существительное — опр. ед., неопр. мн., опр. мн.   (huset, hus, husene)
 //   глагол          — presens, preteritum, perfektum   (reiser, reiste, har reist)
+//   прилагательное  — ср. род, мн. ч. / опр. форма     (stort, store)
 // Обязательны только первые два поля.
 import { GENDERS, formsFor, stripParticle } from './norsk.js';
 import { sanitizeTags, escapeHtml } from './util.js';
@@ -17,6 +19,7 @@ function parseGrammar(field) {
     if (ARTICLE_TO_GENDER[f]) return { pos: 'noun', gender: ARTICLE_TO_GENDER[f] };
     if (f === 'n' || f === 'noun' || f === 'subst') return { pos: 'noun', gender: '' };
     if (f === 'v' || f === 'verb') return { pos: 'verb', gender: '' };
+    if (f === 'a' || f === 'adj') return { pos: 'adj', gender: '' };
     if (f === 'other' || f === '-') return { pos: 'other', gender: '' };
     return { pos: '', gender: '' };
 }
@@ -24,6 +27,7 @@ function parseGrammar(field) {
 function grammarField(w) {
     if (w.pos === 'noun') return GENDERS[w.gender]?.article || 'noun';
     if (w.pos === 'verb') return 'v';
+    if (w.pos === 'adj') return 'a';
     return '';
 }
 
@@ -78,6 +82,46 @@ export function parseImport(text, existing = []) {
         words.push(w);
     }
     return { words, duplicates };
+}
+
+// Дополняет грамматику слов, которые уже есть в словаре, по встроенной колоде:
+// часть речи, род, формы и пример — только там, где их нет. Прогресс не трогает.
+// Нужно, когда колода обновилась (например, у прилагательных появились формы),
+// а слова из неё уже добавлены раньше.
+// Возвращает список пар [слово в словаре, что добавить].
+export function enrichFromDeck(existing, deckWords) {
+    const byLemma = new Map();
+    for (const d of deckWords) {
+        const k = stripParticle(d.original).toLowerCase();
+        if (!byLemma.has(k)) byLemma.set(k, []);
+        byLemma.get(k).push(d);
+    }
+    const norm = (s) => String(s || '').trim().toLowerCase();
+    const updates = [];
+    for (const w of existing) {
+        let candidates = byLemma.get(stripParticle(w.original).toLowerCase()) || [];
+        if (w.pos) candidates = candidates.filter(d => d.pos === w.pos);
+        // Омонимы (tre — «три» и «дерево»): решает совпадение перевода.
+        if (candidates.length > 1) candidates = candidates.filter(d => norm(d.translate) === norm(w.translate));
+        if (candidates.length !== 1) continue;
+        const d = candidates[0];
+        const patch = {};
+        if (!w.pos && d.pos) {
+            patch.pos = d.pos;
+            if (d.gender) patch.gender = d.gender;
+        }
+        const pos = w.pos || d.pos;
+        if (pos && pos === d.pos && d.forms && Object.keys(d.forms).length && !Object.keys(w.forms || {}).length) {
+            patch.forms = { ...d.forms };
+        }
+        if (pos === 'noun' && !w.gender && d.gender && !patch.gender) patch.gender = d.gender;
+        if (!w.example && d.example) {
+            patch.example = d.example;
+            patch.exampleTranslate = d.exampleTranslate;
+        }
+        if (Object.keys(patch).length) updates.push([w, patch]);
+    }
+    return updates;
 }
 
 const clean = (s) => String(s ?? '').replace(/[|\r\n]+/g, ' ').trim();

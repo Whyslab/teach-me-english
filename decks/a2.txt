@@ -1,0 +1,380 @@
+# Norsk A2 — вторая колода для приложения «Лёгкий Словарь · Norsk».
+# Формат: слово|перевод|пример|перевод примера|теги|род|формы
+#   род: en / ei / et — существительное; v — глагол; a — прилагательное; пусто — прочее.
+#   формы существительного: опр. ед., неопр. мн., опр. мн.
+#   формы глагола: presens, preteritum, perfektum
+#   формы прилагательного: средний род, множественное число / определённая форма
+# Женский род указан как «ei» (так в словаре Ordbøkene); в букмоле допустимо и «en».
+# Слова, которые уже есть в колоде A1, сюда не входят.
+
+# ── Работа и документы ───────────────────────────────────────
+arbeidsgiver|работодатель|Arbeidsgiveren betaler lønn hver måned.|Работодатель платит зарплату каждый месяц.|arbeid|en|arbeidsgiveren,arbeidsgivere,arbeidsgiverne
+kollega|коллега|Kollegaen min hjelper meg.|Мой коллега мне помогает.|arbeid|en|kollegaen,kolleger,kollegene
+sjef|начальник|Sjefen er på ferie.|Начальник в отпуске.|arbeid|en|sjefen,sjefer,sjefene
+søknad|заявление, заявка|Jeg sender en søknad i dag.|Я отправляю заявку сегодня.|arbeid|en|søknaden,søknader,søknadene
+stilling|должность, вакансия|Hun søker på en ledig stilling.|Она подаёт на свободную вакансию.|arbeid|en|stillingen,stillinger,stillingene
+intervju|собеседование, интервью|Intervjuet er på tirsdag.|Собеседование во вторник.|arbeid|et|intervjuet,intervjuer,intervjuene
+erfaring|опыт|Han har lang erfaring.|У него большой опыт.|arbeid|en|erfaringen,erfaringer,erfaringene
+utdanning|образование|Hvilken utdanning har du?|Какое у тебя образование?|arbeid|en|utdanningen,utdanninger,utdanningene
+kontrakt|договор, контракт|Du må skrive under kontrakten.|Ты должен подписать договор.|arbeid|en|kontrakten,kontrakter,kontraktene
+skatt|налог|Vi betaler skatt i Norge.|Мы платим налоги в Норвегии.|arbeid|en|skatten,skatter,skattene
+skjema|бланк, анкета|Fyll ut skjemaet, er du snill.|Заполни, пожалуйста, анкету.|arbeid|et|skjemaet,skjemaer,skjemaene
+dokument|документ|Ta med alle dokumentene.|Возьми с собой все документы.|arbeid|et|dokumentet,dokumenter,dokumentene
+pass|паспорт|Passet mitt er gyldig til 2030.|Мой паспорт действителен до 2030 года.|arbeid|et|passet,pass,passene
+oppholdstillatelse|вид на жительство|Jeg har fått oppholdstillatelse.|Я получил вид на жительство.|arbeid|en|oppholdstillatelsen,oppholdstillatelser,oppholdstillatelsene
+personnummer|персональный номер (норв. ID)|Hva er personnummeret ditt?|Какой у тебя персональный номер?|arbeid|et|personnummeret,personnummer,personnumrene
+bankkonto|банковский счёт|Jeg må åpne en bankkonto.|Мне нужно открыть банковский счёт.|arbeid|en|bankkontoen,bankkontoer,bankkontoene
+kunde|клиент|Kunden er fornøyd.|Клиент доволен.|arbeid|en|kunden,kunder,kundene
+butikksjef|заведующий магазином|Butikksjefen ansatte meg.|Заведующий магазином взял меня на работу.|arbeid|en|butikksjefen,butikksjefer,butikksjefene
+fri|выходной; свободный|Jeg har fri i morgen.|Завтра у меня выходной.|arbeid
+arbeidsledig|безработный|Han er arbeidsledig nå.|Он сейчас безработный.|arbeid|a|arbeidsledig,arbeidsledige
+heltid|полная ставка|Hun jobber heltid.|Она работает на полную ставку.|arbeid
+deltid|неполная ставка|Jeg jobber deltid på en kafé.|Я работаю на полставки в кафе.|arbeid
+å søke|искать; подавать заявку|Jeg søker jobb som sykepleier.|Я ищу работу медсестрой.|arbeid|v|søker,søkte,har søkt
+å ansette|нанимать|Firmaet ansatte fem nye.|Фирма наняла пятерых новых.|arbeid|v|ansetter,ansatte,har ansatt
+å tjene|зарабатывать|Hvor mye tjener du?|Сколько ты зарабатываешь?|arbeid|v|tjener,tjente,har tjent
+å fylle ut|заполнять (бланк)|Du må fylle ut skjemaet.|Ты должен заполнить бланк.|arbeid|v|fyller ut,fylte ut,har fylt ut
+å skrive under|подписывать|Skriv under her.|Подпишите здесь.|arbeid|v|skriver under,skrev under,har skrevet under
+firma|фирма, компания|Firmaet har tretti ansatte.|В фирме тридцать сотрудников.|arbeid|et|firmaet,firmaer,firmaene
+
+# ── Жильё ────────────────────────────────────────────────────
+husleie|квартплата|Husleia er høy i Oslo.|Квартплата в Осло высокая.|bolig|ei|husleia,husleier,husleiene
+utleier|арендодатель|Utleieren bor i første etasje.|Арендодатель живёт на первом этаже.|bolig|en|utleieren,utleiere,utleierne
+depositum|залог, депозит|Depositumet er tre måneders leie.|Залог — плата за три месяца.|bolig|et|depositumet,depositum,depositumene
+etasje|этаж|Vi bor i tredje etasje.|Мы живём на третьем этаже.|bolig|en|etasjen,etasjer,etasjene
+trapp|лестница|Trappa er bratt.|Лестница крутая.|bolig|ei|trappa,trapper,trappene
+heis|лифт|Heisen er i ustand.|Лифт сломан.|bolig|en|heisen,heiser,heisene
+vegg|стена|Bildet henger på veggen.|Картина висит на стене.|bolig|en|veggen,vegger,veggene
+gulv|пол|Gulvet er kaldt.|Пол холодный.|bolig|et|gulvet,gulv,gulvene
+tak|потолок; крыша|Taket lekker.|Крыша протекает.|bolig|et|taket,tak,takene
+hage|сад|Barna leker i hagen.|Дети играют в саду.|bolig|en|hagen,hager,hagene
+nabolag|район, окрестности|Det er et rolig nabolag.|Это спокойный район.|bolig|et|nabolaget,nabolag,nabolagene
+møbel|предмет мебели|Vi trenger nye møbler.|Нам нужна новая мебель.|bolig|et|møbelet,møbler,møblene
+sofa|диван|Katten sover på sofaen.|Кошка спит на диване.|bolig|en|sofaen,sofaer,sofaene
+skap|шкаф|Klærne henger i skapet.|Одежда висит в шкафу.|bolig|et|skapet,skap,skapene
+kjøleskap|холодильник|Melka står i kjøleskapet.|Молоко стоит в холодильнике.|bolig|et|kjøleskapet,kjøleskap,kjøleskapene
+vaskemaskin|стиральная машина|Vaskemaskinen er ødelagt.|Стиральная машина сломана.|bolig|en|vaskemaskinen,vaskemaskiner,vaskemaskinene
+strøm|электричество|Strømmen er dyr om vinteren.|Электричество зимой дорогое.|bolig|en|strømmen
+dusj|душ|Jeg tar en dusj.|Я принимаю душ.|bolig|en|dusjen,dusjer,dusjene
+søppel|мусор|Kan du ta ut søppelet?|Можешь вынести мусор?|bolig|et|søppelet
+å leie|снимать, арендовать|Vi leier en leilighet.|Мы снимаем квартиру.|bolig|v|leier,leide,har leid
+å flytte|переезжать|Vi flyttet til Norge i fjor.|Мы переехали в Норвегию в прошлом году.|bolig|v|flytter,flyttet,har flyttet
+å rydde|убирать (наводить порядок)|Jeg rydder rommet mitt.|Я убираю свою комнату.|bolig|v|rydder,ryddet,har ryddet
+å reparere|ремонтировать|Han reparerer sykkelen.|Он чинит велосипед.|bolig|v|reparerer,reparerte,har reparert
+
+# ── Здоровье ─────────────────────────────────────────────────
+helse|здоровье|Helsa er viktigst.|Здоровье важнее всего.|helse|ei|helsa
+fastlege|семейный врач|Jeg har time hos fastlegen.|У меня приём у семейного врача.|helse|en|fastlegen,fastleger,fastlegene
+legevakt|травмпункт, неотложка|Vi måtte dra på legevakta.|Нам пришлось поехать в неотложку.|helse|ei|legevakta,legevakter,legevaktene
+tannlege|стоматолог|Tannlegen er dyr i Norge.|Стоматолог в Норвегии дорогой.|helse|en|tannlegen,tannleger,tannlegene
+sykepleier|медсестра, медбрат|Sykepleieren tar blodprøve.|Медсестра берёт анализ крови.|helse|en|sykepleieren,sykepleiere,sykepleierne
+medisin|лекарство|Ta medisinen to ganger om dagen.|Принимай лекарство два раза в день.|helse|en|medisinen,medisiner,medisinene
+resept|рецепт (врачебный)|Legen skrev ut en resept.|Врач выписал рецепт.|helse|en|resepten,resepter,reseptene
+smerte|боль|Jeg har sterke smerter.|У меня сильные боли.|helse|en|smerten,smerter,smertene
+feber|температура, жар|Barnet har feber.|У ребёнка температура.|helse|en|feberen
+forkjølelse|простуда|Jeg har en lett forkjølelse.|У меня лёгкая простуда.|helse|en|forkjølelsen,forkjølelser,forkjølelsene
+hoste|кашель|Hosten går ikke over.|Кашель не проходит.|helse|en|hosten
+sykemelding|больничный лист|Legen ga meg sykemelding.|Врач выдал мне больничный.|helse|en|sykemeldingen,sykemeldinger,sykemeldingene
+tann|зуб|Jeg har vondt i en tann.|У меня болит зуб.|helse|en|tanna,tenner,tennene
+arm|рука|Han brakk armen.|Он сломал руку.|helse|en|armen,armer,armene
+ben|нога; кость|Beina mine er slitne.|Мои ноги устали.|helse|et|benet,ben,beina
+øre|ухо|Jeg har vondt i øret.|У меня болит ухо.|helse|et|øret,ører,ørene
+nese|нос|Nesa mi renner.|У меня течёт из носа.|helse|ei|nesa,neser,nesene
+hjerte|сердце|Hjertet slår fort.|Сердце бьётся быстро.|helse|et|hjertet,hjerter,hjertene
+vondt|больно (ha vondt i — болеть)|Jeg har vondt i hodet.|У меня болит голова.|helse
+å bestille time|записаться на приём|Jeg må bestille time hos legen.|Мне надо записаться к врачу.|helse|v|bestiller time,bestilte time,har bestilt time
+å hvile|отдыхать|Du må hvile i noen dager.|Тебе нужно отдохнуть несколько дней.|helse|v|hviler,hvilte,har hvilt
+å skade|повредить, травмировать|Hun skadet foten.|Она повредила ногу.|helse|v|skader,skadet,har skadet
+å føle seg|чувствовать себя|Jeg føler meg bedre i dag.|Сегодня я чувствую себя лучше.|helse|v|føler seg,følte seg,har følt seg
+
+# ── Покупки и деньги ─────────────────────────────────────────
+pris|цена|Prisen er for høy.|Цена слишком высокая.|handel|en|prisen,priser,prisene
+krone|крона|Det koster hundre kroner.|Это стоит сто крон.|handel|ei|krona,kroner,kronene
+kvittering|чек|Kan jeg få kvitteringen?|Можно мне чек?|handel|en|kvitteringen,kvitteringer,kvitteringene
+kort|карта (банковская)|Jeg betaler med kort.|Я плачу картой.|handel|et|kortet,kort,kortene
+kontanter|наличные|Har du kontanter?|У тебя есть наличные?|handel
+tilbud|скидка, спецпредложение; предложение|Det er tilbud på kaffe i dag.|Сегодня скидка на кофе.|handel|et|tilbudet,tilbud,tilbudene
+pose|пакет|Trenger du en pose?|Вам нужен пакет?|handel|en|posen,poser,posene
+størrelse|размер|Hvilken størrelse bruker du?|Какой размер ты носишь?|handel|en|størrelsen,størrelser,størrelsene
+kasse|касса|Betal i kassa der borte.|Оплатите на кассе вон там.|handel|ei|kassa,kasser,kassene
+dagligvarebutikk|продуктовый магазин|Dagligvarebutikken er åpen til ti.|Продуктовый открыт до десяти.|handel|en|dagligvarebutikken,dagligvarebutikker,dagligvarebutikkene
+å koste|стоить|Hva koster denne?|Сколько это стоит?|handel|v|koster,kostet,har kostet
+å handle|делать покупки|Vi handler på lørdag.|Мы ходим за покупками в субботу.|handel|v|handler,handlet,har handlet
+å spare|копить, экономить|Jeg sparer til en bil.|Я коплю на машину.|handel|v|sparer,sparte,har spart
+å bytte|менять, обменивать|Kan jeg bytte genseren?|Можно обменять свитер?|handel|v|bytter,byttet,har byttet
+å låne|брать взаймы; одалживать|Kan jeg låne penger av deg?|Можно одолжить у тебя денег?|handel|v|låner,lånte,har lånt
+å prøve|пробовать; примерять|Kan jeg prøve jakka?|Можно примерить куртку?|handel|v|prøver,prøvde,har prøvd
+
+# ── Чувства и характер ───────────────────────────────────────
+følelse|чувство|Det er en god følelse.|Это хорошее чувство.|følelser|en|følelsen,følelser,følelsene
+glede|радость|Det var en stor glede.|Это была большая радость.|følelser|ei|gleda,gleder,gledene
+sorg|горе|Hun er i sorg.|Она в горе.|følelser|en|sorgen,sorger,sorgene
+angst|страх, тревога|Han har angst for å fly.|У него страх полётов.|følelser|en|angsten
+stress|стресс|Jeg har mye stress på jobben.|У меня много стресса на работе.|følelser|et|stresset
+lei seg|расстроенный|Hun er lei seg.|Она расстроена.|følelser
+redd|испуганный (være redd — бояться)|Jeg er redd for hunder.|Я боюсь собак.|følelser|a|redd,redde
+sint|злой, сердитый|Han ble sint på meg.|Он рассердился на меня.|følelser|a|sint,sinte
+trist|грустный|Filmen var trist.|Фильм был грустный.|følelser|a|trist,triste
+fornøyd|довольный|Er du fornøyd med jobben?|Ты доволен работой?|følelser|a|fornøyd,fornøyde
+nervøs|нервный, взволнованный|Jeg er nervøs før prøven.|Я нервничаю перед экзаменом.|følelser|a|nervøs,nervøse
+stolt|гордый|Foreldrene er stolte av deg.|Родители гордятся тобой.|følelser|a|stolt,stolte
+ensom|одинокий|Hun føler seg ensom.|Она чувствует себя одинокой.|følelser|a|ensomt,ensomme
+snill|добрый|Hun er veldig snill.|Она очень добрая.|følelser|a|snilt,snille
+morsom|весёлый, смешной|Det var en morsom film.|Это был смешной фильм.|følelser|a|morsomt,morsomme
+kjedelig|скучный|Møtet var kjedelig.|Собрание было скучным.|følelser|a|kjedelig,kjedelige
+flink|способный, умелый|Du er flink til å lage mat.|Ты хорошо готовишь.|følelser|a|flinkt,flinke
+høflig|вежливый|Nordmenn er høflige.|Норвежцы вежливы.|følelser|a|høflig,høflige
+å glede seg|радоваться (предвкушать)|Jeg gleder meg til ferien.|Я жду не дождусь отпуска.|følelser|v|gleder seg,gledet seg,har gledet seg
+å savne|скучать по|Jeg savner familien min.|Я скучаю по семье.|følelser|v|savner,savnet,har savnet
+å bekymre seg|беспокоиться|Ikke bekymre deg!|Не беспокойся!|følelser|v|bekymrer seg,bekymret seg,har bekymret seg
+å håpe|надеяться|Jeg håper det blir sol.|Надеюсь, будет солнце.|følelser|v|håper,håpet,har håpet
+å le|смеяться|Barna ler høyt.|Дети громко смеются.|følelser|v|ler,lo,har ledd
+å gråte|плакать|Babyen gråter.|Малыш плачет.|følelser|v|gråter,gråt,har grått
+
+# ── Транспорт и путешествия ──────────────────────────────────
+reise|поездка, путешествие|Reisen tok fem timer.|Поездка заняла пять часов.|reise|en|reisen,reiser,reisene
+flyplass|аэропорт|Vi møtes på flyplassen.|Встретимся в аэропорту.|reise|en|flyplassen,flyplasser,flyplassene
+holdeplass|остановка|Bussen stopper på holdeplassen.|Автобус останавливается на остановке.|reise|en|holdeplassen,holdeplasser,holdeplassene
+perrong|перрон, платформа|Toget går fra perrong tre.|Поезд отходит с третьей платформы.|reise|en|perrongen,perronger,perrongene
+bagasje|багаж|Bagasjen min forsvant.|Мой багаж пропал.|reise|en|bagasjen
+koffert|чемодан|Kofferten er tung.|Чемодан тяжёлый.|reise|en|kofferten,kofferter,koffertene
+sete|сиденье, место|Er dette setet ledig?|Это место свободно?|reise|et|setet,seter,setene
+forsinkelse|задержка|Det er en forsinkelse på toget.|Поезд задерживается.|reise|en|forsinkelsen,forsinkelser,forsinkelsene
+trafikk|движение (транспорта)|Det er mye trafikk i dag.|Сегодня много машин.|reise|en|trafikken
+kryss|перекрёсток|Sving til venstre i krysset.|На перекрёстке поверни налево.|reise|et|krysset,kryss,kryssene
+retning|направление|Gå i den retningen.|Иди в том направлении.|reise|en|retningen,retninger,retningene
+utlandet|заграница|Hun bor i utlandet.|Она живёт за границей.|reise
+turist|турист|Det er mange turister om sommeren.|Летом много туристов.|reise|en|turisten,turister,turistene
+fjord|фьорд|Vi tok båt på fjorden.|Мы плыли на лодке по фьорду.|reise|en|fjorden,fjorder,fjordene
+å bestille|заказывать, бронировать|Jeg har bestilt et rom.|Я забронировал номер.|reise|v|bestiller,bestilte,har bestilt
+å rekke|успеть|Jeg rakk ikke bussen.|Я не успел на автобус.|reise|v|rekker,rakk,har rukket
+å bytte tog|пересаживаться (на поезд)|Du må bytte tog i Drammen.|Тебе надо пересесть в Драммене.|reise|v|bytter tog,byttet tog,har byttet tog
+å fly|летать|Vi flyr til Tromsø.|Мы летим в Тромсё.|reise|v|flyr,fløy,har fløyet
+å komme fram|добраться, прибыть|Når kommer vi fram?|Когда мы доберёмся?|reise|v|kommer fram,kom fram,har kommet fram
+å dra|уезжать, отправляться|Vi drar i morgen tidlig.|Мы уезжаем завтра рано.|reise|v|drar,dro,har dratt
+å sykle|ездить на велосипеде|Jeg sykler til skolen.|Я езжу в школу на велосипеде.|reise|v|sykler,syklet,har syklet
+å gå av|сходить, выходить (из транспорта)|Jeg går av på neste stopp.|Я выхожу на следующей остановке.|reise|v|går av,gikk av,har gått av
+å gå på|садиться (в транспорт)|Gå på bussen her.|Садись в автобус здесь.|reise|v|går på,gikk på,har gått på
+
+# ── Учёба ────────────────────────────────────────────────────
+universitet|университет|Hun studerer ved universitetet.|Она учится в университете.|skole|et|universitetet,universiteter,universitetene
+kurs|курс|Jeg går på norskkurs.|Я хожу на курсы норвежского.|skole|et|kurset,kurs,kursene
+klasse|класс|Klassen har tjue elever.|В классе двадцать учеников.|skole|en|klassen,klasser,klassene
+elev|ученик|Eleven svarer riktig.|Ученик отвечает правильно.|skole|en|eleven,elever,elevene
+prøve|экзамен, тест|Prøven er i neste uke.|Экзамен на следующей неделе.|skole|en|prøven,prøver,prøvene
+lekse|домашнее задание|Har du gjort leksene?|Ты сделал уроки?|skole|ei|leksa,lekser,leksene
+oppgave|задание|Oppgaven er vanskelig.|Задание трудное.|skole|en|oppgaven,oppgaver,oppgavene
+setning|предложение (в тексте)|Skriv en setning på norsk.|Напиши предложение по-норвежски.|skole|en|setningen,setninger,setningene
+tekst|текст|Les teksten høyt.|Прочитай текст вслух.|skole|en|teksten,tekster,tekstene
+ordbok|словарь|Slå opp i ordboka.|Посмотри в словаре.|skole|ei|ordboka,ordbøker,ordbøkene
+grammatikk|грамматика|Norsk grammatikk er ikke så vanskelig.|Норвежская грамматика не такая сложная.|skole|en|grammatikken
+uttale|произношение|Uttalen din er god.|У тебя хорошее произношение.|skole|en|uttalen,uttaler,uttalene
+fag|предмет (учебный)|Matte er favorittfaget mitt.|Математика — мой любимый предмет.|skole|et|faget,fag,fagene
+å studere|учиться (в вузе), изучать|Han studerer medisin.|Он изучает медицину.|skole|v|studerer,studerte,har studert
+å øve|упражняться, тренироваться|Jeg øver på uttalen.|Я тренирую произношение.|skole|v|øver,øvde,har øvd
+å forklare|объяснять|Kan du forklare ordet?|Можешь объяснить это слово?|skole|v|forklarer,forklarte,har forklart
+å oversette|переводить|Oversett setningen til russisk.|Переведи предложение на русский.|skole|v|oversetter,oversatte,har oversatt
+å bestå|сдать (экзамен)|Jeg bestod prøven!|Я сдал экзамен!|skole|v|består,bestod,har bestått
+å gjenta|повторять|Kan du gjenta, er du snill?|Повтори, пожалуйста.|skole|v|gjentar,gjentok,har gjentatt
+å stave|произносить по буквам|Hvordan staver du navnet ditt?|Как пишется твоё имя по буквам?|skole|v|staver,stavet,har stavet
+
+# ── Время и частота ──────────────────────────────────────────
+år siden|… лет назад|Jeg kom til Norge for to år siden.|Я приехал в Норвегию два года назад.|tid
+i fjor|в прошлом году|I fjor var jeg i Bergen.|В прошлом году я был в Бергене.|tid
+neste år|в следующем году|Neste år skal jeg ta norskprøven.|В следующем году я сдаю норвежский экзамен.|tid
+tidlig|рано|Jeg står opp tidlig.|Я рано встаю.|tid
+sent|поздно|Det er sent nå.|Уже поздно.|tid
+fortsatt|всё ещё|Jeg bor fortsatt her.|Я всё ещё живу здесь.|tid
+allerede|уже|Jeg har allerede spist.|Я уже поел.|tid
+ennå|ещё (в отрицании: ещё не)|Hun har ikke kommet ennå.|Она ещё не пришла.|tid
+etterpå|потом, после этого|Vi spiser, og etterpå går vi en tur.|Мы поедим, а потом пойдём погулять.|tid
+først|сначала|Først må du fylle ut skjemaet.|Сначала нужно заполнить бланк.|tid
+til slutt|в конце концов|Til slutt fant vi huset.|В конце концов мы нашли дом.|tid
+av og til|иногда|Av og til spiser vi ute.|Иногда мы едим в ресторане.|tid
+sjelden|редко|Jeg ser ham sjelden.|Я редко его вижу.|tid
+vanligvis|обычно|Vanligvis tar jeg bussen.|Обычно я езжу на автобусе.|tid
+hver dag|каждый день|Jeg lærer norsk hver dag.|Я учу норвежский каждый день.|tid
+høst|осень|Høsten er vakker i Norge.|Осень в Норвегии красивая.|tid|en|høsten,høster,høstene
+vår|весна|Om våren blir dagene lengre.|Весной дни становятся длиннее.|tid|en|våren,vårer,vårene
+kalender|календарь|Skriv det i kalenderen.|Запиши это в календарь.|tid|en|kalenderen,kalendere,kalenderne
+avtale|договорённость, встреча|Jeg har en avtale klokka tre.|У меня встреча в три.|tid|en|avtalen,avtaler,avtalene
+bursdag|день рождения|Gratulerer med dagen på bursdagen!|Поздравляю с днём рождения!|tid|en|bursdagen,bursdager,bursdagene
+jul|Рождество|God jul!|Счастливого Рождества!|tid|ei|jula,juler,julene
+
+# ── Природа и погода ─────────────────────────────────────────
+himmel|небо|Himmelen er blå.|Небо голубое.|natur|en|himmelen,himler,himlene
+sky|облако|Det er mange skyer i dag.|Сегодня много облаков.|natur|ei|skya,skyer,skyene
+storm|шторм, буря|Det blir storm i natt.|Ночью будет шторм.|natur|en|stormen,stormer,stormene
+temperatur|температура (воздуха)|Temperaturen er minus ti.|Температура минус десять.|natur|en|temperaturen,temperaturer,temperaturene
+grad|градус|Det er tjue grader i dag.|Сегодня двадцать градусов.|natur|en|graden,grader,gradene
+is|лёд; мороженое|Isen er tynn.|Лёд тонкий.|natur|en|isen,iser,isene
+mørke|темнота|Om vinteren er det mye mørke.|Зимой много темноты.|natur|et|mørket
+nordlys|северное сияние|Vi så nordlyset i Tromsø.|Мы видели северное сияние в Тромсё.|natur|et|nordlyset,nordlys,nordlysene
+dyr|животное|Det finnes mange dyr i skogen.|В лесу водится много животных.|natur|et|dyret,dyr,dyra
+fugl|птица|Fuglen synger.|Птица поёт.|natur|en|fuglen,fugler,fuglene
+elg|лось|Vi så en elg ved veien.|Мы видели лося у дороги.|natur|en|elgen,elger,elgene
+innsjø|озеро|Vi bader i innsjøen.|Мы купаемся в озере.|natur|en|innsjøen,innsjøer,innsjøene
+øy|остров|Vi bor på en øy.|Мы живём на острове.|natur|ei|øya,øyer,øyene
+å regne|идти (о дожде)|Det regner hele dagen.|Весь день идёт дождь.|natur|v|regner,regnet,har regnet
+å snø|идти (о снеге)|Det snødde i natt.|Ночью шёл снег.|natur|v|snør,snødde,har snødd
+å skinne|светить|Sola skinner.|Светит солнце.|natur|v|skinner,skinte,har skint
+å fryse|мёрзнуть; замерзать|Jeg fryser!|Я мёрзну!|natur|v|fryser,frøs,har frosset
+
+# ── Еда и кухня ──────────────────────────────────────────────
+oppskrift|рецепт (кулинарный)|Har du oppskriften på kaka?|У тебя есть рецепт этого торта?|mat|en|oppskriften,oppskrifter,oppskriftene
+måltid|приём пищи|Frokost er dagens viktigste måltid.|Завтрак — самый важный приём пищи.|mat|et|måltidet,måltider,måltidene
+middagsbord|обеденный стол|Familien samles rundt middagsbordet.|Семья собирается за обеденным столом.|mat|et|middagsbordet,middagsbord,middagsbordene
+kjøttkake|котлета (норв. мясная)|Vi spiser kjøttkaker med brun saus.|Мы едим котлеты с коричневым соусом.|mat|ei|kjøttkaka,kjøttkaker,kjøttkakene
+saus|соус|Sausen er for salt.|Соус слишком солёный.|mat|en|sausen,sauser,sausene
+suppe|суп|Suppa er varm.|Суп горячий.|mat|ei|suppa,supper,suppene
+salat|салат|Jeg lager en salat.|Я делаю салат.|mat|en|salaten,salater,salatene
+kylling|курица|Vi har kylling til middag.|На ужин у нас курица.|mat|en|kyllingen,kyllinger,kyllingene
+laks|лосось|Norsk laks er kjent i hele verden.|Норвежский лосось известен во всём мире.|mat|en|laksen,lakser,laksene
+ris|рис|Vil du ha ris eller poteter?|Хочешь рис или картошку?|mat|en|risen
+sukker|сахар|Kaffe uten sukker, takk.|Кофе без сахара, пожалуйста.|mat|et|sukkeret
+salt|соль|Send meg saltet, er du snill.|Передай мне соль, пожалуйста.|mat|et|saltet
+juice|сок|Et glass juice, takk.|Стакан сока, пожалуйста.|mat|en|juicen,juicer,juicene
+gaffel|вилка|Jeg trenger en gaffel.|Мне нужна вилка.|mat|en|gaffelen,gafler,gaflene
+kniv|нож|Kniven er skarp.|Нож острый.|mat|en|kniven,kniver,knivene
+skje|ложка|Suppa spises med skje.|Суп едят ложкой.|mat|ei|skjeen,skjeer,skjeene
+å steke|жарить|Hun steker fisk.|Она жарит рыбу.|mat|v|steker,stekte,har stekt
+å koke|варить; кипятить|Vannet koker.|Вода кипит.|mat|v|koker,kokte,har kokt
+å smake|пробовать на вкус; быть на вкус|Maten smaker godt.|Еда вкусная.|mat|v|smaker,smakte,har smakt
+å dekke på|накрывать на стол|Kan du dekke på bordet?|Можешь накрыть на стол?|mat|v|dekker på,dekket på,har dekket på
+
+# ── Общение и связь ──────────────────────────────────────────
+melding|сообщение|Jeg sendte deg en melding.|Я отправил тебе сообщение.|kommunikasjon|en|meldingen,meldinger,meldingene
+e-post|электронная почта, письмо|Sjekk e-posten din.|Проверь свою почту.|kommunikasjon|en|e-posten,e-poster,e-postene
+brev|письмо (бумажное)|Jeg fikk et brev fra NAV.|Я получил письмо из NAV.|kommunikasjon|et|brevet,brev,brevene
+nettside|сайт|Informasjonen står på nettsiden.|Информация есть на сайте.|kommunikasjon|ei|nettsida,nettsider,nettsidene
+passord|пароль|Jeg har glemt passordet.|Я забыл пароль.|kommunikasjon|et|passordet,passord,passordene
+samtale|разговор|Vi hadde en lang samtale.|У нас был долгий разговор.|kommunikasjon|en|samtalen,samtaler,samtalene
+mening|мнение; смысл|Hva er din mening?|Какое у тебя мнение?|kommunikasjon|en|meningen,meninger,meningene
+invitasjon|приглашение|Takk for invitasjonen!|Спасибо за приглашение!|kommunikasjon|en|invitasjonen,invitasjoner,invitasjonene
+å sende|отправлять|Send meg adressen.|Пришли мне адрес.|kommunikasjon|v|sender,sendte,har sendt
+å fortelle|рассказывать|Fortell meg om deg selv.|Расскажи мне о себе.|kommunikasjon|v|forteller,fortalte,har fortalt
+å mene|считать, полагать|Hva mener du?|Что ты имеешь в виду?|kommunikasjon|v|mener,mente,har ment
+å invitere|приглашать|Vi inviterer naboene på middag.|Мы приглашаем соседей на ужин.|kommunikasjon|v|inviterer,inviterte,har invitert
+å besøke|навещать|Vi besøker besteforeldrene.|Мы навещаем бабушку и дедушку.|kommunikasjon|v|besøker,besøkte,har besøkt
+å treffe|встречать (случайно или по договорённости)|Jeg traff en gammel venn.|Я встретил старого друга.|kommunikasjon|v|treffer,traff,har truffet
+vi snakkes|до связи, ещё поговорим|Vi snakkes i morgen!|Поговорим завтра!|kommunikasjon
+å presentere|представлять|La meg presentere kona mi.|Позвольте представить мою жену.|kommunikasjon|v|presenterer,presenterte,har presentert
+å takke|благодарить|Jeg vil takke deg for hjelpen.|Я хочу поблагодарить тебя за помощь.|kommunikasjon|v|takker,takket,har takket
+å unnskylde seg|извиняться|Han unnskyldte seg.|Он извинился.|kommunikasjon|v|unnskylder seg,unnskyldte seg,har unnskyldt seg
+
+# ── Частые глаголы (неправильные) ────────────────────────────
+å bringe|приносить|Kan du bringe meg vann?|Можешь принести мне воды?|verb|v|bringer,brakte,har brakt
+å velge|выбирать|Du må velge en.|Ты должен выбрать одно.|verb|v|velger,valgte,har valgt
+å selge|продавать|Vi selger bilen.|Мы продаём машину.|verb|v|selger,solgte,har solgt
+å sette|ставить; сажать|Sett koppen på bordet.|Поставь чашку на стол.|verb|v|setter,satte,har satt
+å legge|класть|Legg nøklene her.|Положи ключи сюда.|verb|v|legger,la,har lagt
+å bære|нести|Jeg bærer kofferten.|Я несу чемодан.|verb|v|bærer,bar,har båret
+å slå|бить, ударять|Ikke slå broren din!|Не бей брата!|verb|v|slår,slo,har slått
+å synge|петь|Hun synger i kor.|Она поёт в хоре.|verb|v|synger,sang,har sunget
+å løpe|бегать|Jeg løper hver morgen.|Я бегаю каждое утро.|verb|v|løper,løp,har løpt
+å falle|падать|Han falt på isen.|Он упал на льду.|verb|v|faller,falt,har falt
+å holde|держать|Hold meg i hånda.|Держи меня за руку.|verb|v|holder,holdt,har holdt
+å vinne|выигрывать|Norge vant kampen.|Норвегия выиграла матч.|verb|v|vinner,vant,har vunnet
+å tape|проигрывать|Vi tapte med to mål.|Мы проиграли с разницей в два гола.|verb|v|taper,tapte,har tapt
+å skje|случаться|Hva har skjedd?|Что случилось?|verb|v|skjer,skjedde,har skjedd
+å bli med|присоединиться, пойти вместе|Vil du bli med på kino?|Пойдёшь с нами в кино?|verb|v|blir med,ble med,har blitt med
+å ringe tilbake|перезвонить|Jeg ringer deg tilbake.|Я тебе перезвоню.|verb|v|ringer tilbake,ringte tilbake,har ringt tilbake
+å slippe|отпускать; не быть обязанным|Du slipper å betale.|Тебе не нужно платить.|verb|v|slipper,slapp,har sluppet
+å gjøre vondt|болеть (о части тела)|Det gjør vondt i ryggen.|Болит спина.|verb|v|gjør vondt,gjorde vondt,har gjort vondt
+å klare|справляться, суметь|Jeg klarer det selv.|Я справлюсь сам.|verb|v|klarer,klarte,har klart
+å prate|болтать, разговаривать|Vi pratet i timevis.|Мы болтали часами.|verb|v|prater,pratet,har pratet
+å stemme|быть верным; голосовать|Det stemmer!|Верно!|verb|v|stemmer,stemte,har stemt
+å passe|подходить; присматривать|Skoene passer perfekt.|Туфли сидят идеально.|verb|v|passer,passet,har passet
+å bruke opp|израсходовать|Jeg har brukt opp pengene.|Я потратил все деньги.|verb|v|bruker opp,brukte opp,har brukt opp
+å vise|показывать|Kan du vise meg veien?|Можешь показать мне дорогу?|verb|v|viser,viste,har vist
+å begynne på|начинать (учёбу, работу)|Jeg begynner på skolen i august.|Я начинаю учёбу в августе.|verb|v|begynner på,begynte på,har begynt på
+å kjøre forbi|проезжать мимо|Bussen kjørte forbi.|Автобус проехал мимо.|verb|v|kjører forbi,kjørte forbi,har kjørt forbi
+å trives|хорошо себя чувствовать, нравиться (где-то)|Jeg trives i Norge.|Мне нравится в Норвегии.|verb|v|trives,trivdes,har trivdes
+å finnes|существовать, иметься|Det finnes mange muligheter.|Есть много возможностей.|verb|v|finnes,fantes,har funnets
+
+# ── Прилагательные ───────────────────────────────────────────
+ledig|свободный (о месте, вакансии)|Er denne plassen ledig?|Это место свободно?|adj|a|ledig,ledige
+opptatt|занятый|Jeg er opptatt i dag.|Я сегодня занят.|adj|a|opptatt,opptatte
+åpen|открытый|Butikken er åpen.|Магазин открыт.|adj|a|åpent,åpne
+stengt|закрытый|Banken er stengt på søndag.|В воскресенье банк закрыт.|adj|a|stengt,stengte
+tung|тяжёлый|Sekken er tung.|Рюкзак тяжёлый.|adj|a|tungt,tunge
+sterk|сильный|Kaffen er sterk.|Кофе крепкий.|adj|a|sterkt,sterke
+svak|слабый|Jeg føler meg svak.|Я чувствую слабость.|adj|a|svakt,svake
+rask|быстрый|Toget er raskt.|Поезд быстрый.|adj|a|raskt,raske
+langsom|медленный|Internett er langsomt.|Интернет медленный.|adj|a|langsomt,langsomme
+høy|высокий; громкий|Musikken er for høy.|Музыка слишком громкая.|adj|a|høyt,høye
+lav|низкий; тихий|Prisene er lave.|Цены низкие.|adj|a|lavt,lave
+bred|широкий|Veien er bred.|Дорога широкая.|adj|a|bredt,brede
+smal|узкий|Gata er smal.|Улица узкая.|adj|a|smalt,smale
+tom|пустой|Kjøleskapet er tomt.|Холодильник пуст.|adj|a|tomt,tomme
+full|полный|Bussen er full.|Автобус полный.|adj|a|fullt,fulle
+ren|чистый|Kjøkkenet er rent.|Кухня чистая.|adj|a|rent,rene
+skitten|грязный|Skoene er skitne.|Обувь грязная.|adj|a|skittent,skitne
+våt|мокрый|Klærne er våte.|Одежда мокрая.|adj|a|vått,våte
+tørr|сухой|Håndkleet er tørt.|Полотенце сухое.|adj|a|tørt,tørre
+myk|мягкий|Senga er myk.|Кровать мягкая.|adj|a|mykt,myke
+hard|твёрдый; тяжёлый (о работе)|Det er hardt arbeid.|Это тяжёлая работа.|adj|a|hardt,harde
+søt|сладкий; милый|Kaka er søt.|Торт сладкий.|adj|a|søtt,søte
+sur|кислый; хмурый|Melka er sur.|Молоко скисло.|adj|a|surt,sure
+salt|солёный|Maten er for salt.|Еда слишком солёная.|adj|a|salt,salte
+farlig|опасный|Det er farlig å kjøre fort.|Опасно ездить быстро.|adj|a|farlig,farlige
+sikker|уверенный; безопасный|Er du sikker?|Ты уверен?|adj|a|sikkert,sikre
+mulig|возможный|Det er ikke mulig.|Это невозможно.|adj|a|mulig,mulige
+vanlig|обычный|Det er helt vanlig.|Это совершенно обычно.|adj|a|vanlig,vanlige
+enkel|простой|Oppgaven er enkel.|Задание простое.|adj|a|enkelt,enkle
+ferdig|готовый, законченный|Er du ferdig?|Ты закончил?|adj|a|ferdig,ferdige
+klar|готовый; ясный|Middagen er klar.|Ужин готов.|adj|a|klart,klare
+forskjellig|разный|Vi har forskjellige meninger.|У нас разные мнения.|adj|a|forskjellig,forskjellige
+lik|похожий, одинаковый|Tvillingene er like.|Близнецы похожи.|adj|a|likt,like
+fremmed|чужой, незнакомый|Jeg er fremmed her.|Я здесь чужой.|adj|a|fremmed,fremmede
+kjent|известный, знакомый|Han er en kjent forfatter.|Он известный писатель.|adj|a|kjent,kjente
+praktisk|практичный|Sykkel er praktisk i byen.|Велосипед практичен в городе.|adj|a|praktisk,praktiske
+norsk|норвежский|Jeg snakker litt norsk.|Я немного говорю по-норвежски.|adj|a|norsk,norske
+russisk|русский|Hun er russisk.|Она русская.|adj|a|russisk,russiske
+utenlandsk|иностранный|Han har et utenlandsk pass.|У него иностранный паспорт.|adj|a|utenlandsk,utenlandske
+vakker|красивый|Naturen er vakker.|Природа красивая.|adj|a|vakkert,vakre
+deilig|вкусный; чудесный|Maten var deilig!|Еда была восхитительной!|adj|a|deilig,deilige
+
+# ── Связки и полезные слова ──────────────────────────────────
+derfor|поэтому|Jeg var syk, derfor kom jeg ikke.|Я болел, поэтому не пришёл.|ord
+likevel|всё же, тем не менее|Det regnet, men vi gikk likevel.|Шёл дождь, но мы всё же пошли.|ord
+selv om|хотя, даже если|Jeg går ut selv om det er kaldt.|Я выхожу, хотя холодно.|ord
+hvis|если|Hvis det regner, blir vi hjemme.|Если пойдёт дождь, останемся дома.|ord
+da|тогда; когда (в прошлом, один раз)|Da jeg var liten, bodde vi i Moskva.|Когда я был маленьким, мы жили в Москве.|ord
+at|что (союз)|Jeg vet at du har rett.|Я знаю, что ты прав.|ord
+om|о; ли|Jeg vet ikke om han kommer.|Я не знаю, придёт ли он.|ord
+enten … eller|либо … либо|Enten te eller kaffe.|Либо чай, либо кофе.|ord
+både … og|и … и|Både mor og far kommer.|Придут и мама, и папа.|ord
+ingen|никто; никакой|Ingen var hjemme.|Никого не было дома.|ord
+noen|кто-то; несколько|Noen ringte deg.|Тебе кто-то звонил.|ord
+alt|всё|Alt er i orden.|Всё в порядке.|ord
+omtrent|примерно|Det tar omtrent en time.|Это займёт примерно час.|ord
+nesten|почти|Jeg er nesten ferdig.|Я почти закончил.|ord
+bare|только|Jeg har bare ti kroner.|У меня только десять крон.|ord
+kanskje ikke|может быть, нет|Kanskje ikke i dag.|Может, не сегодня.|ord
+heller|лучше (скорее); тоже (в отрицании)|Jeg vil heller ha te.|Я бы лучше выпил чаю.|ord
+sammen|вместе|Vi spiser middag sammen.|Мы ужинаем вместе.|ord
+alene|один, в одиночку|Hun bor alene.|Она живёт одна.|ord
+hjemme|дома|Er du hjemme?|Ты дома?|ord
+hjem|домой|Jeg går hjem nå.|Я иду домой.|ord
+ute|снаружи, на улице|Barna er ute.|Дети на улице.|ord
+inne|внутри, в помещении|Det er varmt inne.|Внутри тепло.|ord
+borte|далеко; отсутствует|Nøklene er borte.|Ключи пропали.|ord
+rett fram|прямо|Gå rett fram.|Иди прямо.|ord
+til venstre|налево|Sving til venstre.|Поверни налево.|ord
+til høyre|направо|Butikken ligger til høyre.|Магазин справа.|ord
+i nærheten|поблизости|Er det en bank i nærheten?|Здесь поблизости есть банк?|ord
+
+# ── Фразы ────────────────────────────────────────────────────
+unnskyld at jeg er sen|извините за опоздание|Unnskyld at jeg er sen!|Извините, что опоздал!|fraser
+det går bra|всё в порядке|Takk, det går bra.|Спасибо, всё хорошо.|fraser
+det gjør ingenting|ничего страшного|— Unnskyld! — Det gjør ingenting.|— Извините! — Ничего страшного.|fraser
+lykke til|удачи|Lykke til på prøven!|Удачи на экзамене!|fraser
+god bedring|выздоравливай|God bedring, håper du blir frisk snart!|Выздоравливай, надеюсь, скоро поправишься!|fraser
+gratulerer|поздравляю|Gratulerer med ny jobb!|Поздравляю с новой работой!|fraser
+takk for sist|спасибо за прошлую встречу|Hei, takk for sist!|Привет, спасибо за прошлый раз!|fraser
+ha en fin dag|хорошего дня|Ha en fin dag videre!|Хорошего дня!|fraser
+jeg forstår ikke|я не понимаю|Beklager, jeg forstår ikke.|Извините, я не понимаю.|fraser
+kan du snakke saktere|можешь говорить помедленнее|Kan du snakke saktere, er du snill?|Можешь говорить помедленнее, пожалуйста?|fraser
+hva betyr det|что это значит|Hva betyr det ordet?|Что значит это слово?|fraser
+beklager|извините (сожалею)|Beklager, det er utsolgt.|Извините, всё распродано.|fraser

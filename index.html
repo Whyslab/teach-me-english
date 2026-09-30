@@ -212,14 +212,19 @@
     <div class="modal-inner wide">
         <div class="modal-title">Импорт слов <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
         <div class="deck-card">
-            <div class="deck-text"><b>Колода Norsk A1</b><br>Частотные слова начального уровня с родом, формами и переводом. Открываются по дневному лимиту новых слов.</div>
+            <div class="deck-text"><b>Колода Norsk A1</b> — 275 слов<br>Частотные слова начального уровня с родом, формами, примерами и переводом.</div>
             <button class="action-btn" data-action="import-a1">Добавить</button>
         </div>
+        <div class="deck-card">
+            <div class="deck-text"><b>Колода Norsk A2</b><br>Следующий уровень: работа, жильё, здоровье, учёба, чувства, неправильные глаголы.</div>
+            <button class="action-btn" data-action="import-a2">Добавить</button>
+        </div>
+        <div class="modal-note">Слова колод открываются по дневному лимиту новых слов. Повторная загрузка колоды дополнит грамматику и примеры у уже добавленных слов, не трогая прогресс.</div>
         <label for="file-upload" class="import-file-label">📂 Выбрать .txt файл</label>
         <input type="file" id="file-upload" accept=".txt,.csv,text/plain" hidden>
         <div id="file-name" class="import-file-name"></div>
         <textarea id="import-area" lang="nb" placeholder="hus|дом|Huset er stort.|Дом большой.|A1|et|huset,hus,husene&#10;å reise|путешествовать||||v|reiser,reiste,har reist&#10;eple|яблоко"></textarea>
-        <div class="modal-note">Формат строки: <code>слово|перевод|пример|перевод примера|теги|род|формы</code>. Обязательны два первых поля. Род: <code>en</code> / <code>ei</code> / <code>et</code>, для глагола — <code>v</code>. Формы через запятую: для существительного «опр. ед., неопр. мн., опр. мн.», для глагола «presens, preteritum, perfektum».</div>
+        <div class="modal-note">Формат строки: <code>слово|перевод|пример|перевод примера|теги|род|формы</code>. Обязательны два первых поля. Род: <code>en</code> / <code>ei</code> / <code>et</code>, для глагола — <code>v</code>, для прилагательного — <code>a</code>. Формы через запятую: для существительного «опр. ед., неопр. мн., опр. мн.», для глагола «presens, preteritum, perfektum», для прилагательного «ср. род, мн. ч.» (<code>stort,store</code>).</div>
         <button class="action-btn wide" data-action="import-text">Загрузить в словарь</button>
     </div>
 </div>

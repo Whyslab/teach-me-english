@@ -81,3 +81,37 @@ test('deleting a word deletes it on the server', async () => {
     assert.equal((await server.words()).length, before - 1);
     await context.close();
 });
+
+test('re-importing A1 fills missing adjective forms, A2 adds new words', async () => {
+    const { page, context, errors } = await openApp(browser, server);
+    await importA1(page);
+    await waitSynced(page);
+    // Как у слов, добавленных до появления форм прилагательных: форм нет, прогресс есть.
+    await page.evaluate(async () => {
+        const { state, saveWords } = await import('/js/store.js');
+        const w = state.words.find(x => x.original === 'stor');
+        w.pos = ''; w.forms = {}; w.level = 3;
+        saveWords();
+    });
+    await waitSynced(page);
+    await page.click('[data-action="open-import"]');
+    await page.click('#import-modal [data-action="import-a1"]');
+    assert.match(await page.textContent('.confirm-box'), /дополнить/i);
+    await page.click('.confirm-ok');
+    await waitSynced(page);
+    const stor = (await server.words()).find(w => w.original === 'stor');
+    assert.equal(stor.pos, 'adj');
+    assert.deepStrictEqual(stor.forms, { neuter: 'stort', plural: 'store' });
+    assert.equal(stor.level, 3, 'progress is kept');
+
+    const before = (await server.words()).length;
+    await page.click('[data-action="open-import"]');
+    await page.click('#import-modal [data-action="import-a2"]');
+    await page.click('.confirm-ok');
+    await waitSynced(page);
+    const after = await server.words();
+    assert.ok(after.length - before >= 300, `added ${after.length - before}`);
+    assert.ok(after.some(w => w.tags.includes('A2')));
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+});

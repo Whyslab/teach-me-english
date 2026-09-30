@@ -1,7 +1,7 @@
-// Импорт, экспорт, бэкап, восстановление и встроенная колода A1.
+// Импорт, экспорт, бэкап, восстановление и встроенные колоды A1/A2.
 import { state, saveWords, saveStreak, saveActivity, syncNow } from './store.js';
 import { normalizeWord } from './srs.js';
-import { parseImport, toTxtLine, toCsv, toAnki } from './format.js';
+import { parseImport, enrichFromDeck, toTxtLine, toCsv, toAnki } from './format.js';
 import { downloadFile, dateStamp, plural } from './util.js';
 import { $, showToast, showConfirm, openModal, closeModal } from './ui.js';
 import { renderList } from './list.js';
@@ -39,32 +39,50 @@ export function importText(text) {
     return words.length;
 }
 
-// Колода лежит в decks/a1.txt в обычном формате импорта — её можно
+// Встроенные колоды лежат в decks/*.txt в обычном формате импорта — их можно
 // читать и править руками.
-export async function importA1Deck() {
+export const DECKS = {
+    a1: { title: 'Norsk A1', tag: 'A1' },
+    a2: { title: 'Norsk A2', tag: 'A2' },
+};
+
+export async function importDeck(id) {
+    const deck = DECKS[id];
+    if (!deck) return;
     let text;
     try {
-        const res = await fetch('/decks/a1.txt');
+        const res = await fetch(`/decks/${id}.txt`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         text = await res.text();
     } catch {
-        showToast('Не удалось загрузить колоду A1. Проверь, что сервер запущен.', 'error');
+        showToast(`Не удалось загрузить колоду ${deck.tag}. Проверь, что сервер запущен.`, 'error');
         return;
     }
     const { words, duplicates } = parseImport(text, state.words);
-    if (!words.length) {
-        showToast('Все слова колоды A1 уже есть в словаре', 'info');
+    const { words: all } = parseImport(text);
+    const updates = enrichFromDeck(state.words, all);
+
+    if (!words.length && !updates.length) {
+        showToast(`Все слова колоды ${deck.tag} уже есть в словаре`, 'info');
         return;
     }
+    const parts = [];
+    if (words.length) parts.push(`добавить <b>${words.length}</b> ${wordsWord(words.length)}`);
+    if (updates.length) parts.push(`дополнить грамматику и примеры у <b>${updates.length}</b> уже добавленных (прогресс не меняется)`);
     const ok = await showConfirm(
-        `Добавить колоду <b>Norsk A1</b>: ${words.length} ${wordsWord(words.length)}` +
-        (duplicates.length ? ` (${duplicates.length} уже есть)` : '') +
-        `?<br><small>Новые слова открываются по ${state.settings.newPerDay} в день — лимит меняется в ⚙️ настройках.</small>`,
-        'Добавить', 'Отмена');
+        `Колода <b>${deck.title}</b>: ${parts.join(' и ')}` +
+        (duplicates.length && words.length ? `. Уже в словаре: ${duplicates.length}.` : '.') +
+        (words.length ? `<br><small>Новые слова открываются по ${state.settings.newPerDay} в день — лимит меняется в ⚙️ настройках.</small>` : ''),
+        words.length ? 'Добавить' : 'Дополнить', 'Отмена');
     if (!ok) return;
-    addParsed(words, ['A1']);
+    for (const [w, patch] of updates) Object.assign(w, normalizeWord({ ...w, ...patch }));
+    if (words.length) addParsed(words, [deck.tag]);
+    else { saveWords(); renderList(); }
     closeModal('import-modal');
-    showToast(`Колода A1: добавлено ${words.length} ${wordsWord(words.length)}`, 'success', 5000);
+    const done = [];
+    if (words.length) done.push(`добавлено ${words.length} ${wordsWord(words.length)}`);
+    if (updates.length) done.push(`дополнено ${updates.length}`);
+    showToast(`Колода ${deck.tag}: ${done.join(', ')}`, 'success', 5000);
 }
 
 function exportTxt() {
@@ -130,7 +148,8 @@ export const ioActions = {
             closeModal('import-modal');
         }
     },
-    'import-a1'() { importA1Deck(); },
+    'import-a1'() { importDeck('a1'); },
+    'import-a2'() { importDeck('a2'); },
     'open-export'() { openModal('export-modal'); },
     'export-txt'() { exportTxt(); closeModal('export-modal'); },
     'export-csv'() { exportCsv(); closeModal('export-modal'); },

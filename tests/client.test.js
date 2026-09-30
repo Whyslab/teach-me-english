@@ -87,10 +87,23 @@ test('guessNounForms follows the regular patterns', async () => {
     assert.equal(guessNounForms('hus', ''), null, 'no gender — no guess');
 });
 
-test('guessVerbForms only guesses the present tense', async () => {
-    const { guessVerbForms } = await load('norsk.js');
-    assert.deepStrictEqual(guessVerbForms('å reise'), { present: 'reiser' });
-    assert.deepStrictEqual(guessVerbForms('å bo'), { present: 'bor' });
+test('guessAdjForms covers the regular patterns and the common irregulars', async () => {
+    const { guessAdjForms } = await load('norsk.js');
+    const cases = {
+        stor: 'stort,store', gammel: 'gammelt,gamle', sulten: 'sultent,sultne', vakker: 'vakkert,vakre',
+        ny: 'nytt,nye', blå: 'blått,blå', grønn: 'grønt,grønne', hvit: 'hvitt,hvite', svart: 'svart,svarte',
+        viktig: 'viktig,viktige', praktisk: 'praktisk,praktiske', norsk: 'norsk,norske', frisk: 'friskt,friske',
+        moderne: 'moderne,moderne', liten: 'lite,små', glad: 'glad,glade',
+    };
+    for (const [w, expected] of Object.entries(cases)) {
+        const g = guessAdjForms(w);
+        assert.equal(`${g.neuter},${g.plural}`, expected, w);
+    }
+});
+
+test('there is no form guessing for verbs (it was wrong more often than right)', async () => {
+    const norsk = await load('norsk.js');
+    assert.equal(norsk.guessVerbForms, undefined);
 });
 
 test('displayWord adds the article for nouns only', async () => {
@@ -248,6 +261,14 @@ test('parseImportLine reads gender and forms', async () => {
     assert.deepStrictEqual(v.forms, { present: 'reiser', past: 'reiste', perfect: 'har reist' });
 });
 
+test('parseImportLine reads adjective forms', async () => {
+    const { parseImportLine, toTxtLine } = await load('format.js');
+    const w = parseImportLine('stor|большой|||adj|a|stort,store');
+    assert.equal(w.pos, 'adj');
+    assert.deepStrictEqual(w.forms, { neuter: 'stort', plural: 'store' });
+    assert.equal(toTxtLine(w), 'stor|большой|||adj|a|stort,store');
+});
+
 test('parseImportLine infers the gender from a leading article', async () => {
     const { parseImportLine } = await load('format.js');
     const w = parseImportLine('ei jente|девочка');
@@ -280,19 +301,60 @@ test('toAnki escapes HTML and adds the article', async () => {
     assert.equal(line, 'et hus\t&lt;b&gt;дом&lt;/b&gt;');
 });
 
-test('the bundled A1 deck parses cleanly, with grammar on every noun and verb', async () => {
-    const { parseImport } = await load('format.js');
-    const text = fs.readFileSync(path.join(ROOT, 'decks', 'a1.txt'), 'utf8');
-    const { words, duplicates } = parseImport(text);
-    assert.deepStrictEqual(duplicates, []);
-    assert.ok(words.length >= 250, `only ${words.length} words`);
-    for (const w of words) {
-        if (w.pos === 'noun') {
-            assert.ok(w.gender, `${w.original}: noun without gender`);
-            assert.ok(w.forms.defSg, `${w.original}: noun without the definite form`);
+for (const [deck, min] of [['a1', 250], ['a2', 300]]) {
+    test(`the bundled ${deck.toUpperCase()} deck parses cleanly, with grammar on every noun, verb and adjective`, async () => {
+        const { parseImport } = await load('format.js');
+        const text = fs.readFileSync(path.join(ROOT, 'decks', `${deck}.txt`), 'utf8');
+        const { words, duplicates } = parseImport(text);
+        assert.deepStrictEqual(duplicates, []);
+        assert.ok(words.length >= min, `only ${words.length} words`);
+        for (const w of words) {
+            assert.ok(w.example, `${w.original}: no example`);
+            if (w.pos === 'noun') {
+                assert.ok(w.gender, `${w.original}: noun without gender`);
+                assert.ok(w.forms.defSg, `${w.original}: noun without the definite form`);
+            }
+            if (w.pos === 'verb') assert.equal(Object.keys(w.forms).length, 3, `${w.original}: verb needs 3 forms`);
+            if (w.pos === 'adj') assert.equal(Object.keys(w.forms).length, 2, `${w.original}: adjective needs 2 forms`);
         }
-        if (w.pos === 'verb') assert.equal(Object.keys(w.forms).length, 3, `${w.original}: verb needs 3 forms`);
-    }
+    });
+}
+
+test('the A2 deck does not repeat A1 words', async () => {
+    const { parseImport } = await load('format.js');
+    const read = (d) => fs.readFileSync(path.join(ROOT, 'decks', `${d}.txt`), 'utf8');
+    const a1 = parseImport(read('a1')).words;
+    const { duplicates } = parseImport(read('a2'), a1);
+    assert.deepStrictEqual(duplicates, []);
+});
+
+test('enrichFromDeck fills missing grammar without touching progress', async () => {
+    const { enrichFromDeck, parseImport } = await load('format.js');
+    const deck = parseImport('stor|большой|et stort hus|большой дом|adj|a|stort,store\n' +
+        'hus|дом|||x|et|huset,hus,husene\nnorsk|норвежский|||x|a|norsk,norske').words;
+    const stor = { original: 'stor', translate: 'большой', pos: '', gender: '', forms: {}, example: '', level: 4, sm2Reps: 5 };
+    const hus = { original: 'hus', translate: 'дом', pos: 'noun', gender: 'n', forms: { defSg: 'huset' }, example: 'Mitt hus.' };
+    const norsk = { original: 'norsk', translate: 'норвежский', pos: 'adj', gender: '', forms: { neuter: 'norsk' }, example: 'x' };
+    const updates = enrichFromDeck([stor, hus, norsk], deck);
+    assert.equal(updates.length, 1, 'words with their own forms and examples stay as they are');
+    const [w, patch] = updates[0];
+    assert.equal(w, stor);
+    assert.deepStrictEqual(patch, { pos: 'adj', forms: { neuter: 'stort', plural: 'store' },
+        example: 'et stort hus', exampleTranslate: 'большой дом' });
+    assert.ok(!('level' in patch) && !('sm2Reps' in patch));
+});
+
+test('enrichFromDeck resolves homonyms by translation and skips ambiguous ones', async () => {
+    const { enrichFromDeck, parseImport } = await load('format.js');
+    const deck = parseImport('tre|три|Jeg har tre katter.|У меня три кошки.|x\ntre|дерево|Et høyt tre.|Высокое дерево.|x|et|treet,trær,trærne').words;
+    const tree = { original: 'tre', translate: 'дерево', pos: '', gender: '', forms: {}, example: '' };
+    const other = { original: 'tre', translate: 'что-то ещё', pos: '', gender: '', forms: {}, example: '' };
+    const updates = enrichFromDeck([tree, other], deck);
+    assert.equal(updates.length, 1);
+    assert.equal(updates[0][0], tree);
+    assert.equal(updates[0][1].pos, 'noun');
+    assert.equal(updates[0][1].gender, 'n');
+    assert.equal(updates[0][1].forms.indefPl, 'trær');
 });
 
 // ---------------------------------------------------------------------------

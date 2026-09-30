@@ -73,7 +73,8 @@ function cardHtml(w, now) {
     const article = w.pos === 'noun' && GENDERS[w.gender]
         ? `<span class="gram-chip g-${w.gender}" title="${GENDERS[w.gender].ru} род">${GENDERS[w.gender].article}</span> `
         : '';
-    const gram = w.pos === 'verb' ? ' <span class="gram-chip g-v" title="глагол">verb</span>' : '';
+    const gram = w.pos === 'verb' ? ' <span class="gram-chip g-v" title="глагол">verb</span>'
+        : w.pos === 'adj' ? ' <span class="gram-chip g-v" title="прилагательное">adj</span>' : '';
     const forms = formsLine(w);
     const tags = (w.tags || []).map(t => `<span class="word-tag">${escapeHtml(t)}</span>`).join('');
     const badge = isNew(w)

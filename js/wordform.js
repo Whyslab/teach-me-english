@@ -1,7 +1,7 @@
 // Форма слова — одна разметка для добавления на главной и для окна
 // редактирования. Раньше редактирование шло через contenteditable прямо в
 // списке, и грамматические поля там было не показать.
-import { GENDERS, POS, NOUN_FORMS, VERB_FORMS, formsFor, guessNounForms, guessVerbForms } from './norsk.js';
+import { GENDERS, POS, NOUN_FORMS, VERB_FORMS, ADJ_FORMS, formsFor, guessNounForms, guessAdjForms } from './norsk.js';
 import { sanitizeTags } from './util.js';
 
 const LETTERS = ['æ', 'ø', 'å'];
@@ -37,10 +37,11 @@ export function wordFormHtml(prefix) {
                     </label>`).join('')}
             </span>
             <button type="button" class="outline-btn small" id="${p}-guess" data-action="guess-forms" hidden
-                    title="Заполнить регулярные формы. Неправильные слова (bok → bøker) проверь в Ordbøkene.">⚡ формы по правилу</button>
+                    title="Заполнить регулярные формы. Неправильные слова (bok → bøker, liten → små) проверь в Ordbøkene.">⚡ формы по правилу</button>
         </div>
         <div class="forms-grid" id="${p}-forms-noun" hidden>${formInputs(NOUN_FORMS, 'noun')}</div>
         <div class="forms-grid" id="${p}-forms-verb" hidden>${formInputs(VERB_FORMS, 'verb')}</div>
+        <div class="forms-grid" id="${p}-forms-adj" hidden>${formInputs(ADJ_FORMS, 'adj')}</div>
 
         <input type="text" id="${p}-example" placeholder="пример на норвежском (необязательно)" lang="nb" aria-label="Пример">
         <input type="text" id="${p}-ex-ru" placeholder="перевод примера" aria-label="Перевод примера">
@@ -55,7 +56,9 @@ export function syncGrammarVisibility(p) {
     el(p, 'gender-wrap').hidden = pos !== 'noun';
     el(p, 'forms-noun').hidden = pos !== 'noun';
     el(p, 'forms-verb').hidden = pos !== 'verb';
-    el(p, 'guess').hidden = !(pos === 'noun' || pos === 'verb');
+    el(p, 'forms-adj').hidden = pos !== 'adj';
+    // Для глаголов подсказки нет: прошедшее время по правилу не угадать.
+    el(p, 'guess').hidden = !(pos === 'noun' || pos === 'adj');
 }
 
 function selectedGender(p) {
@@ -66,7 +69,7 @@ export function guessForms(p) {
     const pos = el(p, 'pos').value;
     const lemma = el(p, 'no').value;
     const guess = pos === 'noun' ? guessNounForms(lemma, selectedGender(p))
-                : pos === 'verb' ? guessVerbForms(lemma) : null;
+                : pos === 'adj' ? guessAdjForms(lemma) : null;
     if (!guess) return false;
     for (const [key, value] of Object.entries(guess)) {
         const input = el(p, `form-${key}`);
@@ -102,7 +105,7 @@ export function fillWordForm(p, w = {}) {
     el(p, 'tags').value = (w.tags || []).join(', ');
     el(p, 'pos').value = w.pos || '';
     document.querySelectorAll(`input[name="${p}-gender"]`).forEach(r => { r.checked = r.value === w.gender; });
-    for (const [key] of [...NOUN_FORMS, ...VERB_FORMS]) {
+    for (const [key] of [...NOUN_FORMS, ...VERB_FORMS, ...ADJ_FORMS]) {
         el(p, `form-${key}`).value = (w.pos && w.forms?.[key]) || '';
     }
     syncGrammarVisibility(p);

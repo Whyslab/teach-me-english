@@ -1,8 +1,9 @@
 # Norsk A1 — стартовая колода для приложения «Лёгкий Словарь · Norsk».
 # Формат: слово|перевод|пример|перевод примера|теги|род|формы
-#   род: en / ei / et — существительное; v — глагол; пусто — прочее.
+#   род: en / ei / et — существительное; v — глагол; a — прилагательное; пусто — прочее.
 #   формы существительного: опр. ед., неопр. мн., опр. мн.
 #   формы глагола: presens, preteritum, perfektum
+#   формы прилагательного: средний род, множественное число / определённая форма
 # Женский род указан как «ei» (так в словаре Ordbøkene); в букмоле допустимо и «en».
 # Строки, начинающиеся с «#», при импорте пропускаются.
 
@@ -157,8 +158,8 @@ fot|нога (ступня)|Foten min er skadet.|Моя нога травмир�
 munn|рот|Lukk munnen!|Закрой рот!|kropp|en|munnen,munner,munnene
 mage|живот, желудок|Jeg har vondt i magen.|У меня болит живот.|kropp|en|magen,mager,magene
 rygg|спина|Ryggen min er stiv.|Спина затекла.|kropp|en|ryggen,rygger,ryggene
-syk|больной|Jeg er syk i dag.|Сегодня я болею.|kropp
-frisk|здоровый|Nå er jeg frisk igjen.|Теперь я снова здоров.|kropp
+syk|больной|Jeg er syk i dag.|Сегодня я болею.|kropp|a|sykt,syke
+frisk|здоровый|Nå er jeg frisk igjen.|Теперь я снова здоров.|kropp|a|friskt,friske
 
 # ── Одежда ───────────────────────────────────────────────────
 jakke|куртка|Ta på deg jakka!|Надень куртку!|klær|ei|jakka,jakker,jakkene
@@ -230,34 +231,34 @@ klær|одежда|Hun kjøper nye klær.|Она покупает новую о�
 å møte|встречать|Vi møtes i morgen.|Встретимся завтра.|verb|v|møter,møtte,har møtt
 
 # ── Прилагательные ───────────────────────────────────────────
-stor|большой|et stort hus|большой дом|adj
-liten|маленький|en liten gutt|маленький мальчик|adj
-god|хороший|God morgen!|Доброе утро!|adj
-dårlig|плохой|Været er dårlig.|Погода плохая.|adj
-ny|новый|en ny bil|новая машина|adj
-gammel|старый|et gammelt hus|старый дом|adj
-ung|молодой|Hun er ung.|Она молодая.|adj
-lang|длинный|en lang dag|длинный день|adj
-kort|короткий|Sommeren er kort.|Лето короткое.|adj
-varm|тёплый, горячий|Kaffen er varm.|Кофе горячий.|adj
-kald|холодный|Vannet er kaldt.|Вода холодная.|adj
-billig|дешёвый|Det er billig.|Это дёшево.|adj
-dyr|дорогой|Norge er et dyrt land.|Норвегия — дорогая страна.|adj
-fin|красивый, хороший|Det er fint vær i dag.|Сегодня хорошая погода.|adj
-pen|красивый, симпатичный|Hun har en pen kjole.|У неё красивое платье.|adj
-glad|радостный, довольный|Jeg er glad.|Я рад.|adj
-trøtt|усталый, сонный|Jeg er trøtt.|Я устал.|adj
-sulten|голодный|Er du sulten?|Ты голоден?|adj
-vanskelig|трудный|Norsk er ikke vanskelig.|Норвежский не трудный.|adj
-lett|лёгкий|Oppgaven er lett.|Задание лёгкое.|adj
-viktig|важный|Det er viktig.|Это важно.|adj
-riktig|правильный|Svaret er riktig.|Ответ правильный.|adj
-feil|неправильный; ошибка|Det er feil.|Это неправильно.|adj
-hvit|белый|Snøen er hvit.|Снег белый.|adj
-svart|чёрный|en svart katt|чёрная кошка|adj
-rød|красный|et rødt eple|красное яблоко|adj
-blå|синий, голубой|Himmelen er blå.|Небо голубое.|adj
-grønn|зелёный|Gresset er grønt.|Трава зелёная.|adj
+stor|большой|et stort hus|большой дом|adj|a|stort,store
+liten|маленький|en liten gutt|маленький мальчик|adj|a|lite,små
+god|хороший|God morgen!|Доброе утро!|adj|a|godt,gode
+dårlig|плохой|Været er dårlig.|Погода плохая.|adj|a|dårlig,dårlige
+ny|новый|en ny bil|новая машина|adj|a|nytt,nye
+gammel|старый|et gammelt hus|старый дом|adj|a|gammelt,gamle
+ung|молодой|Hun er ung.|Она молодая.|adj|a|ungt,unge
+lang|длинный|en lang dag|длинный день|adj|a|langt,lange
+kort|короткий|Sommeren er kort.|Лето короткое.|adj|a|kort,korte
+varm|тёплый, горячий|Kaffen er varm.|Кофе горячий.|adj|a|varmt,varme
+kald|холодный|Vannet er kaldt.|Вода холодная.|adj|a|kaldt,kalde
+billig|дешёвый|Det er billig.|Это дёшево.|adj|a|billig,billige
+dyr|дорогой|Norge er et dyrt land.|Норвегия — дорогая страна.|adj|a|dyrt,dyre
+fin|красивый, хороший|Det er fint vær i dag.|Сегодня хорошая погода.|adj|a|fint,fine
+pen|красивый, симпатичный|Hun har en pen kjole.|У неё красивое платье.|adj|a|pent,pene
+glad|радостный, довольный|Jeg er glad.|Я рад.|adj|a|glad,glade
+trøtt|усталый, сонный|Jeg er trøtt.|Я устал.|adj|a|trøtt,trøtte
+sulten|голодный|Er du sulten?|Ты голоден?|adj|a|sultent,sultne
+vanskelig|трудный|Norsk er ikke vanskelig.|Норвежский не трудный.|adj|a|vanskelig,vanskelige
+lett|лёгкий|Oppgaven er lett.|Задание лёгкое.|adj|a|lett,lette
+viktig|важный|Det er viktig.|Это важно.|adj|a|viktig,viktige
+riktig|правильный|Svaret er riktig.|Ответ правильный.|adj|a|riktig,riktige
+feil|неправильный; ошибка|Det er feil.|Это неправильно.|adj|a|feil,feil
+hvit|белый|Snøen er hvit.|Снег белый.|adj|a|hvitt,hvite
+svart|чёрный|en svart katt|чёрная кошка|adj|a|svart,svarte
+rød|красный|et rødt eple|красное яблоко|adj|a|rødt,røde
+blå|синий, голубой|Himmelen er blå.|Небо голубое.|adj|a|blått,blå
+grønn|зелёный|Gresset er grønt.|Трава зелёная.|adj|a|grønt,grønne
 
 # ── Полезные слова и фразы ───────────────────────────────────
 hei|привет|Hei! Hvordan går det?|Привет! Как дела?|fraser

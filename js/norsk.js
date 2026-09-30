@@ -10,6 +10,7 @@ export const GENDERS = {
 export const POS = {
     noun: 'существительное',
     verb: 'глагол',
+    adj: 'прилагательное',
     other: 'другое',
 };
 
@@ -25,9 +26,17 @@ export const VERB_FORMS = [
     ['perfect', 'perfektum',  'перфект'],
 ];
 
+// Прилагательное: stor — stort (с существительным среднего рода) — store
+// (множественное число и определённая форма: store hus, det store huset).
+export const ADJ_FORMS = [
+    ['neuter', 'intetkjønn', 'ср. род'],
+    ['plural', 'flertall / bestemt', 'мн. ч. и опр.'],
+];
+
 export function formsFor(pos) {
     if (pos === 'noun') return NOUN_FORMS;
     if (pos === 'verb') return VERB_FORMS;
+    if (pos === 'adj') return ADJ_FORMS;
     return [];
 }
 
@@ -86,12 +95,48 @@ export function guessNounForms(lemma, gender) {
     return { defSg, indefPl, defPl };
 }
 
-// Для глаголов надёжно угадывается только presens: инфинитив + r.
-// Прошедшее время зависит от группы спряжения (-et, -te, -dde, сильные).
-export function guessVerbForms(lemma) {
+// Прилагательные: stor → stort, store. Правила:
+//   -ig, -isk, -sk, -e и уже на -t — в среднем роде не меняются (viktig, norsk, moderne, lett);
+//   односложные на гласную — +tt (ny → nytt, blå → blått);
+//   двойная согласная упрощается (grønn → grønt, grønne);
+//   двусложные на -el/-en/-er теряют e во мн. ч. (gammel → gamle, sulten → sultne).
+// Неправильные (liten → lite, små; god → godt) проверяй в Ordbøkene.
+// Глаголам подсказки нет: надёжно угадывается только presens, а прошедшее
+// время зависит от группы спряжения — такая «подсказка» чаще путала.
+// Частые неправильные прилагательные — по правилам их не угадать.
+const IRREGULAR_ADJ = {
+    liten: { neuter: 'lite', plural: 'små' },
+    glad: { neuter: 'glad', plural: 'glade' },
+    egen: { neuter: 'eget', plural: 'egne' },
+    annen: { neuter: 'annet', plural: 'andre' },
+    blå: { neuter: 'blått', plural: 'blå' },
+    grå: { neuter: 'grått', plural: 'grå' },
+};
+// Прилагательные национальности на -sk не меняются в среднем роде (et norsk ord),
+// в отличие от прочих на -sk (frisk → friskt).
+const NATIONALITY_SK = /^(norsk|svensk|dansk|engelsk|tysk|fransk|russisk|polsk|spansk|italiensk|amerikansk|finsk|islandsk)$/;
+
+export function guessAdjForms(lemma) {
     const base = stripParticle(lemma).toLowerCase();
     if (!base || /\s/.test(base)) return null;
-    return { present: base + 'r' };
+    if (IRREGULAR_ADJ[base]) return { ...IRREGULAR_ADJ[base] };
+    const vowelEnd = /[aeiouyæøå]$/.test(base);
+    const doubled = base.match(/([bdfgklmnprstv])\1$/);
+    let neuter;
+    if (/(ig|e)$/.test(base) || (/isk$/.test(base) && syllables(base) >= 2) || NATIONALITY_SK.test(base)) neuter = base;
+    else if (/[aeiouyæøå]t$/.test(base)) neuter = base + 't';       // hvit → hvitt, søt → søtt
+    else if (base.endsWith('t')) neuter = base;                       // svart, kort, lett
+    else if (vowelEnd && syllables(base) === 1) neuter = base + 'tt';
+    else if (doubled) neuter = base.slice(0, -1) + 't';
+    else neuter = base + 't';
+
+    let plural;
+    if (base.endsWith('e') || base.endsWith('å')) plural = base;
+    else if (syllables(base) >= 2 && /e[lnr]$/.test(base)) {
+        const stem = base.slice(0, -2) + base.slice(-1);          // gammel → gamml
+        plural = stem.replace(/([bdfgklmnprstv])\1(?=[lnr]$)/, '$1') + 'e';   // → gamle
+    } else plural = base + 'e';
+    return { neuter, plural };
 }
 
 // ---------------------------------------------------------------------------

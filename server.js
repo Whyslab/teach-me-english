@@ -282,9 +282,9 @@ app.get('/', (req, res) => {
 
 // --- API ДЛЯ СЛОВ ---
 
-const POS_VALUES = new Set(['', 'noun', 'verb', 'other']);
+const POS_VALUES = new Set(['', 'noun', 'verb', 'adj', 'other']);
 const GENDER_VALUES = new Set(['', 'm', 'f', 'n']);
-const FORM_KEYS = new Set(['defSg', 'indefPl', 'defPl', 'present', 'past', 'perfect']);
+const FORM_KEYS = new Set(['defSg', 'indefPl', 'defPl', 'present', 'past', 'perfect', 'neuter', 'plural']);
 
 function parseForms(raw) {
     try {
