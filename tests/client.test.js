@@ -121,6 +121,36 @@ test('sm2: "again" schedules in 10 minutes and resets repetitions', async () => 
     assert.equal(w.history.length, 1);
 });
 
+test('sm2: "again" lowers the ease factor, but never below 1.3', async () => {
+    const { sm2 } = await load('srs.js');
+    const w = { sm2EF: 2.5 };
+    sm2(w, 0, 0);
+    assert.equal(w.sm2EF, 2.3);
+    for (let i = 0; i < 10; i++) sm2(w, 0, 0);
+    assert.equal(w.sm2EF, 1.3);
+});
+
+test('sm2: four "good" answers in a row make a word learned (level 5)', async () => {
+    // Это же написано в окне «Как это работает»: 1 → 6 → 15 → 38 дней.
+    const { sm2 } = await load('srs.js');
+    const w = {};
+    const path = [];
+    for (let i = 0; i < 4; i++) { sm2(w, 2, 0); path.push([w.sm2Interval, w.level]); }
+    assert.deepStrictEqual(path, [[1, 1], [6, 3], [15, 4], [38, 5]]);
+});
+
+test('practiceQueue prefers due words, then hard ones, and never exceeds the size', async () => {
+    const { practiceQueue } = await load('srs.js');
+    const now = 1000;
+    const studied = (id, due, ef) => ({ id, history: [{ q: 2 }], sm2Reps: 1, nextReview: due ? 0 : now + 1, sm2EF: ef });
+    const words = [studied(1, false, 2.5), studied(2, true, 2.5), studied(3, false, 1.5), studied(4, true, 1.9),
+                   { id: 5, history: [], sm2Reps: 0 }];
+    const q = practiceQueue(words, { now, size: 3 });
+    assert.deepStrictEqual(q.map(w => w.id), [4, 2, 3], 'due first (harder first), then the hardest of the rest');
+    assert.ok(!practiceQueue(words, { now }).some(w => w.id === 5), 'new words are skipped while enough are studied');
+    assert.deepStrictEqual(practiceQueue(words, { now, only: w => w.id === 5 }).map(w => w.id), [5]);
+});
+
 test('sm2: intervals grow 1 → 6 → ×EF on "good"', async () => {
     const { sm2 } = await load('srs.js');
     const w = {};

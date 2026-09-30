@@ -29,6 +29,7 @@
         <button class="header-btn" data-action="open-export" title="Экспорт и бэкап">📤 <span class="label">Экспорт</span></button>
         <button class="header-btn" data-action="open-theme" title="Тема">🎨 <span class="label">Тема</span></button>
         <button class="header-btn" data-action="open-settings" title="Настройки">⚙️ <span class="label">Настройки</span></button>
+        <button class="header-btn" data-action="open-help" title="Как это работает: уровни, повторения, практика">❓ <span class="label">Как это работает</span></button>
     </div>
 </header>
 
@@ -45,6 +46,7 @@
     </div>
 
     <div id="level-stats" class="stats-grid"></div>
+    <div class="levels-hint"><button class="link-btn" data-action="open-help">что такое уровни и когда слово считается выученным?</button></div>
 
     <div class="workspace-grid">
         <section class="workspace-left">
@@ -55,13 +57,16 @@
                 </div>
                 <button id="start-training-btn" data-action="start-training">Начать тренировку</button>
                 <div id="start-hint"></div>
+                <button class="link-btn marathon-link" data-action="start-marathon" title="Основная тренировка без дневного лимита новых слов — двигает расписание">🏃 Марафон: то же, но без лимита новых слов</button>
+                <div class="practice-caption">Практика — доступна всегда, расписание не меняет:</div>
                 <div class="mode-btns-row">
                     <button class="mode-btn" data-action="start-write" title="Направление переключается кнопкой режима внутри тренировки">✍️ Письмо</button>
+                    <button class="mode-btn" data-action="start-dictation" title="Слово звучит — пишешь его по-норвежски">🎧 Диктант</button>
                     <button class="mode-btn" data-action="start-quiz">🎯 Угадай из 4</button>
                     <button class="mode-btn" data-action="start-gender">🏷 Род en/ei/et</button>
                     <button class="mode-btn" data-action="start-forms">🔤 Формы</button>
+                    <button class="mode-btn" data-action="start-cloze" title="Вставь слово в нужной форме в предложение">🧩 Пропуски</button>
                     <button class="mode-btn" data-action="start-hard">⚠️ Трудные</button>
-                    <button class="mode-btn" data-action="start-marathon" title="Все слова к повторению и все новые — без дневного лимита">🏃 Марафон</button>
                 </div>
             </div>
 
@@ -151,7 +156,10 @@
                 <div id="card-back-text"></div>
                 <div id="card-forms" lang="nb"></div>
                 <div id="card-example-block">
-                    <div id="card-example" lang="nb"></div>
+                    <div class="example-row">
+                        <span id="card-example" lang="nb"></span>
+                        <button class="icon-btn" data-action="tr-speak-example" title="Прослушать пример" aria-label="Прослушать пример">🔊</button>
+                    </div>
                     <div id="card-example-translate"></div>
                 </div>
             </div>
@@ -196,7 +204,7 @@
         <button id="tr-next-btn" class="exit-btn" data-action="tr-next" hidden>Дальше ⏎</button>
         <button class="exit-btn" data-action="stop-training">Завершить (Esc)</button>
     </div>
-    <div class="kbd-hint">Пробел — перевернуть · 1–4 — оценка / вариант · ← → — «снова» / «хорошо» · Backspace — отмена</div>
+    <div class="kbd-hint">Пробел — перевернуть · 1–4 — оценка / вариант · ← → — «снова» / «хорошо» · Backspace — отмена · в диктанте Tab — ещё раз</div>
 </section>
 
 <!-- ── ОКНА ───────────────────────────────────────────────── -->
@@ -293,6 +301,51 @@
     </div>
 </div>
 
+<div id="help-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Как это работает">
+    <div class="modal-inner wide help">
+        <div class="modal-title">Как это работает <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
+
+        <h4>Уровни слов</h4>
+        <p>Уровень показывает, на сколько дней вперёд назначено следующее повторение слова. Чем дольше слово держится в памяти, тем реже оно попадается.</p>
+        <table class="help-table">
+            <thead><tr><th>Уровень</th><th>Следующее повторение</th><th>Что это значит</th></tr></thead>
+            <tbody>
+                <tr><td><span class="level-indicator new">новое</span></td><td>—</td><td>ещё ни разу не отвечали</td></tr>
+                <tr><td>Ур. 0</td><td>через 10 минут</td><td>не вспомнили на самых первых шагах</td></tr>
+                <tr><td>Ур. 1</td><td>1–2 дня</td><td>первый правильный ответ</td></tr>
+                <tr><td>Ур. 2</td><td>3–5 дней</td><td>запоминается</td></tr>
+                <tr><td>Ур. 3</td><td>6–9 дней</td><td>держится неделю</td></tr>
+                <tr><td>Ур. 4</td><td>10–20 дней</td><td>почти выучено</td></tr>
+                <tr><td><b>Ур. 5</b></td><td><b>21 день и больше</b></td><td><b>выучено</b></td></tr>
+            </tbody>
+        </table>
+
+        <h4>Когда слово считается выученным</h4>
+        <p>Когда следующее повторение назначено не раньше чем через <b>21 день</b>. Интервалы считает алгоритм SM-2, как в Anki.
+        При ответах «Хорошо» путь такой:</p>
+        <p class="help-path">новое → <b>1 день</b> (ур. 1) → <b>6 дней</b> (ур. 3) → <b>15 дней</b> (ур. 4) → <b>38 дней</b> (ур. 5 — выучено)</p>
+        <p>То есть слово становится выученным на <b>4-м правильном ответе подряд</b> — примерно через три недели после первого.</p>
+        <ul>
+            <li>После второго ответа интервал каждый раз умножается на «лёгкость» слова (EF, у нового слова 2,5).</li>
+            <li><b>«Легко»</b> — интервал ещё ×1,3 и EF растёт: слово дойдёт до 5-го уровня быстрее.</li>
+            <li><b>«Сложно»</b> — интервал вдвое короче и EF ниже: дальше слово будет расти медленнее.</li>
+            <li><b>«Снова»</b> — слово вернётся через 10 минут, уровень опустится на одну ступень, а путь начнётся заново с 1 дня. EF тоже падает — поэтому забытое слово потом повторяется чаще.</li>
+        </ul>
+        <p>Выученное слово тоже повторяется — просто редко. Забыли его на повторении — оно снова спустится вниз.</p>
+
+        <h4>Основная тренировка и практика</h4>
+        <ul>
+            <li><b>«Начать тренировку»</b> — только слова, которые пора повторять, плюс новые в пределах дневного лимита (⚙️ Настройки). <b>Только она двигает расписание.</b></li>
+            <li><b>Марафон</b> — то же, но без лимита новых слов.</li>
+            <li><b>Практика</b> (письмо, диктант, «угадай», род, формы, пропуски, трудные) — доступна всегда, 20 слов: сначала те, что пора повторять, потом самые трудные. Расписание не меняет — можно тренироваться сколько угодно.</li>
+        </ul>
+        <p>Лимит новых слов нужен, чтобы через неделю не случился завал: каждое новое слово в ближайшие дни вернётся ещё несколько раз.</p>
+
+        <h4>Сторона карточки</h4>
+        <p>По умолчанию карточка показывает то норвежское слово, то перевод — вперемешку. Узнать слово и вспомнить его с русского — разные навыки, и тренировать стоит оба. Направление можно закрепить в ⚙️ Настройках.</p>
+    </div>
+</div>
+
 <div id="forgetting-stats-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Статистика">
     <div class="modal-inner">
         <div class="modal-title">Статистика <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
@@ -305,6 +358,7 @@
         <div id="results-emoji">🎉</div>
         <div class="modal-title" style="justify-content:center">Итоги тренировки</div>
         <div class="results-grid" id="results-grid"></div>
+        <div id="results-note" class="modal-note" hidden></div>
         <div id="results-hardest" hidden></div>
         <button class="action-btn wide" data-action="close-results">Готово</button>
     </div>

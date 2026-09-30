@@ -140,6 +140,7 @@ const actions = {
     'tatoeba-edit'() { openTatoeba($('edit-no').value, 'edit'); },
     'history-word'(el) { showWordHistory(el.dataset.id); },
     'open-stats'() { showForgettingStats(); },
+    'open-help'() { openModal('help-modal'); },
     'open-theme'() { openModal('theme-modal'); },
     'set-theme'(el) { setTheme(el.dataset.theme); renderStats(); },
     'open-settings'() { openSettings(); },

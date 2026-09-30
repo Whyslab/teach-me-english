@@ -156,6 +156,38 @@ export function checkGender(chosen, gender) {
 }
 
 // ---------------------------------------------------------------------------
+// Предложение с пропуском
+//
+// Ищет в примере само слово или любую его форму («Boka ligger på bordet» для
+// ei bok → «Boka»; «Vi går hjem» для å gå → «går») и вырезает его.
+// Возвращает { before, answer, after } или null, если слова в примере нет.
+// ---------------------------------------------------------------------------
+function escapeForRegex(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function makeCloze(word) {
+    const sentence = String(word?.example || '');
+    if (!sentence) return null;
+    const candidates = [...new Set([stripParticle(word.original), ...Object.values(word.forms || {})]
+        .map(s => String(s || '').trim())
+        .filter(Boolean))]
+        .sort((a, b) => b.length - a.length);   // «har reist» раньше, чем «reist»
+    for (const c of candidates) {
+        const re = new RegExp(`(^|[^\\p{L}])(${escapeForRegex(c)})(?![\\p{L}])`, 'iu');
+        const m = sentence.match(re);
+        if (!m) continue;
+        const start = m.index + m[1].length;
+        return {
+            before: sentence.slice(0, start),
+            answer: sentence.slice(start, start + m[2].length),
+            after: sentence.slice(start + m[2].length),
+        };
+    }
+    return null;
+}
+
+// ---------------------------------------------------------------------------
 // Словари
 // ---------------------------------------------------------------------------
 export function lookupUrls(original) {

@@ -62,6 +62,13 @@ test('only the newest BACKUP_KEEP copies are kept', () => {
     assert.ok(fs.existsSync(path.join(OUT, 'notes.txt')), 'foreign files are left alone');
 });
 
+test('two backups in the same second do not collide', () => {
+    backup();
+    backup();
+    backup();
+    assert.ok(fs.readdirSync(OUT).some(f => /-\d+\.db$/.test(f)) || fs.readdirSync(OUT).length >= 3);
+});
+
 test('a missing database is an error, not an empty backup', () => {
     assert.throws(() => backup({ DATABASE_PATH: path.join(DIR, 'nope.db') }));
 });

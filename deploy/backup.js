@@ -38,7 +38,11 @@ async function main() {
         process.exit(1);
     }
     fs.mkdirSync(DIR, { recursive: true });
-    const target = path.join(DIR, `vocab-${stamp()}.db`);
+    // VACUUM INTO не перезаписывает существующий файл, а два бэкапа в одну
+    // секунду (таймер + ручной запуск) дали бы одно имя.
+    const base = `vocab-${stamp()}`;
+    let target = path.join(DIR, `${base}.db`);
+    for (let i = 1; fs.existsSync(target); i++) target = path.join(DIR, `${base}-${i}.db`);
 
     const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
     try {
@@ -58,7 +62,7 @@ async function main() {
 
     // Ротация: оставляем KEEP последних.
     const old = fs.readdirSync(DIR)
-        .filter(f => /^vocab-\d{4}-\d{2}-\d{2}_\d{6}\.db$/.test(f))
+        .filter(f => /^vocab-\d{4}-\d{2}-\d{2}_\d{6}(-\d+)?\.db$/.test(f))
         .sort()
         .reverse()
         .slice(KEEP);

@@ -157,7 +157,7 @@ select { width: auto; cursor: pointer; padding: 8px 12px; }
 #start-training-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 28px var(--accent-glow); }
 #start-training-btn.done { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
 #start-hint { font-size: 11px; color: var(--text-3); text-align: center; }
-.mode-btns-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.mode-btns-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .mode-btn {
     all: unset; box-sizing: border-box; padding: 9px 8px; border-radius: var(--r-md); text-align: center;
     font-weight: 600; font-size: 12px; cursor: pointer; transition: all 0.15s;
@@ -280,17 +280,24 @@ select { width: auto; cursor: pointer; padding: 8px 12px; }
 #card-forms { font-size: 14px; color: var(--accent-2); font-weight: 500; }
 #card-example-block { font-size: 13px; }
 #card-example { color: var(--text-2); font-style: italic; }
+.example-row { display: inline-flex; align-items: center; gap: 4px; }
+.example-row .icon-btn { width: 24px; height: 24px; font-size: 12px; }
 #card-example-translate { color: var(--text-3); font-size: 12px; }
 #card-hint { font-size: 11px; color: var(--text-3); position: absolute; bottom: 10px; }
 
 #tr-prompt { width: 100%; max-width: 480px; text-align: center; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 24px 20px; }
 .prompt-main { font-family: 'Syne', sans-serif; font-size: clamp(1.6rem, 5vw, 2.3rem); font-weight: 700; }
 .prompt-sub { color: var(--text-2); font-size: 14px; }
+.prompt-sentence { font-size: clamp(1.2rem, 3.5vw, 1.6rem); font-weight: 500; line-height: 1.5; margin-bottom: 6px; }
+.prompt-sentence .gap { display: inline-block; min-width: 3.5em; border-bottom: 2px solid var(--accent); color: var(--accent-2); font-weight: 700; }
+.prompt-sentence .gap.filled { border-bottom-color: var(--green); color: var(--green); }
 .prompt-label { color: var(--text-3); font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; margin: 4px 0; }
 .prompt-label em { font-style: normal; text-transform: none; }
 
 #tr-links { display: flex; gap: 6px; justify-content: center; transition: opacity 0.2s; }
-#tr-links.concealed { opacity: 0; pointer-events: none; }
+/* До ответа ссылки выдали бы слово: all — скрыть всё, links — только словари. */
+#tr-links[data-conceal="all"] { opacity: 0; pointer-events: none; }
+#tr-links[data-conceal="links"] a { visibility: hidden; }
 .link-chip { all: unset; padding: 4px 12px; border: 1px solid var(--border); border-radius: 100px; font-size: 12px; color: var(--text-2); cursor: pointer; }
 .link-chip:hover { border-color: var(--accent); color: var(--accent-2); }
 
@@ -468,3 +475,20 @@ select { width: auto; cursor: pointer; padding: 8px 12px; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ── Справка и подписи ── */
+.levels-hint { text-align: center; margin: -22px 0 26px; }
+.link-btn { all: unset; cursor: pointer; font-size: 12px; color: var(--text-3); border-bottom: 1px dashed var(--text-3); }
+.link-btn:hover { color: var(--accent-2); border-color: var(--accent-2); }
+.practice-caption { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+.help h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--accent-2); margin-top: 6px; }
+.help p, .help li { font-size: 14px; color: var(--text-2); line-height: 1.6; }
+.help ul { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.help b { color: var(--text); }
+.help-path { background: var(--bg-2); border-radius: var(--r-md); padding: 10px 12px; font-size: 13px !important; }
+.help-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.help-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-3); padding: 4px 8px; }
+.help-table td { padding: 6px 8px; border-top: 1px solid var(--border); color: var(--text-2); }
+#training-section.practice .grade-btn small { display: none; }
+#results-note { text-align: center; }
+.marathon-link { align-self: center; font-size: 11px; }

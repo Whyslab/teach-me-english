@@ -23,6 +23,10 @@ export function sm2(word, quality, now = Date.now()) {
     if (!word.sm2Reps) word.sm2Reps = 0;
 
     if (quality === 0) {
+        // Забытое слово становится «тяжелее»: дальше его интервалы растут
+        // медленнее. Раньше EF при «Снова» не менялся, и слово, забытое пять
+        // раз, росло так же быстро, как ни разу не забытое. Как в Anki: −0,2.
+        word.sm2EF = Math.max(1.3, word.sm2EF - 0.2);
         word.sm2Reps = 0;
         word.sm2Interval = 1;
         word.level = Math.max(0, (word.level || 0) - 1);
@@ -110,6 +114,20 @@ export function isHard(word) {
     if (isNew(word)) return false;
     const last = word.history?.[word.history.length - 1];
     return (word.sm2EF || 2.5) < 2.2 || last?.q === 0 || (word.forgetStep || 0) > 0;
+}
+
+// Слова для практики (письмо, диктант, «угадай», трудные — всё, кроме основной
+// тренировки). Практика доступна всегда и расписание не трогает, поэтому
+// берёт любые слова: сначала те, что пора повторять, потом самые трудные
+// (низкий EF), потом остальные. Новые — только если изученных мало.
+export function practiceQueue(words, { now = Date.now(), size = 20, only = null } = {}) {
+    let pool = only ? words.filter(only) : words;
+    const studied = pool.filter(w => !isNew(w));
+    if (!only && studied.length >= Math.min(size, 4)) pool = studied;
+    const rank = (w) => (isDue(w, now) ? 0 : 1);
+    return shuffle(pool)
+        .sort((a, b) => rank(a) - rank(b) || (a.sm2EF || 2.5) - (b.sm2EF || 2.5))
+        .slice(0, size);
 }
 
 // Слова для обычной тренировки. Повторения — все просроченные; новые —
