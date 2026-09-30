@@ -31,6 +31,28 @@ jobs:
       - name: Tests
         run: npm test
 
+  e2e:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --foreground-scripts || npm install --foreground-scripts
+          npm rebuild sqlite3 --foreground-scripts
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm run test:e2e
+
   static:
     name: Static checks
     runs-on: ubuntu-latest
