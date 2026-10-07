@@ -5,6 +5,7 @@ import { computeChanges, applyConfirmed, snapshotFor, fingerprint, isEmpty, BEAC
 
 export const DEFAULT_SETTINGS = {
     newPerDay: 15,     // лимит новых слов в день
+    pauseNewAt: 100,   // новые не даются, если повторений столько и больше (0 — без паузы)
     dailyGoal: 10,     // ответов в день для стрика
     theme: 'auto',
     spellingDir: 'no-ru', // направление режима письма: no-ru | ru-no

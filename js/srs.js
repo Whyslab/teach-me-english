@@ -199,14 +199,20 @@ export function practiceQueue(words, { now = Date.now(), size = 20, only = null 
 // не больше дневного лимита (как в Anki). Без лимита импорт колоды A1 из
 // 300 слов через неделю превращался бы в завал из сотен повторений в день.
 //
-// Возвращает { reviews, fresh, queue }: queue — перемешанные повторения,
-// после них новые слова в порядке добавления.
-export function selectSession(words, { now = Date.now(), newLimit = 15, introducedToday = 0, ignoreLimit = false } = {}) {
+// Защита от завала: если повторений накопилось pauseNewAt и больше, новые
+// слова не даются вовсе, пока долг не уменьшится (0 — без паузы). Каждое
+// новое слово в ближайшие дни вернётся ещё несколько раз, так что новые
+// поверх большого долга только раздувают его.
+//
+// Возвращает { reviews, fresh, queue, paused }: queue — перемешанные
+// повторения, после них новые слова в порядке добавления.
+export function selectSession(words, { now = Date.now(), newLimit = 15, introducedToday = 0, ignoreLimit = false, pauseNewAt = 0 } = {}) {
     const reviews = words.filter(w => !isNew(w) && isDue(w, now));
     const allNew = words
         .filter(w => isNew(w))
         .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0) || a.id - b.id);
-    const room = ignoreLimit ? allNew.length : Math.max(0, newLimit - introducedToday);
+    const paused = !ignoreLimit && pauseNewAt > 0 && reviews.length >= pauseNewAt;
+    const room = ignoreLimit ? allNew.length : paused ? 0 : Math.max(0, newLimit - introducedToday);
     const fresh = allNew.slice(0, room);
-    return { reviews, fresh, queue: [...shuffle(reviews), ...fresh] };
+    return { reviews, fresh, queue: [...shuffle(reviews), ...fresh], paused };
 }

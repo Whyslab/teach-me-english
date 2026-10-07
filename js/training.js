@@ -42,6 +42,7 @@ function buildQueue(mode, source) {
     return selectSession(state.words, {
         newLimit: state.settings.newPerDay,
         introducedToday: introducedToday(),
+        pauseNewAt: state.settings.pauseNewAt,
         ignoreLimit: source === 'marathon',
     }).queue;
 }

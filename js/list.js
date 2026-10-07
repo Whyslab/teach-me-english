@@ -193,13 +193,14 @@ export function sessionPreview() {
     return selectSession(state.words, {
         newLimit: state.settings.newPerDay,
         introducedToday: introducedToday(),
+        pauseNewAt: state.settings.pauseNewAt,
     });
 }
 
 function renderStartButton() {
     const btn = $('start-training-btn');
     if (!btn) return;
-    const { reviews, fresh } = sessionPreview();
+    const { reviews, fresh, paused } = sessionPreview();
     const hint = $('start-hint');
     if (reviews.length + fresh.length > 0) {
         btn.textContent = `Начать тренировку · ${reviews.length + fresh.length}`;
@@ -212,7 +213,8 @@ function renderStartButton() {
         const newLeft = Math.max(0, state.settings.newPerDay - introducedToday());
         const waiting = state.words.filter(isNew).length;
         hint.textContent = `повторить: ${reviews.length} · новых: ${fresh.length}` +
-            (waiting > fresh.length ? ` (ещё ${waiting - fresh.length} ждут; лимит ${state.settings.newPerDay}/день, осталось ${newLeft})` : '');
+            (paused && waiting ? ` · новые на паузе: к повторению ${state.settings.pauseNewAt} и больше — сначала разбери долг`
+                : waiting > fresh.length ? ` (ещё ${waiting - fresh.length} ждут; лимит ${state.settings.newPerDay}/день, осталось ${newLeft})` : '');
     }
 }
 

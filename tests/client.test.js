@@ -300,6 +300,21 @@ test('selectSession caps new words per day but never caps reviews', async () => 
     assert.equal(m.fresh.length, 40, 'marathon ignores the limit');
 });
 
+test('selectSession pauses new words while the review backlog is large', async () => {
+    const { selectSession } = await load('srs.js');
+    const now = 1_000_000;
+    const reviews = Array.from({ length: 30 }, (_, i) => ({ id: i, history: [{ q: 2 }], sm2Reps: 1, nextReview: now - 1 }));
+    const fresh = Array.from({ length: 5 }, (_, i) => ({ id: 100 + i, history: [], sm2Reps: 0, nextReview: 0, addedAt: i }));
+    const words = [...reviews, ...fresh];
+    const s = selectSession(words, { now, newLimit: 15, pauseNewAt: 30 });
+    assert.equal(s.paused, true);
+    assert.equal(s.fresh.length, 0);
+    assert.equal(s.reviews.length, 30, 'reviews are never cut');
+    assert.equal(selectSession(words, { now, newLimit: 15, pauseNewAt: 31 }).fresh.length, 5, 'below the threshold');
+    assert.equal(selectSession(words, { now, newLimit: 15, pauseNewAt: 0 }).fresh.length, 5, '0 turns the pause off');
+    assert.equal(selectSession(words, { now, newLimit: 15, pauseNewAt: 30, ignoreLimit: true }).fresh.length, 5, 'the marathon ignores it');
+});
+
 // ---------------------------------------------------------------------------
 // sync.js
 // ---------------------------------------------------------------------------

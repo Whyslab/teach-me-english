@@ -78,6 +78,7 @@ async function autoTranslate() {
 // ---------------------------------------------------------------------------
 function openSettings() {
     $('set-new').value = state.settings.newPerDay;
+    $('set-pause').value = state.settings.pauseNewAt;
     $('set-goal').value = state.settings.dailyGoal;
     $('set-autospeak').checked = !!state.settings.autoSpeak;
     $('set-autotranslate').checked = !!state.settings.autoTranslate;
@@ -95,12 +96,14 @@ function renderRateLabel() {
 function saveSettingsForm() {
     const n = Math.round(Number($('set-new').value));
     const g = Math.round(Number($('set-goal').value));
-    if (!(n >= 0 && n <= 200) || !(g >= 1 && g <= 500)) {
-        showToast('Новых слов: 0–200, цель дня: 1–500', 'warning');
+    const pause = Math.round(Number($('set-pause').value));
+    if (!(n >= 0 && n <= 200) || !(g >= 1 && g <= 500) || !(pause >= 0 && pause <= 2000)) {
+        showToast('Новых слов: 0–200, цель дня: 1–500, пауза: 0–2000', 'warning');
         return;
     }
     Object.assign(state.settings, {
         newPerDay: n,
+        pauseNewAt: pause,
         dailyGoal: g,
         autoSpeak: $('set-autospeak').checked,
         autoTranslate: $('set-autotranslate').checked,

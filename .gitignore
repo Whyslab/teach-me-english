@@ -23,6 +23,7 @@ tts-cache/
 
 # scratch
 черновик
+:memory:*
 *.log
 
 # test artefacts
