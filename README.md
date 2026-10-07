@@ -88,6 +88,8 @@ eple|яблоко
 | `GET` | `/api/tts?text=…&rate=…` | Norwegian speech as WAV (Piper), cached in `tts-cache/` |
 | `GET` | `/api/tts/status` | Whether Piper is installed and which mode (worker / CLI) is used |
 | `GET` | `/api/tatoeba?word=…` | Bokmål → Russian example sentences (CORS proxy) |
+| `GET` | `/api/ordbok?w=…` | Part of speech, gender and forms from Ordbøkene (ord.uib.no); `en/ei/et/å` in the query pick the article |
+| `POST` | `/api/import/screenshot` | Raw PNG/JPEG/WebP body → OCR (tesseract `nor`) → word cards with grammar and MyMemory translations |
 
 Only the frontend is served statically — `index.html`, `sw.js`, `manifest.json`, icons, and files matching `js/*.js`, `css/*.css`, `decks/*.txt` (flat names only). The database, server sources and deploy scripts are not.
 
