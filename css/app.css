@@ -325,7 +325,7 @@ select { width: auto; cursor: pointer; padding: 8px 12px; }
 .grade-btn small { display: block; font-size: 10px; font-weight: 400; opacity: 0.8; }
 .grade-btn.suggested { outline: 3px solid var(--text); outline-offset: 2px; }
 .nav-btn { background: var(--bg-3) !important; color: var(--text-2) !important; flex: 0 0 auto !important; font-weight: 500 !important; }
-.sm2-again { background: #dc4c4c; } .sm2-hard { background: #c98a12; } .sm2-good { background: #169b6b; } .sm2-easy { background: #3b76d4; }
+.sm2-again { background: #dc4c4c; } .sm2-good { background: #169b6b; }
 .sec-btn { background: var(--bg-3) !important; color: var(--text) !important; }
 .tr-bottom { display: flex; gap: 8px; align-items: center; }
 .exit-btn { all: unset; padding: 8px 20px; border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text-2); font-size: 13px; cursor: pointer; }

@@ -1,13 +1,15 @@
 // Интервальное повторение: SM-2, нормализация слов, выбор слов на сессию.
 // Модуль без DOM — тестируется напрямую.
-import { DAY_MS, sanitizeTags, shuffle } from './util.js';
+import { DAY_MS, sanitizeTags, shuffle, toDayKey } from './util.js';
 import { POS, GENDERS, formsFor } from './norsk.js';
 
-// Через сколько повторить «Снова».
+// Через сколько повторить «Не помню».
 export const AGAIN_DELAY_MS = 10 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
-// SM-2 (как в Anki). quality: 0 — снова, 1 — сложно, 2 — хорошо, 3 — легко.
+// SM-2 (как в Anki). quality: 0 — «не помню», 2 — «помню».
+// 1 — «помню, но с ошибкой» (в письме забыл æ ø å), кнопки для него нет.
+// 3 — «легко»: кнопки больше нет, но значение осталось в старой истории.
 // ---------------------------------------------------------------------------
 export function levelFromInterval(days) {
     if (days >= 21) return 5;
@@ -17,16 +19,51 @@ export function levelFromInterval(days) {
     return 1;
 }
 
-export function sm2(word, quality, now = Date.now()) {
+// Ответ на слово уже был сегодня. Тогда это повтор внутри тренировки:
+// слово доучивается, но расписание не двигается.
+export function answeredOnDay(word, now = Date.now()) {
+    const last = word.history?.[word.history.length - 1];
+    return Boolean(last) && toDayKey(last.ts) === toDayKey(now);
+}
+
+// Разброс интервала, чтобы слова, выученные в один день, не приходили потом
+// одной пачкой (как в Anki). До 3 дней — без разброса, дальше ±10 %, минимум ±1.
+export function fuzzInterval(days, random = Math.random) {
+    if (days < 3) return days;
+    const spread = Math.max(1, Math.round(days * 0.1));
+    return Math.max(1, days + Math.round((random() * 2 - 1) * spread));
+}
+
+export function sm2(word, quality, now = Date.now(), random = Math.random) {
     if (!word.sm2Interval) word.sm2Interval = 1;
     if (!word.sm2EF) word.sm2EF = 2.5;
     if (!word.sm2Reps) word.sm2Reps = 0;
 
+    // В расписание идёт только первый ответ за день. Раньше каждый повтор
+    // в тренировке считался отдельным днём: «не помню» и через 10 секунд
+    // «помню» отправляли слово сразу на 6 дней, а шесть «не помню» подряд
+    // за две минуты роняли EF до минимума.
+    if (answeredOnDay(word, now)) {
+        if (quality === 0) {
+            word.nextReview = now + AGAIN_DELAY_MS;
+        } else {
+            // Вспомнил после ошибки — слово доучено сегодня, проверка завтра.
+            if (word.sm2Reps === 0) {
+                word.sm2Reps = 1;
+                word.sm2Interval = 1;
+                word.level = levelFromInterval(1);
+            }
+            word.forgetStep = 0;
+            word.nextReview = now + word.sm2Interval * DAY_MS;
+        }
+        return word;
+    }
+
     if (quality === 0) {
         // Забытое слово становится «тяжелее»: дальше его интервалы растут
-        // медленнее. Раньше EF при «Снова» не менялся, и слово, забытое пять
-        // раз, росло так же быстро, как ни разу не забытое. Как в Anki: −0,2.
-        word.sm2EF = Math.max(1.3, word.sm2EF - 0.2);
+        // медленнее. Как в Anki: −0,2. Новое слово при первом показе не
+        // штрафуется — не знать его нормально.
+        if (!isNew(word)) word.sm2EF = Math.max(1.3, word.sm2EF - 0.2);
         word.sm2Reps = 0;
         word.sm2Interval = 1;
         word.level = Math.max(0, (word.level || 0) - 1);
@@ -42,6 +79,7 @@ export function sm2(word, quality, now = Date.now()) {
 
         if (quality === 1) word.sm2Interval = Math.max(1, Math.round(word.sm2Interval * 0.5));
         if (quality === 3) word.sm2Interval = Math.round(word.sm2Interval * 1.3);
+        word.sm2Interval = fuzzInterval(word.sm2Interval, random);
 
         word.sm2Reps++;
         word.forgetStep = 0;
@@ -53,6 +91,20 @@ export function sm2(word, quality, now = Date.now()) {
     word.history.push({ ts: now, q: quality, ef: Math.round(word.sm2EF * 100) / 100 });
     if (word.history.length > 30) word.history = word.history.slice(-30);
     return word;
+}
+
+// Пересчёт расписания слова по его истории — по нынешним правилам: из ответов
+// за один день в расписание идёт первый, остальные — повторы. mapQuality
+// переводит старые оценки в нынешние (например, «Сложно» → «не помню»).
+// Разброс интервала при пересчёте не нужен — история уже прошла.
+export function replayHistory(word, mapQuality = (q) => q) {
+    const out = {
+        ...word, level: 0, nextReview: 0, forgetStep: 0,
+        sm2EF: 2.5, sm2Interval: 1, sm2Reps: 0, history: [],
+    };
+    const entries = [...(word.history || [])].sort((a, b) => a.ts - b.ts);
+    for (const h of entries) sm2(out, mapQuality(h.q), h.ts, () => 0.5);
+    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +161,7 @@ export function isDue(word, now = Date.now()) {
     return !word.nextReview || word.nextReview <= now;
 }
 
-// Трудное слово: низкий EF или последний ответ — «Снова».
+// Трудное слово: низкий EF или последний ответ — «Не помню».
 export function isHard(word) {
     if (isNew(word)) return false;
     const last = word.history?.[word.history.length - 1];

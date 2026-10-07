@@ -259,7 +259,7 @@ export function checkWritten() {
         $('flashcard').classList.add('is-flipped');
         speak(displayWord(w));
         // Подсказка, какую кнопку нажмёт второй Enter.
-        const suggested = t.checked === 'correct' ? '2' : t.checked === 'letters' ? '1' : '0';
+        const suggested = t.checked === 'wrong' ? '0' : '2';
         document.querySelectorAll('#tr-grades .grade-btn').forEach(b => b.classList.toggle('suggested', b.dataset.grade === suggested));
     }
     show('tr-write-btns', false);
@@ -353,7 +353,11 @@ export function handleTrainingKey(e) {
     if (e.key === 'Enter' && WRITE_MODES.includes(t.mode) && t.checked !== null) { checkWritten(); return true; }
     if (/^[1-4]$/.test(e.key)) {
         const n = Number(e.key);
-        if (t.mode === 'cards' || (writing && t.checked !== null)) { grade(n - 1); return true; }
+        // Две оценки: 1 — «не помню», 2 — «помню».
+        if (t.mode === 'cards' || (writing && t.checked !== null)) {
+            if (n <= 2) grade(n === 1 ? 0 : 2);
+            return true;
+        }
         if (CHOICE_MODES.includes(t.mode) && n <= t.options.length) { choose(n - 1); return true; }
     }
     if (t.mode === 'cards' && e.key === 'ArrowRight') { grade(2); return true; }

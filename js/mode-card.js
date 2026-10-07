@@ -13,9 +13,9 @@ function norwegianOnFront() {
         case 'dictation': return false;       // сверху — значок наушников, слово на обороте
         default: {
             const dir = state.settings.cardsDir;
-            if (dir === 'no-ru') return true;
             if (dir === 'ru-no') return false;
-            return Math.random() < 0.5;
+            if (dir === 'mixed') return Math.random() < 0.5;
+            return true;
         }
     }
 }

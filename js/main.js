@@ -81,7 +81,7 @@ function openSettings() {
     $('set-goal').value = state.settings.dailyGoal;
     $('set-autospeak').checked = !!state.settings.autoSpeak;
     $('set-autotranslate').checked = !!state.settings.autoTranslate;
-    $('set-cards-dir').value = state.settings.cardsDir || 'mixed';
+    $('set-cards-dir').value = state.settings.cardsDir || 'no-ru';
     $('set-rate').value = state.settings.speechRate || 1;
     renderRateLabel();
     openModal('settings-modal');

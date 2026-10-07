@@ -11,7 +11,7 @@ export const DEFAULT_SETTINGS = {
     autoSpeak: false,
     muted: false,
     speechRate: 1,         // скорость речи Piper/браузера: 0.6…1.4
-    cardsDir: 'mixed',     // направление карточек: mixed | no-ru | ru-no
+    cardsDir: 'no-ru',     // направление карточек: no-ru | ru-no | mixed
     autoTranslate: false,  // подсказка перевода от MyMemory при добавлении слова
 };
 
@@ -59,6 +59,7 @@ export function loadLocal() {
         if (legacyMuted) state.settings.muted = true;
         if (legacyTheme) state.settings.theme = legacyTheme;
     }
+    migrateSettings(state.settings);
     state.streak = { ...state.streak, ...read('streakData', {}) };
     state.activity = read('dailyActivity', {}) || {};
     state.introduced = read('introducedToday', { day: '', ids: [] });
@@ -68,6 +69,17 @@ export function loadLocal() {
         try { localStorage.removeItem(k); } catch { /* приватный режим */ }
     }
     saveSettings();
+}
+
+// Разовые переделки сохранённых настроек. version растёт с каждой.
+export const SETTINGS_VERSION = 2;
+export function migrateSettings(s) {
+    const v = Number(s.version) || 1;
+    // 2: «вперемешку» было значением по умолчанию — оно путало, легко слово
+    // или трудно. Теперь по умолчанию норвежское слово → перевод.
+    if (v < 2 && s.cardsDir === 'mixed') s.cardsDir = 'no-ru';
+    s.version = SETTINGS_VERSION;
+    return s;
 }
 
 export function saveSettings() { write('settings', state.settings); }

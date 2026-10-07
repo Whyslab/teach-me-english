@@ -21,7 +21,7 @@ Installable as a PWA and fully usable with no network connection.
 
 ## ✨ What it does
 
-* **SM-2 spaced repetition** (the Anki algorithm), grades on keys 1–4. Ease, interval, repetitions and answer history are persisted server-side.
+* **SM-2 spaced repetition** (the Anki algorithm), two grades — *don't remember* (1 / ←) and *remember* (2 / →). Only the first answer of a day moves the schedule; repeats inside a session just relearn the word. Intervals of 3+ days get ±10% fuzz so reviews don't arrive in clumps. Ease, interval, repetitions and answer history are persisted server-side.
 * **A daily new-word limit** (15 by default, like Anki). Reviews are never capped, so importing a large deck does not turn into a review avalanche a week later.
 * **Main training vs. practice.** The main training (and the marathon) follows the SM-2 schedule and the new-word limit. Every other mode is *practice*: always available, 20 words (due first, then the hardest), and it never moves the schedule.
 * **Grammar:** noun gender (`en` / `ei` / `et`, colour-coded) and inflections — *et hus — huset — hus — husene*, *å reise — reiser — reiste — har reist*, *stor — stort — store*. A "⚡ regular forms" button fills in the regular noun and adjective patterns.

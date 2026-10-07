@@ -32,7 +32,7 @@ test('the main training moves the schedule, practice does not', async () => {
     await page.click('#start-training-btn');
     assert.equal(await page.isVisible('#tr-source'), false, 'no practice badge in the main training');
     await page.keyboard.press('Space');
-    await page.keyboard.press('3');
+    await page.keyboard.press('2');
     await page.waitForTimeout(400);
     await page.keyboard.press('Escape');
     await closeResults(page);
@@ -46,11 +46,11 @@ test('practice is available even when nothing is due', async () => {
     await page.click('[data-action="open-settings"]');
     await page.fill('#set-new', '0');
     await page.click('[data-action="save-settings"]');
-    // Всё, что было к повторению, отвечаем «Легко», чтобы на сегодня ничего не осталось.
+    // Всё, что было к повторению, отвечаем «Помню», чтобы на сегодня ничего не осталось.
     for (let i = 0; i < 30 && !(await page.textContent('#start-training-btn')).includes('всё'); i++) {
         await page.click('#start-training-btn');
         await page.keyboard.press('Space');
-        await page.keyboard.press('4');
+        await page.keyboard.press('2');
         await page.waitForTimeout(350);
         await page.keyboard.press('Escape');
         await closeResults(page);
@@ -112,7 +112,7 @@ test('the example on the card back can be listened to', async () => {
     const { page, context } = await openApp(browser, server);
     await page.click('#start-training-btn');
     for (let i = 0; i < 10 && await page.isHidden('#card-example-block'); i++) {
-        await page.keyboard.press('Space'); await page.keyboard.press('3'); await page.waitForTimeout(350);
+        await page.keyboard.press('Space'); await page.keyboard.press('2'); await page.waitForTimeout(350);
     }
     await page.keyboard.press('Space');
     await page.waitForTimeout(600);
@@ -129,7 +129,7 @@ test('the example on the card back can be listened to', async () => {
 test('the card-direction setting fixes the question side', async () => {
     const { page, context } = await openApp(browser, server);
     await page.click('[data-action="open-settings"]');
-    assert.equal(await page.inputValue('#set-cards-dir'), 'mixed', 'mixed stays the default');
+    assert.equal(await page.inputValue('#set-cards-dir'), 'no-ru', 'Norwegian on the front is the default');
     await page.selectOption('#set-cards-dir', 'ru-no');
     await page.click('[data-action="save-settings"]');
     await page.click('[data-action="start-hard"]').catch(() => {});
@@ -137,13 +137,13 @@ test('the card-direction setting fixes the question side', async () => {
     if (!(await page.isVisible('#training-section'))) await page.click('[data-action="start-marathon"]');
     for (let i = 0; i < 5; i++) {
         assert.equal(await page.getAttribute('#card-front', 'lang'), 'ru');
-        await page.keyboard.press('Space'); await page.keyboard.press('3'); await page.waitForTimeout(350);
+        await page.keyboard.press('Space'); await page.keyboard.press('2'); await page.waitForTimeout(350);
         if (!(await page.isVisible('#training-section'))) break;
     }
     await page.keyboard.press('Escape');
     await closeResults(page);
     await page.click('[data-action="open-settings"]');
-    await page.selectOption('#set-cards-dir', 'mixed');
+    await page.selectOption('#set-cards-dir', 'no-ru');
     await page.click('[data-action="save-settings"]');
     await context.close();
 });

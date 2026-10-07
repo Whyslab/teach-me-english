@@ -7,6 +7,9 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const load = (name) => import(path.join(ROOT, 'js', name));
+const DAY = 24 * 60 * 60 * 1000;
+// Без разброса интервала — чтобы тесты были детерминированными.
+const NO_FUZZ = () => 0.5;
 
 // ---------------------------------------------------------------------------
 // util.js
@@ -136,10 +139,10 @@ test('sm2: "again" schedules in 10 minutes and resets repetitions', async () => 
 
 test('sm2: "again" lowers the ease factor, but never below 1.3', async () => {
     const { sm2 } = await load('srs.js');
-    const w = { sm2EF: 2.5 };
-    sm2(w, 0, 0);
+    const w = { sm2EF: 2.5, sm2Reps: 1, history: [{ ts: 0, q: 2 }] };
+    sm2(w, 0, DAY);
     assert.equal(w.sm2EF, 2.3);
-    for (let i = 0; i < 10; i++) sm2(w, 0, 0);
+    for (let i = 2; i < 12; i++) sm2(w, 0, i * DAY);
     assert.equal(w.sm2EF, 1.3);
 });
 
@@ -148,8 +151,58 @@ test('sm2: four "good" answers in a row make a word learned (level 5)', async ()
     const { sm2 } = await load('srs.js');
     const w = {};
     const path = [];
-    for (let i = 0; i < 4; i++) { sm2(w, 2, 0); path.push([w.sm2Interval, w.level]); }
+    for (let i = 0; i < 4; i++) { sm2(w, 2, i * DAY, NO_FUZZ); path.push([w.sm2Interval, w.level]); }
     assert.deepStrictEqual(path, [[1, 1], [6, 3], [15, 4], [38, 5]]);
+});
+
+// Повтор в тот же день — доучивание, расписание он не двигает.
+// Раньше «не помню», а через 10 секунд «помню» отправляли слово сразу на 6 дней.
+test('sm2: only the first answer of the day moves the schedule', async () => {
+    const { sm2 } = await load('srs.js');
+    const w = {};
+    sm2(w, 0, 1000);                     // новое слово — не помню
+    sm2(w, 0, 1000 + 60_000);            // и снова не помню
+    assert.equal(w.sm2EF, 2.5, 'a new word is not penalised, repeats are not counted');
+    sm2(w, 2, 1000 + 120_000);           // вспомнил в той же тренировке
+    assert.equal(w.sm2Interval, 1);
+    assert.equal(w.sm2Reps, 1);
+    assert.equal(w.nextReview, 1000 + 120_000 + DAY, 'comes back tomorrow, not in 6 days');
+    assert.equal(w.history.length, 1, 'repeats do not fill the history');
+    sm2(w, 2, 1000 + DAY + 1000, NO_FUZZ); // завтра помню
+    assert.equal(w.sm2Interval, 6);
+});
+
+test('sm2: a forgotten word that was known loses ease only once a day', async () => {
+    const { sm2 } = await load('srs.js');
+    const w = { sm2EF: 2.5, sm2Reps: 3, sm2Interval: 15, level: 4, history: [{ ts: 0, q: 2 }] };
+    for (let i = 0; i < 6; i++) sm2(w, 0, 20 * DAY + i * 30_000);
+    assert.equal(w.sm2EF, 2.3);
+    assert.equal(w.level, 3);
+});
+
+test('fuzzInterval spreads long intervals by about 10% and keeps short ones', async () => {
+    const { fuzzInterval } = await load('srs.js');
+    assert.equal(fuzzInterval(1, () => 0), 1);
+    assert.equal(fuzzInterval(2, () => 0.99), 2);
+    assert.equal(fuzzInterval(6, () => 0), 5);
+    assert.equal(fuzzInterval(6, () => 0.999), 7);
+    assert.equal(fuzzInterval(30, () => 0), 27);
+    assert.equal(fuzzInterval(30, () => 0.5), 30);
+});
+
+test('replayHistory rebuilds the schedule with one answer per day', async () => {
+    const { replayHistory } = await load('srs.js');
+    // Как «fordi» в настоящей базе: шесть «сложно» за две минуты, потом «хорошо».
+    const t0 = new Date(2026, 9, 3, 12).getTime();
+    const history = [1, 1, 1, 1, 1, 1, 2].map((q, i) => ({ ts: t0 + i * 20_000, q, ef: 2 }));
+    const w = replayHistory({ id: 1, original: 'fordi', translate: 'потому что', history, sm2Reps: 7, sm2EF: 1.66 },
+        (q) => (q === 1 ? 0 : q));
+    assert.equal(w.sm2Reps, 1);
+    assert.equal(w.sm2Interval, 1);
+    assert.equal(w.sm2EF, 2.5);
+    assert.equal(w.history.length, 1);
+    assert.equal(w.nextReview, t0 + 6 * 20_000 + DAY);
+    assert.equal(w.original, 'fordi', 'other fields are kept');
 });
 
 test('practiceQueue prefers due words, then hard ones, and never exceeds the size', async () => {
@@ -167,15 +220,15 @@ test('practiceQueue prefers due words, then hard ones, and never exceeds the siz
 test('sm2: intervals grow 1 → 6 → ×EF on "good"', async () => {
     const { sm2 } = await load('srs.js');
     const w = {};
-    sm2(w, 2, 0); assert.equal(w.sm2Interval, 1);
-    sm2(w, 2, 0); assert.equal(w.sm2Interval, 6);
-    sm2(w, 2, 0); assert.equal(w.sm2Interval, Math.round(6 * w.sm2EF));
+    sm2(w, 2, 0, NO_FUZZ); assert.equal(w.sm2Interval, 1);
+    sm2(w, 2, DAY, NO_FUZZ); assert.equal(w.sm2Interval, 6);
+    sm2(w, 2, 2 * DAY, NO_FUZZ); assert.equal(w.sm2Interval, Math.round(6 * w.sm2EF));
 });
 
 test('sm2 keeps at most 30 history entries', async () => {
     const { sm2 } = await load('srs.js');
     const w = {};
-    for (let i = 0; i < 40; i++) sm2(w, 2, i);
+    for (let i = 0; i < 40; i++) sm2(w, 2, i * DAY);
     assert.equal(w.history.length, 30);
 });
 
@@ -239,10 +292,10 @@ test('one answer produces a payload far below the sendBeacon limit', async () =>
     const { normalizeWord, sm2 } = await load('srs.js');
     const { words } = parseImport(fs.readFileSync(path.join(ROOT, 'decks', 'a1.txt'), 'utf8'));
     const deck = words.map((w, i) => normalizeWord({ ...w, id: i + 1 }));
-    for (const w of deck) for (let k = 0; k < 30; k++) sm2(w, 2, k);
+    for (const w of deck) for (let k = 0; k < 30; k++) sm2(w, 2, k * DAY);
     const synced = new Map(deck.map(w => [w.id, fingerprint(w)]));
     assert.ok(JSON.stringify(deck).length > BEACON_LIMIT, 'the whole deck does not fit — that was the bug');
-    sm2(deck[0], 3, 99);
+    sm2(deck[0], 3, 31 * DAY);
     const body = JSON.stringify(computeChanges(deck, synced));
     assert.ok(body.length < 3000, `one answer is ${body.length} bytes`);
 });
