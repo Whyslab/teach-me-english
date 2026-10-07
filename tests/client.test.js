@@ -167,7 +167,10 @@ test('sm2: only the first answer of the day moves the schedule', async () => {
     assert.equal(w.sm2Interval, 1);
     assert.equal(w.sm2Reps, 1);
     assert.equal(w.nextReview, 1000 + 120_000 + DAY, 'comes back tomorrow, not in 6 days');
-    assert.equal(w.history.length, 1, 'repeats do not fill the history');
+    assert.deepStrictEqual(w.history.map(h => [h.q, h.r || 0]), [[0, 0], [2, 1]],
+        'only the relearning answer is kept, marked as a repeat');
+    sm2(w, 2, 1000 + 180_000);
+    assert.equal(w.history.length, 2, 'later repeats are not recorded');
     sm2(w, 2, 1000 + DAY + 1000, NO_FUZZ); // завтра помню
     assert.equal(w.sm2Interval, 6);
 });
@@ -200,9 +203,25 @@ test('replayHistory rebuilds the schedule with one answer per day', async () => 
     assert.equal(w.sm2Reps, 1);
     assert.equal(w.sm2Interval, 1);
     assert.equal(w.sm2EF, 2.5);
-    assert.equal(w.history.length, 1);
+    assert.equal(w.history.length, 2);
     assert.equal(w.nextReview, t0 + 6 * 20_000 + DAY);
     assert.equal(w.original, 'fordi', 'other fields are kept');
+    // Пересчёт пересчитанного ничего не меняет — история сохраняет всё нужное.
+    const again = replayHistory(w);
+    for (const k of ['level', 'nextReview', 'sm2EF', 'sm2Interval', 'sm2Reps', 'forgetStep']) {
+        assert.equal(again[k], w[k], k);
+    }
+    assert.deepStrictEqual(again.history, w.history);
+});
+
+test('a word relearned today is still hard until it is remembered on another day', async () => {
+    const { sm2, isHard } = await load('srs.js');
+    const w = { sm2EF: 2.5, sm2Reps: 3, sm2Interval: 15, history: [{ ts: 0, q: 2 }] };
+    sm2(w, 0, 20 * DAY);
+    sm2(w, 2, 20 * DAY + 60_000);
+    assert.equal(isHard(w), true);
+    sm2(w, 2, 21 * DAY, NO_FUZZ);
+    assert.equal(isHard(w), w.sm2EF < 2.2);
 });
 
 test('practiceQueue prefers due words, then hard ones, and never exceeds the size', async () => {

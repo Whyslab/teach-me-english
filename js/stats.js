@@ -199,14 +199,16 @@ export function showForgettingStats() {
 // ---------------------------------------------------------------------------
 // Окно «История слова»
 // ---------------------------------------------------------------------------
-const Q_LABEL = { 0: '🔄 Снова', 1: '😅 Сложно', 2: '👍 Хорошо', 3: '⚡ Легко' };
+const Q_LABEL = { 0: '🔄 Не помню', 1: '😅 С трудом', 2: '👍 Помню', 3: '⚡ Легко' };
 
 export function showWordHistory(id) {
     const w = findWord(id);
     if (!w) return;
     const history = w.history || [];
-    const good = history.filter(h => h.q >= 2).length;
-    const accuracy = history.length ? Math.round(good / history.length * 100) : 0;
+    // Точность — по первым ответам дня; «вспомнил после ошибки» её не завышает.
+    const reviews = history.filter(h => !h.r);
+    const good = reviews.filter(h => h.q >= 2).length;
+    const accuracy = reviews.length ? Math.round(good / reviews.length * 100) : 0;
     const date = (ts) => ts ? new Date(ts).toLocaleDateString('ru-RU') : '—';
 
     $('wh-title').textContent = displayWord(w);
@@ -225,7 +227,7 @@ export function showWordHistory(id) {
         ${history.length ? `<div class="wh-timeline">
             ${[...history].reverse().slice(0, 15).map(h => `
                 <div class="wh-item q${h.q}">
-                    <span>${Q_LABEL[h.q] || h.q}</span>
+                    <span>${h.r ? '↩ Вспомнил после ошибки' : (Q_LABEL[h.q] || h.q)}</span>
                     <span class="wh-date">${date(h.ts)} · EF ${(h.ef || 2.5).toFixed(1)}</span>
                 </div>`).join('')}
         </div>` : '<div class="fst-note center">Ещё нет ответов</div>'}`;
