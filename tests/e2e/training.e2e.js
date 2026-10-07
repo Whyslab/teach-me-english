@@ -241,3 +241,33 @@ test('typing a word and leaving the field fills part of speech, gender and forms
     assert.deepStrictEqual(errors, []);
     await context.close();
 });
+
+test('a screenshot becomes a checklist; words already in the deck are not added again', async () => {
+    const { page, context, errors } = await openApp(browser, server);
+    await page.route('**/api/import/screenshot', (route) => route.fulfill({ json: { items: [
+        { original: 'konsonant', translate: 'согласный', pos: 'noun', gender: 'm', forms: { defSg: 'konsonanten' },
+          example: 'Bokstaven B er en konsonant.', exampleTranslate: 'Буква B — согласная.', definition: 'en bokstav' },
+        { original: 'å uttrykke', translate: '', pos: 'verb', gender: '', forms: {}, example: 'Han uttrykker seg godt.', exampleTranslate: '', definition: 'å si' },
+        { original: 'hus', translate: 'дом', pos: 'noun', gender: 'n', forms: {}, example: '', exampleTranslate: '', definition: '' },
+    ] } }));
+    // «hus» уже есть: колода A1 загружена первым тестом.
+    await page.click('[data-action="open-import"]');
+    await page.setInputFiles('#shot-upload', require('node:path').join(__dirname, '..', 'fixtures', 'lingu-sample.png'));
+    await page.waitForSelector('#shot-list .shot-row');
+    assert.equal(await page.locator('.shot-row').count(), 3);
+    assert.ok(await page.isDisabled('.shot-row.dup .shot-check'), 'the word already in the deck cannot be ticked');
+    assert.match(await page.textContent('#shot-add'), /Добавить 2/);
+
+    await page.click('#shot-add');
+    assert.match(await page.textContent('#toast-container'), /Впиши перевод: å uttrykke/, 'an empty translation is not saved');
+    await page.fill('.shot-tr[data-index="1"]', 'выражать');
+    await page.click('#shot-add');
+    const added = await page.evaluate(() => JSON.parse(localStorage.getItem('myWords'))
+        .filter(w => w.tags.includes('lingu')).map(w => [w.original, w.translate, w.gender, w.example]));
+    assert.deepStrictEqual(added, [
+        ['konsonant', 'согласный', 'm', 'Bokstaven B er en konsonant.'],
+        ['å uttrykke', 'выражать', '', 'Han uttrykker seg godt.'],
+    ]);
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+});

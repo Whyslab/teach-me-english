@@ -19,6 +19,7 @@ import { renderList, listActions, initList, onListRendered } from './list.js';
 import { renderStats, showForgettingStats, showWordHistory } from './stats.js';
 import { trainingActions, initTraining, handleTrainingKey, onTrainingFinished, isTraining } from './training.js';
 import { ioActions, initIo } from './io.js';
+import { shotActions, initShot } from './shot.js';
 import { openTatoeba, tatoebaActions } from './tatoeba.js';
 
 // ---------------------------------------------------------------------------
@@ -128,6 +129,7 @@ const actions = {
     ...listActions,
     ...trainingActions,
     ...ioActions,
+    ...shotActions,
     ...tatoebaActions,
     'add-word'() { addWord(); },
     'insert-char'(el, e) { insertChar(el.dataset.char, e, $('add-no')); },
@@ -283,6 +285,7 @@ async function init() {
     initList();
     initTraining();
     initIo();
+    initShot();
     onListRendered(renderStats);
     onTrainingFinished(renderAll);
 

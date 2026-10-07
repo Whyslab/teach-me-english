@@ -28,6 +28,10 @@ jobs:
           npm ci --foreground-scripts || npm install --foreground-scripts
           npm rebuild sqlite3 --foreground-scripts
 
+      # Импорт со скриншота распознаёт текст tesseract'ом с норвежской моделью.
+      - name: Install tesseract
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-nor
+
       - name: Tests
         run: npm test
 

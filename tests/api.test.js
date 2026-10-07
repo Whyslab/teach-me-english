@@ -497,3 +497,144 @@ test('ordbok: irregular forms come from the dictionary, the article picks the ge
 test('GET /api/ordbok rejects an empty word', async () => {
     await request(app).get('/api/ordbok?w=').expect(400);
 });
+
+// ---------------------------------------------------------------------------
+// Импорт со скриншота (Lingu)
+// ---------------------------------------------------------------------------
+const lingu = require('../lingu.js');
+const { execFileSync } = require('node:child_process');
+
+// Ровно то, что tesseract выдал на настоящем скриншоте Lingu: две колонки
+// прочитаны вперемешку, в жирном дубле потерян пробел, у примера лишняя кавычка.
+const LINGU_OCR = `Substantiv
+
+en konsonant
+en konsonant
+
+en bokstav man ikke kan synge
+"Bokstaven B er en konsonant."
+
+Verb
+
+å høre
+
+å høre
+
+å lytte
+
+"Jeg hører på musikk."
+
+å si
+
+å si
+
+å uttrykke
+
+"'Jeg sier det til ham."
+
+en uttale
+enuttale
+en måte å si noe på
+"Jeg øver på uttale."
+
+å snakke
+å snakke
+
+å prate
+"Han snakker norsk."
+
+•`;
+
+test('parseCards reads every card of a real Lingu screenshot', () => {
+    assert.deepStrictEqual(lingu.parseCards(LINGU_OCR), [
+        { original: 'en konsonant', definition: 'en bokstav man ikke kan synge', example: 'Bokstaven B er en konsonant.' },
+        { original: 'å høre', definition: 'å lytte', example: 'Jeg hører på musikk.' },
+        { original: 'å si', definition: 'å uttrykke', example: 'Jeg sier det til ham.' },
+        { original: 'en uttale', definition: 'en måte å si noe på', example: 'Jeg øver på uttale.' },
+        { original: 'å snakke', definition: 'å prate', example: 'Han snakker norsk.' },
+    ]);
+});
+
+test('parseCards skips noise and repeated words', () => {
+    assert.deepStrictEqual(lingu.parseCards(''), []);
+    assert.deepStrictEqual(lingu.parseCards('Substantiv\n12:45\n•'), [], 'no card without a definition or example');
+    const twice = lingu.parseCards('et hus\net hus\net bygg\n"Huset er stort."\net hus\nen bolig\n"Jeg har et hus."');
+    assert.equal(twice.length, 1);
+});
+
+test('enrich adds grammar from the dictionary and translations, and works without the dictionary', async () => {
+    const card = { original: 'en uttale', definition: 'en måte å si noe på', example: 'Jeg øver på uttale.' };
+    const tr = async (s) => ({ 'en uttale': 'произношение', 'Jeg øver på uttale.': 'Я практикую произношение.' })[s] || '';
+    const withDict = await lingu.enrich(card, {
+        lookup: async () => ({ original: 'uttale', pos: 'noun', gender: 'm', forms: { defSg: 'uttalen' } }), tr,
+    });
+    assert.deepStrictEqual(
+        [withDict.original, withDict.pos, withDict.gender, withDict.forms.defSg, withDict.translate, withDict.exampleTranslate],
+        ['uttale', 'noun', 'm', 'uttalen', 'произношение', 'Я практикую произношение.']);
+    const offline = await lingu.enrich({ original: 'ei bok', definition: '', example: '' }, {
+        lookup: async () => { throw new Error('offline'); }, tr: async () => '',
+    });
+    assert.deepStrictEqual([offline.original, offline.pos, offline.gender, offline.inDictionary], ['bok', 'noun', 'f', false],
+        'the article still gives part of speech and gender');
+});
+
+test('POST /api/import/screenshot rejects anything that is not an image', async () => {
+    await request(app).post('/api/import/screenshot').set('Content-Type', 'text/plain').send('hei').expect(415);
+});
+
+test('POST /api/import/screenshot reports an OCR failure', async () => {
+    process.env.TESSERACT_BIN = path.join(__dirname, 'fixtures', 'fake-tesseract.js');
+    process.env.FAKE_OCR_FAIL = '1';
+    try {
+        const res = await request(app).post('/api/import/screenshot')
+            .set('Content-Type', 'image/png').send(Buffer.from('not really a png')).expect(500);
+        assert.match(res.body.error, /распознать/);
+    } finally {
+        delete process.env.TESSERACT_BIN;
+        delete process.env.FAKE_OCR_FAIL;
+    }
+});
+
+test('POST /api/import/screenshot returns no items for a picture without cards', async () => {
+    process.env.TESSERACT_BIN = path.join(__dirname, 'fixtures', 'fake-tesseract.js');
+    process.env.FAKE_OCR_TEXT = 'Substantiv\n12:45';
+    try {
+        const res = await request(app).post('/api/import/screenshot')
+            .set('Content-Type', 'image/png').send(Buffer.from('png')).expect(200);
+        assert.deepStrictEqual(res.body.items, []);
+    } finally {
+        delete process.env.TESSERACT_BIN;
+        delete process.env.FAKE_OCR_TEXT;
+    }
+});
+
+// Настоящий tesseract с норвежской моделью — на нарисованной карточке.
+// В CI он ставится в workflow (tesseract-ocr-nor).
+test('real OCR reads a Lingu-like card image', async () => {
+    const langs = execFileSync('tesseract', ['--list-langs'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    assert.match(langs, /\bnor\b/, 'the Norwegian tesseract model must be installed');
+    const text = await lingu.ocr(fs.readFileSync(path.join(__dirname, 'fixtures', 'lingu-sample.png')));
+    assert.deepStrictEqual(lingu.parseCards(text).map(c => [c.original, c.example]), [
+        ['et hus', 'Huset er stort.'],
+        ['ei bok', 'Boka er spennende.'],
+        ['å lese', 'Jeg leser en bok.'],
+    ]);
+});
+
+test('pickTranslation skips junk from the translation memory', () => {
+    // Настоящий ответ MyMemory на «å høre»: основной перевод — чужая цитата.
+    const junk = {
+        responseStatus: 200,
+        responseData: { translatedText: 'Воистину, ты не заставишь слышать мертвецов и не заставишь глухих услышать призыв, когда они обращаются вспять. [[О Мухаммад!' },
+        matches: [
+            { segment: 'Du kan ikke få døde til å høre!', translation: 'Воистину, ты не заставишь…', match: 0.37 },
+            { segment: 'å høre', translation: 'слышать', match: 0.85 },
+        ],
+    };
+    assert.equal(lingu.pickTranslation(junk, 'å høre'), 'слышать');
+    assert.equal(lingu.pickTranslation({ responseStatus: 200, responseData: { translatedText: 'hus' } }, 'hus'), '',
+        'an echo of the source is not a translation');
+    assert.equal(lingu.pickTranslation({ responseStatus: 429 }, 'hus'), '');
+    assert.equal(lingu.pickTranslation({ responseStatus: 200, responseData: { translatedText: 'Я практикую произношение.' } },
+        'Jeg øver på uttale.'), 'Я практикую произношение.');
+});
