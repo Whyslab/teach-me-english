@@ -37,6 +37,14 @@ export function renderGender(w) {
 
 // Оценивает выбор: { ok, isRight(i), feedback }.
 export function evaluateChoice(w, index) {
+    if (t.mode === 'listen') {
+        const ok = t.options[index] === w.exampleTranslate;
+        return {
+            ok,
+            isRight: (i) => t.options[i] === w.exampleTranslate,
+            feedback: ok ? '✓ Верно!' : `✗ Правильно: ${w.exampleTranslate}`,
+        };
+    }
     if (t.mode === 'quiz') {
         const ok = t.options[index] === w.translate;
         return {

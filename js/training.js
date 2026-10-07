@@ -7,12 +7,19 @@ import { displayWord, checkAnswer } from './norsk.js';
 import { $, showToast, playSound, speak, stopSpeech, prefetchSpeech } from './ui.js';
 import {
     t, word, show, requeue, tally, snapshot, restore, checksWithoutGrades,
-    CARD_MODES, CHOICE_MODES, DRILL_MODES, WRITE_MODES, MODE_LABEL, SOURCE_LABEL,
+    CARD_MODES, CHOICE_MODES, DRILL_MODES, WRITE_MODES, ITEM_MODES, EXERCISE_MODES, MODE_LABEL, SOURCE_LABEL,
 } from './session.js';
 import { renderCard, renderLinks } from './mode-card.js';
 import { genderQueue, renderQuiz, renderGender, evaluateChoice } from './mode-choice.js';
 import { formsQueue, clozeQueue, renderForms, renderCloze, revealCloze } from './mode-drill.js';
 import { showResults } from './results.js';
+import {
+    listenAvailable, listenQueue, renderListen, revealListen,
+    orderQueue, renderOrder, pickToken, unpickToken, orderComplete, orderCorrect,
+} from './mode-sentence.js';
+
+// Режимы, где звучит и показывается пример, а не само слово.
+const SENTENCE_MODES = ['cloze', 'listen', 'order'];
 
 let onFinish = () => {};
 export function onTrainingFinished(fn) { onFinish = fn; }
@@ -26,6 +33,8 @@ const EMPTY_MESSAGE = {
     gender: 'Нет существительных с указанным родом. Укажи en/ei/et при добавлении слова или загрузи колоду A1.',
     forms: 'Нет слов с формами. Заполни формы при добавлении (⚡ формы по правилу) или загрузи колоду A1.',
     cloze: 'Нет слов с примерами, в которых встречается само слово. Добавь пример или загрузи колоду A1.',
+    listen: 'Нужны хотя бы 4 слова с примером и его переводом. Загрузи колоду A1 или добавь примеры.',
+    order: 'Нет примеров длиной 3–10 слов. Загрузи колоду A1 или добавь примеры.',
     hard: 'Трудных слов нет 🎉',
     practice: 'Словарь пуст — добавь слова или загрузи колоду A1.',
     due: 'На сегодня всё повторено. Новые слова откроются завтра — а практика (кнопки ниже) доступна всегда.',
@@ -37,6 +46,8 @@ function buildQueue(mode, source) {
     if (mode === 'gender') return genderQueue();
     if (mode === 'forms') return formsQueue();
     if (mode === 'cloze') return clozeQueue();
+    if (mode === 'listen') return listenAvailable() ? listenQueue() : [];
+    if (mode === 'order') return orderQueue();
     if (source === 'hard') return practiceQueue(state.words, { only: isHard });
     if (source === 'practice') return practiceQueue(state.words);
     return selectSession(state.words, {
@@ -52,7 +63,7 @@ export function startTraining({ mode = 'cards', source = 'due' } = {}) {
         showToast('Для «Угадай из 4» нужно хотя бы 4 слова в словаре.', 'info');
         return;
     }
-    const practice = !(source === 'due' || source === 'marathon') || DRILL_MODES.includes(mode) || mode === 'gender';
+    const practice = !(source === 'due' || source === 'marathon') || EXERCISE_MODES.includes(mode);
     if (practice && source === 'due') source = 'practice';
     const queue = buildQueue(mode, source);
     if (queue.length === 0) {
@@ -100,12 +111,13 @@ function next() {
     t.flipped = false;
     t.checked = null;
     t.answered = false;
+    if (t.mode === 'order') t.current.picked = [];
     render();
     // Пока отвечаешь на этот вопрос, сервер синтезирует звук следующих.
     for (const item of t.queue.slice(0, 3)) {
-        const w = DRILL_MODES.includes(t.mode) ? item.word : item;
+        const w = ITEM_MODES.includes(t.mode) ? item.word : item;
         if (!w) continue;
-        prefetchSpeech(t.mode === 'cloze' ? w.example : displayWord(w));
+        prefetchSpeech(SENTENCE_MODES.includes(t.mode) ? w.example : displayWord(w));
     }
 }
 
@@ -131,7 +143,7 @@ function render() {
     show('tr-options', isChoice);
     show('tr-grades', t.mode === 'cards' || (isWrite && !noGrades && t.checked !== null));
     show('tr-write-btns', isWrite && t.checked === null);
-    show('tr-next-btn', (noGrades && t.checked !== null) || (isChoice && t.answered));
+    show('tr-next-btn', (noGrades && t.checked !== null) || (isChoice && t.answered) || (t.mode === 'order' && t.checked !== null));
     show('tr-back-btn', t.undo.length > 0);
     $('tr-feedback').textContent = '';
     $('tr-feedback').className = 'tr-feedback';
@@ -142,6 +154,8 @@ function render() {
     else if (t.mode === 'gender') renderGender(w);
     else if (t.mode === 'forms') renderForms();
     else if (t.mode === 'cloze') renderCloze();
+    else if (t.mode === 'listen') renderListen(w);
+    else if (t.mode === 'order') renderOrder();
     renderLinks(w);
 
     if (isWrite) {
@@ -156,9 +170,10 @@ function render() {
         setTimeout(() => input.focus(), 30);
     }
 
-    // Диктант всегда начинается со звука — это и есть вопрос.
+    // Диктант и «на слух» всегда начинаются со звука — это и есть вопрос.
     if (t.mode === 'dictation') setTimeout(() => speak(displayWord(w)), 150);
-    else if (state.settings.autoSpeak && !['write-ru-no', 'gender', 'cloze'].includes(t.mode)) {
+    else if (t.mode === 'listen') setTimeout(() => speak(w.example), 150);
+    else if (state.settings.autoSpeak && !['write-ru-no', 'gender', 'cloze', 'order'].includes(t.mode)) {
         setTimeout(() => speak(displayWord(w)), 150);
     }
 }
@@ -302,10 +317,45 @@ function choose(index) {
     tally(ok, w);
     playSound(ok ? 'correct' : 'wrong');
     if (ok) t.queue.shift(); else requeue(w);
-    speak(displayWord(w));
     show('tr-next-btn', true);
     renderLinks(w);
+    if (t.mode === 'listen') {
+        // Предложение надо дослушать и прочитать — дальше только по Enter.
+        revealListen();
+        speak(w.example);
+        return;
+    }
+    speak(displayWord(w));
     t.autoNext = setTimeout(advance, ok ? 1100 : 2600);
+}
+
+// «Собери предложение»: выбор слова, отмена, проверка.
+function pick(idx) {
+    if (!t.active || t.mode !== 'order' || !pickToken(idx)) return;
+    renderOrder();
+    if (orderComplete()) checkOrder();
+}
+
+function unpick(pos) {
+    if (!t.active || t.mode !== 'order' || !unpickToken(pos)) return;
+    renderOrder();
+}
+
+function checkOrder() {
+    const w = word();
+    const ok = orderCorrect();
+    t.checked = ok ? 'correct' : 'wrong';
+    pushUndo();
+    tally(ok, w);
+    playSound(ok ? 'correct' : 'wrong');
+    if (ok) t.queue.shift(); else requeue(t.current);
+    renderOrder();
+    const fb = $('tr-feedback');
+    fb.textContent = ok ? '✅ Верно!' : '❌ Порядок другой — правильно так:';
+    fb.className = `tr-feedback ${ok ? 'ok' : 'bad'}`;
+    speak(w.example);
+    show('tr-next-btn', true);
+    renderLinks(w);
 }
 
 function advance() {
@@ -337,7 +387,8 @@ function cycleMode() {
 function speakCurrent() {
     const w = word();
     if (!w) return;
-    speak(t.mode === 'cloze' && t.checked !== null ? w.example : displayWord(w));
+    const sentence = t.mode === 'listen' || (SENTENCE_MODES.includes(t.mode) && t.checked !== null);
+    speak(sentence ? w.example : displayWord(w));
 }
 
 // ---------------------------------------------------------------------------
@@ -352,6 +403,15 @@ export function handleTrainingKey(e) {
     const writing = WRITE_MODES.includes(t.mode) && !checksWithoutGrades();
     if ((e.code === 'Space' || e.key === 'Enter') && t.mode === 'cards') { flip(); return true; }
     if (e.key === 'Enter' && CHOICE_MODES.includes(t.mode) && t.answered) { advance(); return true; }
+    if (t.mode === 'order') {
+        if (e.key === 'Enter' && t.checked !== null) { advance(); return true; }
+        if (/^[1-9]$/.test(e.key)) { pick(Number(e.key) - 1); return true; }
+        // Backspace — убрать последнее слово; когда убирать нечего — обычная отмена ответа.
+        if (e.key === 'Backspace' && t.checked === null && t.current.picked.length) {
+            unpick(t.current.picked.length - 1);
+            return true;
+        }
+    }
     if (e.key === 'Enter' && WRITE_MODES.includes(t.mode) && t.checked !== null) { checkWritten(); return true; }
     if (/^[1-4]$/.test(e.key)) {
         const n = Number(e.key);
@@ -405,6 +465,10 @@ export const trainingActions = {
     'start-gender'() { startTraining({ mode: 'gender' }); },
     'start-forms'() { startTraining({ mode: 'forms' }); },
     'start-cloze'() { startTraining({ mode: 'cloze' }); },
+    'start-listen'() { startTraining({ mode: 'listen' }); },
+    'start-order'() { startTraining({ mode: 'order' }); },
+    'tr-pick'(el) { pick(Number(el.dataset.index)); },
+    'tr-unpick'(el) { unpick(Number(el.dataset.index)); },
     'stop-training'() { stopTraining(); },
     'flip'() { flip(); },
     'grade'(el) { grade(Number(el.dataset.grade)); },

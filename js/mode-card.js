@@ -64,6 +64,9 @@ export function renderLinks(w) {
     else if (t.mode === 'gender' && !t.answered) conceal = 'links';
     else if (t.mode === 'dictation' && t.checked === null) conceal = 'links';
     else if (t.mode === 'cloze' && t.checked === null) conceal = 'all';
+    else if (t.mode === 'order' && t.checked === null) conceal = 'all';
+    // «На слух»: прослушать ещё раз можно, а словарь по слову подсказал бы смысл.
+    else if (t.mode === 'listen' && !t.answered) conceal = 'links';
     else if (t.mode === 'cards' && !t.noFront && !t.flipped) conceal = 'all';
     $('tr-links').dataset.conceal = conceal;
 }

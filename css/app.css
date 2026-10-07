@@ -293,6 +293,22 @@ select { width: auto; cursor: pointer; padding: 8px 12px; }
 .prompt-sentence .gap.filled { border-bottom-color: var(--green); color: var(--green); }
 .prompt-label { color: var(--text-3); font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; margin: 4px 0; }
 .prompt-label em { font-style: normal; text-transform: none; }
+.listen-btn { all: unset; cursor: pointer; font-size: 2.4rem; padding: 8px 18px; border-radius: var(--r-lg); }
+.listen-btn:hover { background: var(--accent-dim); }
+.order-line {
+    display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center;
+    min-height: 52px; margin: 14px 0 10px; padding: 8px; border: 2px dashed var(--border); border-radius: var(--r-md);
+}
+.order-empty { color: var(--text-3); font-size: 12px; }
+.order-pool { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.order-token {
+    all: unset; position: relative; cursor: pointer; padding: 9px 14px 9px 18px; border-radius: var(--r-md);
+    background: var(--bg-3); border: 1px solid var(--border); font-size: 16px; font-weight: 600;
+}
+.order-token.placed { background: var(--accent-dim); border-color: var(--accent); padding-left: 14px; }
+.order-token:hover { border-color: var(--accent); }
+.order-token .opt-key { top: 2px; left: 5px; font-size: 9px; }
+.order-answer { margin-top: 12px; color: var(--green); }
 
 #tr-links { display: flex; gap: 6px; justify-content: center; transition: opacity 0.2s; }
 /* До ответа ссылки выдали бы слово: all — скрыть всё, links — только словари. */

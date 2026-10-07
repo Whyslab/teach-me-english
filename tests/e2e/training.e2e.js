@@ -169,3 +169,56 @@ test('practice modes are tucked away until opened, and the choice is remembered'
     assert.ok(await page.isVisible('[data-action="start-quiz"]'), 'stays open after a reload');
     await context.close();
 });
+
+test('listening: a sentence plays, the translation is chosen, then the sentence is shown', async () => {
+    const { page, context, errors } = await openApp(browser, server);
+    await page.click('[data-action="start-listen"]');
+    await page.waitForFunction(() => window.__played.length > 0);
+    const heard = (await page.evaluate(() => window.__played))[0];
+    assert.ok(heard.split(' ').length >= 2, `a whole sentence is played: «${heard}»`);
+    assert.equal(await page.isVisible('#listen-sentence'), false, 'the text is hidden until the answer');
+    const right = await page.evaluate((s) => JSON.parse(localStorage.getItem('myWords')).find(w => w.example === s).exampleTranslate, heard);
+    const options = await page.$$eval('#tr-options .quiz-option', bs => bs.map(b => b.textContent.slice(1)));
+    await page.keyboard.press(String(options.indexOf(right) + 1));
+    assert.match(await page.textContent('#tr-feedback'), /Верно/);
+    assert.ok(await page.isVisible('#listen-sentence'));
+    assert.equal(await page.textContent('#tr-source'), '🧘 Практика — расписание не меняется');
+    assert.deepStrictEqual(errors, []);
+    await page.keyboard.press('Escape');
+    await context.close();
+});
+
+test('sentence order: picking the words in the right order is correct, a wrong order is not', async () => {
+    const { page, context, errors } = await openApp(browser, server);
+    await page.click('[data-action="start-order"]');
+    const answerFor = () => page.evaluate(() => {
+        const label = document.querySelector('#tr-prompt .prompt-sub')?.textContent;
+        const w = JSON.parse(localStorage.getItem('myWords')).find(x => x.exampleTranslate === label);
+        const pool = [...document.querySelectorAll('.order-pool .order-token')].map(b => b.lastChild.textContent);
+        return { example: w.example, pool };
+    });
+    const { orderTokens } = await import('../../js/norsk.js');
+    // Правильно.
+    let { example, pool } = await answerFor();
+    const answer = orderTokens(example);
+    const used = new Set();
+    for (const tok of answer) {
+        const i = pool.findIndex((p, k) => !used.has(k) && p.toLowerCase() === tok.toLowerCase());
+        used.add(i);
+        await page.click(`.order-pool [data-index="${i}"]`);
+    }
+    assert.match(await page.textContent('#tr-feedback'), /Верно/);
+    await page.keyboard.press('Enter');
+    // Неправильно: слова в выданном (перемешанном) порядке, но первое — последним.
+    ({ pool } = await answerFor());
+    const order = [...pool.keys()];
+    order.push(order.shift());
+    for (const i of order) await page.click(`.order-pool [data-index="${i}"]`);
+    const fb = await page.textContent('#tr-feedback');
+    // Перемешанный порядок мог случайно совпасть с правильным — тогда «верно» честно.
+    assert.match(fb, /Верно|Порядок другой/);
+    assert.ok(await page.isVisible('.order-answer'), 'the right sentence is shown after the check');
+    assert.deepStrictEqual(errors, []);
+    await page.keyboard.press('Escape');
+    await context.close();
+});

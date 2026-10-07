@@ -7,12 +7,17 @@ import { $ } from './ui.js';
 // Режимы одной карточной сессии — между ними переключает кнопка режима.
 // Оценка в них идёт по SM-2 и двигает расписание.
 export const CARD_MODES = ['cards', 'write-no-ru', 'write-ru-no', 'dictation'];
-// Выбор варианта: «угадай из 4» (двигает SM-2) и «угадай род» (упражнение).
-export const CHOICE_MODES = ['quiz', 'gender'];
+// Выбор варианта: «угадай из 4» (двигает SM-2), «угадай род» и «понимание
+// на слух» (упражнения).
+export const CHOICE_MODES = ['quiz', 'gender', 'listen'];
 // Упражнения с вводом: формы слова и пропуск в предложении. Расписание не трогают.
 export const DRILL_MODES = ['forms', 'cloze'];
 // Режимы с полем ввода.
 export const WRITE_MODES = ['write-no-ru', 'write-ru-no', 'dictation', ...DRILL_MODES];
+// Режимы, где элемент очереди — вопрос { word, … }, а не само слово.
+export const ITEM_MODES = [...DRILL_MODES, 'order'];
+// Режимы, которые всегда практика: расписание не трогают.
+export const EXERCISE_MODES = [...DRILL_MODES, 'gender', 'listen', 'order'];
 
 export const MODE_LABEL = {
     'cards': '🎴 Карточки',
@@ -23,6 +28,8 @@ export const MODE_LABEL = {
     'gender': '🏷 Угадай род: en / ei / et',
     'forms': '🔤 Формы слов',
     'cloze': '🧩 Пропуск в предложении',
+    'listen': '👂 Понимание на слух',
+    'order': '🧱 Собери предложение',
 };
 export const SOURCE_LABEL = {
     due: '',
@@ -61,9 +68,9 @@ export function checksWithoutGrades() {
     return DRILL_MODES.includes(t.mode) || (t.practice && WRITE_MODES.includes(t.mode));
 }
 
-// В упражнениях элемент очереди — вопрос { word, … }, в остальных — само слово.
+// В упражнениях с вопросами элемент очереди — { word, … }, в остальных — само слово.
 export function word() {
-    return DRILL_MODES.includes(t.mode) ? t.current?.word : t.current;
+    return ITEM_MODES.includes(t.mode) ? t.current?.word : t.current;
 }
 
 export function show(id, visible) {

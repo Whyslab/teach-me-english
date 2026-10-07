@@ -315,6 +315,16 @@ test('selectSession pauses new words while the review backlog is large', async (
     assert.equal(selectSession(words, { now, newLimit: 15, pauseNewAt: 30, ignoreLimit: true }).fresh.length, 5, 'the marathon ignores it');
 });
 
+test('orderTokens strips punctuation and hides the capital of the first word', async () => {
+    const { orderTokens, sameOrder } = await load('norsk.js');
+    assert.deepStrictEqual(orderTokens('I dag går jeg på jobb.'), ['i', 'dag', 'går', 'jeg', 'på', 'jobb']);
+    assert.deepStrictEqual(orderTokens('«Hva heter du?»'), ['hva', 'heter', 'du']);
+    assert.deepStrictEqual(orderTokens('NAV, hjelper deg!'), ['NAV', 'hjelper', 'deg'], 'an abbreviation keeps its capitals');
+    assert.ok(sameOrder(['Jeg', 'bor', 'her'], ['jeg', 'bor', 'her']));
+    assert.ok(!sameOrder(['bor', 'jeg', 'her'], ['jeg', 'bor', 'her']));
+    assert.ok(!sameOrder(['jeg', 'bor'], ['jeg', 'bor', 'her']));
+});
+
 // ---------------------------------------------------------------------------
 // sync.js
 // ---------------------------------------------------------------------------

@@ -233,6 +233,30 @@ export function makeCloze(word) {
 }
 
 // ---------------------------------------------------------------------------
+// «Собери предложение»
+// ---------------------------------------------------------------------------
+// Слова предложения без знаков препинания. Первое слово — со строчной буквы:
+// заглавная сразу выдала бы, с чего начинается предложение, а весь смысл
+// упражнения — порядок слов (I dag går jeg, а не I dag jeg går).
+export function orderTokens(sentence) {
+    const words = String(sentence || '').trim().split(/\s+/)
+        .map(w => w.replace(/^[«"'(\[]+|[.,!?:;…»"')\]]+$/gu, ''))
+        .filter(Boolean);
+    const first = words[0];
+    if (first && first.slice(1) === first.slice(1).toLowerCase()) {
+        words[0] = first.charAt(0).toLowerCase() + first.slice(1);
+    }
+    return words;
+}
+
+// Совпадает ли собранный порядок с правильным. Одинаковые слова
+// взаимозаменяемы, регистр не важен.
+export function sameOrder(picked, answer) {
+    const norm = (list) => list.map(w => String(w).toLowerCase()).join(' ');
+    return picked.length === answer.length && norm(picked) === norm(answer);
+}
+
+// ---------------------------------------------------------------------------
 // Словари
 // ---------------------------------------------------------------------------
 export function lookupUrls(original) {
