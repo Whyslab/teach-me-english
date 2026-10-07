@@ -84,7 +84,7 @@ eple|яблоко
 | `POST` | `/api/words/batch` | Incremental sync: `{upserts, deletes}` — only changed words |
 | `POST` | `/api/sync` | Replace the deck with the client's copy (queued, transactional) |
 | `GET` | `/api/state` | Settings and answers per day, shared by all devices |
-| `POST` | `/api/state` | `{settings, activity, replaceActivity?}` → merged state: newer settings win (`updatedAt`), activity takes the per-day maximum |
+| `POST` | `/api/state` | `{settings, activity, activityEpoch}` → merged state: newer settings win (`updatedAt`); activity takes the per-day maximum, a newer `activityEpoch` (reset/restore) replaces it, an older one is ignored |
 | `GET` | `/api/tts?text=…&rate=…` | Norwegian speech as WAV (Piper), cached in `tts-cache/` |
 | `GET` | `/api/tts/status` | Whether Piper is installed and which mode (worker / CLI) is used |
 | `GET` | `/api/tatoeba?word=…` | Bokmål → Russian example sentences (CORS proxy) |

@@ -19,6 +19,7 @@ export const state = {
     words: [],
     settings: { ...DEFAULT_SETTINGS },
     activity: {},       // { 'YYYY-MM-DD': ответов } — общий с сервером, из него считается серия
+    activityEpoch: 0,   // время последнего сброса активности (см. POST /api/state)
     loaded: false,
     lastSyncError: null,
 };
@@ -68,6 +69,7 @@ export function loadLocal() {
     if (!stored) state.settings.updatedAt = 0;
     else if (!('updatedAt' in stored)) state.settings.updatedAt = Date.now();
     state.activity = read('dailyActivity', {}) || {};
+    state.activityEpoch = Number(read('activityEpoch', 0)) || 0;
     const words = read('myWords', []);
     state.words = Array.isArray(words) ? words.map(normalizeWord) : [];
     for (const k of LEGACY_KEYS) {
@@ -89,10 +91,16 @@ export function migrateSettings(s) {
 
 // Изменение настроек пользователем: время правки решает, чьи настройки
 // новее — этого устройства или сервера.
-export function saveSettings() {
-    state.settings.updatedAt = Date.now();
+// shared = false — правка, которую не надо раздавать другим устройствам
+// (звук, последнее направление письма). Иначе устройство, давно не
+// видевшее сервер, перезаписало бы общие настройки своими старыми,
+// просто потому что у его правки время новее.
+export function saveSettings({ shared = true } = {}) {
+    if (shared) state.settings.updatedAt = Date.now();
     write('settings', state.settings);
-    scheduleStatePush();
+    // Сразу, без задержки: настройки меняются редко, а вкладку после
+    // «Сохранить» часто закрывают — отложенная отправка не успела бы.
+    if (shared && state.loaded) pushState().catch(() => scheduleStatePush());
 }
 export function saveActivity() {
     write('dailyActivity', state.activity);
@@ -196,14 +204,52 @@ export async function loadFromServer() {
     }
 }
 
+// Обновление при возврате на вкладку (телефон держит приложение открытым
+// днями). В отличие от loadFromServer при старте, приложение в этот момент
+// живое: пока идёт запрос, можно ответить, поправить слово или начать
+// тренировку. Поэтому серверная копия принимается, только если за время
+// запроса слова не менялись, всё отправлено и isBusy() ложно; иначе
+// обновление просто пропускается — следующее возвращение повторит попытку.
+export async function refreshFromServer(isBusy = () => false) {
+    if (!state.loaded) return false;
+    try {
+        await syncNow();
+        if (syncing || !isEmpty(pendingChanges())) return false;
+        const gen = wordsGen;
+        const res = await api('/api/words');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) return false;
+        if (gen !== wordsGen || isBusy() || syncing || !isEmpty(pendingChanges())) return false;
+        state.words = data.map(normalizeWord);
+        write('myWords', state.words);
+        rememberServerState(state.words);
+        persistPending(pendingChanges());
+        try {
+            await pushState();
+        } catch (e) {
+            console.warn('Состояние не синхронизировано:', e);
+        }
+        state.lastSyncError = null;
+        return true;
+    } catch (e) {
+        state.lastSyncError = e;
+        return false;
+    }
+}
+
 let syncTimer = null;
 let syncing = null;
+// Растёт при каждом изменении слов — так refreshFromServer видит, что слова
+// поменялись, пока шёл запрос.
+let wordsGen = 0;
 let onSyncResult = () => {};
 export function setSyncResultHandler(fn) { onSyncResult = fn; }
 
 // Сохраняет словарь локально сразу, на сервер — с задержкой, одним запросом
 // на серию быстрых изменений.
 export function saveWords() {
+    wordsGen++;
     if (!state.loaded) return;
     write('myWords', state.words);
     persistPending(pendingChanges());
@@ -297,12 +343,24 @@ function statePayload(extra = {}) {
         const v = Math.round(Number(n));
         if (/^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(v) && v > 0) activity[day] = Math.min(v, 100000);
     }
-    return { settings, activity, ...extra };
+    return { settings, activity, activityEpoch: state.activityEpoch, ...extra };
 }
 
+// Активность: если на сервере был сброс новее нашего — берём серверную как
+// есть, иначе максимум по дням. Просто принять серверную нельзя: ответ,
+// данный, пока запрос был в пути, пропал бы.
 function adoptState(remote) {
     if (remote.activity && typeof remote.activity === 'object') {
-        state.activity = remote.activity;
+        const epoch = Number(remote.activityEpoch) || 0;
+        if (epoch > state.activityEpoch) {
+            state.activity = { ...remote.activity };
+            state.activityEpoch = epoch;
+            write('activityEpoch', epoch);
+        } else {
+            for (const [day, n] of Object.entries(remote.activity)) {
+                state.activity[day] = Math.max(Number(state.activity[day]) || 0, Number(n) || 0);
+            }
+        }
         write('dailyActivity', state.activity);
     }
     const s = remote.settings;
@@ -320,7 +378,18 @@ function scheduleStatePush() {
     statePushTimer = setTimeout(() => pushState().catch(() => {}), 2000);
 }
 
-// Отправляет своё, получает слияние. replaceActivity — сброс и восстановление.
+// Сброс или восстановление активности: новая эпоха. Сервер заменит свою
+// активность нашей, а устройства со старой эпохой перестанут её возвращать.
+// Если сервер сейчас недоступен — эпоха сохранена и уйдёт со следующей отправкой.
+export function replaceActivity(activity) {
+    state.activity = { ...activity };
+    state.activityEpoch = Date.now();
+    write('activityEpoch', state.activityEpoch);
+    write('dailyActivity', state.activity);
+    return pushState().catch(() => {});
+}
+
+// Отправляет своё, получает слияние.
 export async function pushState(extra = {}) {
     clearTimeout(statePushTimer);
     statePushTimer = null;

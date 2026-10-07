@@ -494,3 +494,60 @@ test('speech is Norwegian and the removed features stay removed', () => {
         assert.ok(!html.includes(needle), `index.html mentions ${needle}`);
     }
 });
+
+// ---------------------------------------------------------------------------
+// store.js: обновление при возврате на вкладку
+// ---------------------------------------------------------------------------
+// Приложение живое, пока идёт запрос: ответ или правка в это время не должны
+// затереться серверной копией.
+test('refreshFromServer keeps local changes made while the request was in flight', async () => {
+    const mem = new Map();
+    globalThis.localStorage = {
+        getItem: (k) => (mem.has(k) ? mem.get(k) : null),
+        setItem: (k, v) => mem.set(k, String(v)),
+        removeItem: (k) => mem.delete(k),
+    };
+    let release;
+    let serverWords = [{ id: 1, original: 'hus', translate: 'дом (с сервера)' }];
+    globalThis.fetch = async (url) => {
+        const json = (body) => ({ ok: true, json: async () => body });
+        if (url === '/api/words') {
+            await new Promise((r) => { release = r; });
+            return json(serverWords);
+        }
+        if (url === '/api/state') return json({ activity: {}, activityEpoch: 0, settings: null });
+        return json({ status: 'success' });
+    };
+    const store = await load('store.js');
+    const { state } = store;
+    state.words = [{ id: 1, original: 'hus', translate: 'дом' }];
+    state.loaded = true;
+    await store.syncNow();
+
+    // 1. Пока GET в пути, слово правят.
+    const p1 = store.refreshFromServer();
+    await new Promise((r) => setTimeout(r, 10));
+    state.words[0].translate = 'дом (правка)';
+    store.saveWords();
+    release();
+    assert.equal(await p1, false);
+    assert.equal(state.words[0].translate, 'дом (правка)', 'the local edit survives');
+    await store.syncNow();
+
+    // 2. Пока GET в пути, началась тренировка.
+    const p2 = store.refreshFromServer(() => true);
+    await new Promise((r) => setTimeout(r, 10));
+    release();
+    assert.equal(await p2, false);
+    assert.equal(state.words[0].translate, 'дом (правка)');
+
+    // 3. Ничего не менялось — берётся серверная копия.
+    serverWords = [{ id: 1, original: 'hus', translate: 'дом (с сервера)' }];
+    const p3 = store.refreshFromServer();
+    await new Promise((r) => setTimeout(r, 10));
+    release();
+    assert.equal(await p3, true);
+    assert.equal(state.words[0].translate, 'дом (с сервера)');
+    delete globalThis.fetch;
+    delete globalThis.localStorage;
+});

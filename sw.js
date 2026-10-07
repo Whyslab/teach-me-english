@@ -42,16 +42,13 @@ self.addEventListener('fetch', event => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // Озвучку не трогаем: аудио грузится частичными ответами (206), их нельзя
-    // положить в Cache Storage. Сервер отдаёт её с immutable, и браузерный
-    // HTTP-кеш сам хранит уже прослушанные слова.
-    if (url.pathname.startsWith('/api/tts')) return;
-
-    // API запросы — Network First, fallback null
-    if (url.pathname.startsWith('/api/')) {
-        event.respondWith(networkFirst(request));
-        return;
-    }
+    // API не перехватываем. Раньше GET /api/words без сети отдавался из кеша —
+    // копией, снятой при прошлой загрузке, возможно дни назад; приложение
+    // принимало её за свежую серверную и при следующем ответе затирало ею
+    // новые данные на сервере. Без сети приложение и так работает со своей
+    // копией в localStorage. Озвучку браузер кеширует сам (сервер отдаёт её
+    // с immutable), а частичные ответы 206 в Cache Storage не кладутся.
+    if (url.pathname.startsWith('/api/')) return;
 
     // Google Fonts — Cache First (долгоживущие)
     if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
@@ -86,24 +83,6 @@ async function cacheFirst(request, cacheName = CACHE_STATIC) {
         return response;
     } catch {
         return new Response('Нет соединения', { status: 503 });
-    }
-}
-
-// Network First: сначала сеть, при ошибке — кеш
-async function networkFirst(request) {
-    try {
-        const response = await fetch(request);
-        if (response.ok) {
-            const cache = await caches.open(CACHE_DYNAMIC);
-            cache.put(request, response.clone());
-        }
-        return response;
-    } catch {
-        const cached = await caches.match(request);
-        return cached || new Response(JSON.stringify({ error: 'offline' }), {
-            headers: { 'Content-Type': 'application/json' },
-            status: 503
-        });
     }
 }
 

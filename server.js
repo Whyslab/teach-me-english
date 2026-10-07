@@ -495,8 +495,12 @@ app.post('/api/sync', async (req, res) => {
 // POST /api/state присылает то, что знает браузер, и получает слияние:
 // активность — максимум по каждому дню (каждое устройство считает свои
 // ответы, сумма посчитала бы одни и те же дважды при повторной отправке),
-// настройки — более поздние по updatedAt. replaceActivity — для сброса
-// прогресса и восстановления из бэкапа, где максимум вернул бы старое.
+// настройки — более поздние по updatedAt.
+//
+// activityEpoch — время последнего сброса активности (сброс прогресса,
+// восстановление из бэкапа). Пришла эпоха новее серверной — активность
+// заменяется присланной; старше — присланное игнорируется (это устройство
+// ещё не знает о сбросе и вернуло бы старые дни); равная — максимум по дням.
 // ---------------------------------------------------------------------------
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_ACTIVITY_DAYS = 5000;
@@ -514,11 +518,12 @@ function validSettings(s) {
 
 async function readState() {
     const rows = await all('SELECT key, value FROM app_state');
-    const out = { settings: null, activity: {} };
+    const out = { settings: null, activity: {}, activityEpoch: 0 };
     for (const { key, value } of rows) {
         try {
             if (key === 'settings') out.settings = JSON.parse(value);
             if (key === 'activity') out.activity = JSON.parse(value);
+            if (key === 'activityEpoch') out.activityEpoch = Number(JSON.parse(value)) || 0;
         } catch { /* битое значение — как будто его нет */ }
     }
     return out;
@@ -533,7 +538,10 @@ app.get('/api/state', async (req, res) => {
 });
 
 app.post('/api/state', async (req, res) => {
-    const { settings, activity, replaceActivity = false } = req.body ?? {};
+    const { settings, activity, activityEpoch = 0 } = req.body ?? {};
+    if (typeof activityEpoch !== 'number' || !Number.isFinite(activityEpoch) || activityEpoch < 0) {
+        return res.status(400).json({ error: 'Invalid activityEpoch' });
+    }
     if (settings !== undefined && !validSettings(settings)) {
         return res.status(400).json({ error: 'Invalid settings' });
     }
@@ -544,18 +552,22 @@ app.post('/api/state', async (req, res) => {
     // перемешаться с соседним запросом.
     const job = writeQueue.then(async () => {
         const cur = await readState();
-        if (activity) {
-            const merged = replaceActivity ? {} : { ...cur.activity };
+        const put = (key, value) => run(
+            'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+            [key, JSON.stringify(value)]);
+        if (activity && activityEpoch >= cur.activityEpoch) {
+            const merged = activityEpoch > cur.activityEpoch ? {} : { ...cur.activity };
             for (const [day, n] of Object.entries(activity)) merged[day] = Math.max(merged[day] || 0, n);
-            if (replaceActivity) for (const day of Object.keys(merged)) if (!merged[day]) delete merged[day];
             cur.activity = merged;
-            await run('INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-                ['activity', JSON.stringify(merged)]);
+            await put('activity', merged);
+            if (activityEpoch > cur.activityEpoch) {
+                cur.activityEpoch = activityEpoch;
+                await put('activityEpoch', activityEpoch);
+            }
         }
         if (settings && (!cur.settings || (Number(settings.updatedAt) || 0) > (Number(cur.settings.updatedAt) || 0))) {
             cur.settings = settings;
-            await run('INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-                ['settings', JSON.stringify(settings)]);
+            await put('settings', settings);
         }
         return cur;
     });

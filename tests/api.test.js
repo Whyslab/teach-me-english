@@ -431,10 +431,17 @@ test('POST /api/state merges activity by the maximum per day', async () => {
     assert.equal(again.body.activity['2026-10-02'], 7, 'sending the same day twice does not double it');
 });
 
-test('POST /api/state with replaceActivity resets the counts', async () => {
-    const res = await request(app).post('/api/state').send({ activity: {}, replaceActivity: true }).expect(200);
+test('POST /api/state: a newer activityEpoch resets the counts, an older one cannot bring them back', async () => {
+    const res = await request(app).post('/api/state').send({ activity: {}, activityEpoch: 5000 }).expect(200);
     assert.deepStrictEqual(res.body.activity, {});
-    assert.deepStrictEqual((await request(app).get('/api/state').expect(200)).body.activity, {});
+    assert.equal(res.body.activityEpoch, 5000);
+    // Устройство, не знающее о сбросе, присылает старые дни.
+    const stale = await request(app).post('/api/state').send({ activity: { '2026-10-01': 12 }, activityEpoch: 0 }).expect(200);
+    assert.deepStrictEqual(stale.body.activity, {}, 'old days are ignored');
+    assert.equal(stale.body.activityEpoch, 5000, 'and the device learns about the reset');
+    const fresh = await request(app).post('/api/state').send({ activity: { '2026-10-08': 3 }, activityEpoch: 5000 }).expect(200);
+    assert.deepStrictEqual(fresh.body.activity, { '2026-10-08': 3 });
+    await request(app).post('/api/state').send({ activity: {}, activityEpoch: -1 }).expect(400);
 });
 
 test('POST /api/state keeps the newer settings', async () => {

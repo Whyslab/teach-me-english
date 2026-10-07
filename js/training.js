@@ -175,6 +175,9 @@ export function grade(quality) {
     if (!t.active || t.busy || !CARD_MODES.includes(t.mode)) return;
     const w = word();
     if (!w) return;
+    // В письме «верно, но без æ ø å» — это «помню, но с ошибкой»: и Enter,
+    // и кнопка «Помню» дают одно и то же (интервал вдвое короче).
+    if (quality === 2 && t.checked === 'letters') quality = 1;
     t.busy = true;
     pushUndo();
 
@@ -323,7 +326,7 @@ function cycleMode() {
     t.mode = CARD_MODES[(CARD_MODES.indexOf(t.mode) + 1) % CARD_MODES.length];
     if (t.mode === 'write-no-ru' || t.mode === 'write-ru-no') {
         state.settings.spellingDir = t.mode === 'write-ru-no' ? 'ru-no' : 'no-ru';
-        saveSettings();
+        saveSettings({ shared: false });
     }
     t.checked = null;
     t.flipped = false;

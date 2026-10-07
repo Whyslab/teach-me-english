@@ -1,5 +1,5 @@
 // Импорт, экспорт, бэкап, восстановление и встроенные колоды A1/A2.
-import { state, saveWords, saveActivity, syncNow, pushState } from './store.js';
+import { state, saveWords, syncNow, replaceActivity } from './store.js';
 import { normalizeWord } from './srs.js';
 import { parseImport, enrichFromDeck, toTxtLine, toCsv, toAnki } from './format.js';
 import { downloadFile, dateStamp, plural } from './util.js';
@@ -130,11 +130,7 @@ async function restore(file) {
     if (!ok) return;
     state.words = words;
     // Серия считается из активности; старое поле streak в бэкапе не нужно.
-    if (data.activity && typeof data.activity === 'object') {
-        state.activity = data.activity;
-        saveActivity();
-        await pushState({ replaceActivity: true }).catch(() => {});
-    }
+    if (data.activity && typeof data.activity === 'object') await replaceActivity(data.activity);
     saveWords();
     await syncNow();
     renderList();

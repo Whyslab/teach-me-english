@@ -6,7 +6,7 @@
 // внутрь JS-кода в атрибутах — именно там аудит нашёл XSS.
 import {
     state, loadLocal, loadFromServer, saveWords, saveSettings, setSyncResultHandler,
-    setWriteErrorHandler, hasPendingSync, beaconPayload, stateBeaconPayload, pushState, syncNow,
+    setWriteErrorHandler, hasPendingSync, beaconPayload, stateBeaconPayload, replaceActivity, refreshFromServer,
 } from './store.js';
 import { normalizeWord } from './srs.js';
 import { stripParticle } from './norsk.js';
@@ -149,7 +149,7 @@ const actions = {
     'close-modal'(el) { el.closest('.modal-overlay')?.classList.remove('open'); },
     'toggle-mute'() {
         state.settings.muted = !state.settings.muted;
-        saveSettings();
+        saveSettings({ shared: false });
         renderMute();
         if (state.settings.muted) window.speechSynthesis?.cancel();
     },
@@ -160,10 +160,9 @@ const actions = {
         for (const w of state.words) {
             Object.assign(w, { level: 0, nextReview: now, forgetStep: 0, sm2Reps: 0, sm2Interval: 1, sm2EF: 2.5, history: [] });
         }
-        state.activity = {};
-        localStorage.setItem('dailyActivity', '{}');
-        // Иначе сервер при слиянии вернул бы старую активность (берётся максимум).
-        pushState({ replaceActivity: true }).catch(() => {});
+        // Новая эпоха: иначе сервер и другие устройства вернули бы старую
+        // активность при слиянии (берётся максимум).
+        replaceActivity({});
         saveWords();
         renderAll();
         showToast('Прогресс сброшен', 'warning');
@@ -330,8 +329,10 @@ window.addEventListener('pagehide', () => {
     const body = hasPendingSync() ? beaconPayload() : null;
     const stateBody = stateBeaconPayload();
     try {
-        if (body) navigator.sendBeacon?.('/api/words/batch', new Blob([body], { type: 'application/json' }));
+        // Состояние маленькое — первым: у браузера общий лимит на beacon'ы
+        // около 64 КБ, и после большого пакета слов оно могло бы не влезть.
         if (stateBody) navigator.sendBeacon?.('/api/state', new Blob([stateBody], { type: 'application/json' }));
+        if (body) navigator.sendBeacon?.('/api/words/batch', new Blob([body], { type: 'application/json' }));
     } catch { /* ignore */ }
 });
 
@@ -342,10 +343,8 @@ let hiddenAt = 0;
 document.addEventListener('visibilitychange', async () => {
     if (document.hidden) { hiddenAt = Date.now(); return; }
     if (!state.loaded || isTraining() || Date.now() - hiddenAt < 60_000) return;
-    await syncNow();
-    await loadFromServer();
-    // Пока ждали сервер, могла начаться тренировка — её слова не трогаем.
-    if (!isTraining()) {
+    // Пока ждём сервер, могла начаться тренировка — тогда её слова не трогаем.
+    if (await refreshFromServer(isTraining)) {
         applyTheme();
         renderAll();
     }
