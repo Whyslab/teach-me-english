@@ -1,5 +1,5 @@
 // Статистика: стрик, графики боковой панели, прогноз, окна статистики и истории.
-import { state, displayedStreak } from './store.js';
+import { state, streakDays, answersToday } from './store.js';
 import { isNew, isHard } from './srs.js';
 import { escapeHtml, toDayKey, DAY_MS } from './util.js';
 import { displayWord } from './norsk.js';
@@ -8,8 +8,8 @@ import { findWord } from './list.js';
 
 export function renderStreak() {
     const goal = state.settings.dailyGoal;
-    const today = state.streak.todayCount || 0;
-    $('streak-count').textContent = displayedStreak();
+    const today = answersToday();
+    $('streak-count').textContent = streakDays();
     $('daily-count').textContent = today;
     $('daily-goal').textContent = goal;
     const pct = Math.min(1, today / goal);

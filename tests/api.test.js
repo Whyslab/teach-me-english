@@ -419,3 +419,35 @@ test('GET /api/tatoeba rejects an empty word', async () => {
 test('GET /api/tatoeba rejects an over-long word', async () => {
     await request(app).get('/api/tatoeba?word=' + 'a'.repeat(150)).expect(400);
 });
+
+// ---------------------------------------------------------------------------
+// /api/state: настройки и активность, общие для телефона и компьютера
+// ---------------------------------------------------------------------------
+test('POST /api/state merges activity by the maximum per day', async () => {
+    await request(app).post('/api/state').send({ activity: { '2026-10-01': 12, '2026-10-02': 3 } }).expect(200);
+    const res = await request(app).post('/api/state').send({ activity: { '2026-10-02': 7, '2026-10-03': 1 } }).expect(200);
+    assert.deepStrictEqual(res.body.activity, { '2026-10-01': 12, '2026-10-02': 7, '2026-10-03': 1 });
+    const again = await request(app).post('/api/state').send({ activity: { '2026-10-02': 7 } }).expect(200);
+    assert.equal(again.body.activity['2026-10-02'], 7, 'sending the same day twice does not double it');
+});
+
+test('POST /api/state with replaceActivity resets the counts', async () => {
+    const res = await request(app).post('/api/state').send({ activity: {}, replaceActivity: true }).expect(200);
+    assert.deepStrictEqual(res.body.activity, {});
+    assert.deepStrictEqual((await request(app).get('/api/state').expect(200)).body.activity, {});
+});
+
+test('POST /api/state keeps the newer settings', async () => {
+    const first = await request(app).post('/api/state').send({ settings: { dailyGoal: 10 } }).expect(200);
+    assert.equal(first.body.settings.dailyGoal, 10, 'an empty server takes any settings');
+    await request(app).post('/api/state').send({ settings: { dailyGoal: 20, updatedAt: 2000 } }).expect(200);
+    const stale = await request(app).post('/api/state').send({ settings: { dailyGoal: 5, updatedAt: 1000 } }).expect(200);
+    assert.equal(stale.body.settings.dailyGoal, 20, 'older settings do not overwrite newer ones');
+});
+
+test('POST /api/state rejects malformed input', async () => {
+    await request(app).post('/api/state').send({ activity: { 'вчера': 3 } }).expect(400);
+    await request(app).post('/api/state').send({ activity: { '2026-10-01': -1 } }).expect(400);
+    await request(app).post('/api/state').send({ activity: [] }).expect(400);
+    await request(app).post('/api/state').send({ settings: 'x' }).expect(400);
+});

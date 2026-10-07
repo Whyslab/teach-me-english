@@ -84,7 +84,7 @@ export function tally(correct, w) {
         t.wrong++;
         t.mistakes.set(w.id, (t.mistakes.get(w.id) || 0) + 1);
     }
-    recordAnswer(correct);
+    recordAnswer();
 }
 
 // Снимок для «← Отменить ответ»: очередь, счётчики и состояние SM-2 слова.
@@ -95,9 +95,7 @@ export function snapshot() {
         correct: t.correct,
         wrong: t.wrong,
         mistakes: new Map(t.mistakes),
-        todayCount: state.streak.todayCount,
         activity: state.activity[toDayKey()] || 0,
-        introduced: [...(state.introduced.ids || [])],
         word: w && {
             id: w.id, level: w.level, nextReview: w.nextReview, forgetStep: w.forgetStep,
             sm2EF: w.sm2EF, sm2Interval: w.sm2Interval, sm2Reps: w.sm2Reps,
@@ -111,9 +109,7 @@ export function restore(s) {
     t.correct = s.correct;
     t.wrong = s.wrong;
     t.mistakes = s.mistakes;
-    state.streak.todayCount = s.todayCount;
     state.activity[toDayKey()] = s.activity;
-    state.introduced.ids = s.introduced;
     if (s.word) {
         const w = state.words.find(x => x.id === s.word.id);
         if (w) {

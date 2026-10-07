@@ -6,7 +6,7 @@
 // внутрь JS-кода в атрибутах — именно там аудит нашёл XSS.
 import {
     state, loadLocal, loadFromServer, saveWords, saveSettings, setSyncResultHandler,
-    setWriteErrorHandler, rollStreak, hasPendingSync, beaconPayload,
+    setWriteErrorHandler, hasPendingSync, beaconPayload, stateBeaconPayload, pushState, syncNow,
 } from './store.js';
 import { normalizeWord } from './srs.js';
 import { stripParticle } from './norsk.js';
@@ -160,12 +160,10 @@ const actions = {
         for (const w of state.words) {
             Object.assign(w, { level: 0, nextReview: now, forgetStep: 0, sm2Reps: 0, sm2Interval: 1, sm2EF: 2.5, history: [] });
         }
-        state.streak = { count: 0, lastDate: new Date().toDateString(), todayCount: 0 };
         state.activity = {};
-        state.introduced = { day: '', ids: [] };
-        localStorage.removeItem('introducedToday');
-        localStorage.setItem('streakData', JSON.stringify(state.streak));
         localStorage.setItem('dailyActivity', '{}');
+        // Иначе сервер при слиянии вернул бы старую активность (берётся максимум).
+        pushState({ replaceActivity: true }).catch(() => {});
         saveWords();
         renderAll();
         showToast('Прогресс сброшен', 'warning');
@@ -214,7 +212,6 @@ document.addEventListener('keydown', (e) => {
 // Рендер и запуск
 // ---------------------------------------------------------------------------
 function renderAll() {
-    rollStreak();
     renderList();   // renderStats вызывается из onListRendered
     renderMute();
 }
@@ -270,6 +267,7 @@ async function init() {
 
     renderAll();
     await loadFromServer();
+    applyTheme();   // настройки могли прийти с сервера
     renderAll();
 
     // Ярлык из манифеста: /?action=train
@@ -318,12 +316,29 @@ if ('serviceWorker' in navigator) {
 // этого отправка не срабатывала никогда). Если не дошло и так — изменения
 // лежат в localStorage и уйдут при следующем открытии.
 window.addEventListener('pagehide', () => {
-    if (!state.loaded || !hasPendingSync()) return;
-    const body = beaconPayload();
-    if (!body) return;
+    if (!state.loaded) return;
+    const body = hasPendingSync() ? beaconPayload() : null;
+    const stateBody = stateBeaconPayload();
     try {
-        navigator.sendBeacon?.('/api/words/batch', new Blob([body], { type: 'application/json' }));
+        if (body) navigator.sendBeacon?.('/api/words/batch', new Blob([body], { type: 'application/json' }));
+        if (stateBody) navigator.sendBeacon?.('/api/state', new Blob([stateBody], { type: 'application/json' }));
     } catch { /* ignore */ }
+});
+
+// Приложение на телефоне висит открытым днями. Когда к нему возвращаешься,
+// подтягиваем то, что за это время сделано на другом устройстве, — иначе
+// показывались бы слова, которые уже повторены на компьютере.
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', async () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (!state.loaded || isTraining() || Date.now() - hiddenAt < 60_000) return;
+    await syncNow();
+    await loadFromServer();
+    // Пока ждали сервер, могла начаться тренировка — её слова не трогаем.
+    if (!isTraining()) {
+        applyTheme();
+        renderAll();
+    }
 });
 
 init();

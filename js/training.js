@@ -1,7 +1,7 @@
 // Тренировка: ядро. Запуск и остановка, показ вопроса, ответы, отмена,
 // клавиатура. Сами режимы — в mode-card.js, mode-choice.js, mode-drill.js;
 // состояние — в session.js.
-import { state, saveWords, saveSettings, markIntroduced, introducedToday } from './store.js';
+import { state, saveWords, saveSettings, introducedToday } from './store.js';
 import { sm2, selectSession, practiceQueue, isHard } from './srs.js';
 import { displayWord, checkAnswer } from './norsk.js';
 import { $, showToast, playSound, speak, stopSpeech, prefetchSpeech } from './ui.js';
@@ -179,7 +179,6 @@ export function grade(quality) {
     pushUndo();
 
     if (!t.practice) {
-        markIntroduced(w);
         sm2(w, quality);
         saveWords();
     }
@@ -293,7 +292,6 @@ function choose(index) {
 
     if (t.mode === 'quiz' && !t.practice) {
         // «Угадай из 4» внутри основной тренировки двигает расписание, как карточки.
-        markIntroduced(w);
         sm2(w, ok ? 2 : 0);
         saveWords();
     }

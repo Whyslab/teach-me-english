@@ -116,3 +116,28 @@ test('re-importing A1 fills missing adjective forms, A2 adds new words', async (
     assert.deepStrictEqual(errors, []);
     await context.close();
 });
+
+// Телефон и компьютер — два разных браузера с общим сервером.
+test('settings and answers made on one device show up on another', async () => {
+    const a = await openApp(browser, server);
+    await waitSynced(a.page);
+    await a.page.click('[data-action="open-settings"]');
+    await a.page.fill('#set-goal', '7');
+    await a.page.click('[data-action="save-settings"]');
+    await a.page.click('#start-training-btn');
+    await a.page.keyboard.press('Space');
+    await a.page.keyboard.press('2');
+    await a.page.waitForTimeout(400);
+    await a.page.keyboard.press('Escape');
+    const answered = await a.page.evaluate(() => Number(document.getElementById('daily-count').textContent));
+    await a.page.waitForResponse(r => r.url().endsWith('/api/state'), { timeout: 5000 });
+
+    const b = await openApp(browser, server);   // свой контекст — пустой localStorage
+    await waitSynced(b.page);
+    await b.page.waitForFunction(() => document.getElementById('daily-goal').textContent === '7');
+    assert.equal(await b.page.evaluate(() => Number(document.getElementById('daily-count').textContent)), answered,
+        'today\'s answers come from the server');
+    assert.deepStrictEqual([...a.errors, ...b.errors], []);
+    await a.context.close();
+    await b.context.close();
+});

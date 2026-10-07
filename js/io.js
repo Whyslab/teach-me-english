@@ -1,5 +1,5 @@
 // Импорт, экспорт, бэкап, восстановление и встроенные колоды A1/A2.
-import { state, saveWords, saveStreak, saveActivity, syncNow } from './store.js';
+import { state, saveWords, saveActivity, syncNow, pushState } from './store.js';
 import { normalizeWord } from './srs.js';
 import { parseImport, enrichFromDeck, toTxtLine, toCsv, toAnki } from './format.js';
 import { downloadFile, dateStamp, plural } from './util.js';
@@ -106,7 +106,6 @@ function backup() {
         exportedAt: new Date().toISOString(),
         words: state.words,
         settings: state.settings,
-        streak: state.streak,
         activity: state.activity,
     };
     downloadFile(`norsk_backup_${dateStamp()}.json`, JSON.stringify(data, null, 2), 'application/json');
@@ -130,8 +129,12 @@ async function restore(file) {
         'Восстановить', 'Отмена');
     if (!ok) return;
     state.words = words;
-    if (data.streak) { state.streak = { ...state.streak, ...data.streak }; saveStreak(); }
-    if (data.activity && typeof data.activity === 'object') { state.activity = data.activity; saveActivity(); }
+    // Серия считается из активности; старое поле streak в бэкапе не нужно.
+    if (data.activity && typeof data.activity === 'object') {
+        state.activity = data.activity;
+        saveActivity();
+        await pushState({ replaceActivity: true }).catch(() => {});
+    }
     saveWords();
     await syncNow();
     renderList();

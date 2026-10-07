@@ -141,6 +141,11 @@ async function migrate() {
     }
     await run('DROP TABLE IF EXISTS settings');
 
+    // Общее для всех устройств: настройки и счётчик ответов по дням (из него
+    // считается серия дней). Раньше жило только в localStorage браузера —
+    // очистка данных сайта стирала серию, а телефон видел свою отдельную.
+    await run(`CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+
     // Инкрементальная синхронизация обновляет слова по id, поэтому id должен
     // быть уникальным. Старая полная перезапись таблицы могла оставить дубли
     // только при сбое — оставляем самую свежую строку.
@@ -154,7 +159,7 @@ const ready = migrate();
 ready.catch(err => console.error('Миграция базы не удалась:', err.message));
 
 // Запросы к словам ждут окончания миграции.
-app.use(['/api/words', '/api/sync'], (req, res, next) => {
+app.use(['/api/words', '/api/sync', '/api/state'], (req, res, next) => {
     ready.then(() => next(), (err) => res.status(500).json({ error: 'database not ready: ' + err.message }));
 });
 
@@ -481,6 +486,85 @@ app.post('/api/sync', async (req, res) => {
     } catch (err) {
         console.error("Ошибка синхронизации:", err.message);
         res.status(500).json({ error: "Ошибка синхронизации" });
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Общее состояние: настройки и активность по дням
+//
+// POST /api/state присылает то, что знает браузер, и получает слияние:
+// активность — максимум по каждому дню (каждое устройство считает свои
+// ответы, сумма посчитала бы одни и те же дважды при повторной отправке),
+// настройки — более поздние по updatedAt. replaceActivity — для сброса
+// прогресса и восстановления из бэкапа, где максимум вернул бы старое.
+// ---------------------------------------------------------------------------
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_ACTIVITY_DAYS = 5000;
+
+function validActivity(a) {
+    if (!a || typeof a !== 'object' || Array.isArray(a)) return false;
+    const entries = Object.entries(a);
+    return entries.length <= MAX_ACTIVITY_DAYS && entries.every(([k, v]) =>
+        DAY_KEY.test(k) && Number.isInteger(v) && v >= 0 && v <= 100000);
+}
+
+function validSettings(s) {
+    return Boolean(s) && typeof s === 'object' && !Array.isArray(s) && JSON.stringify(s).length <= 10000;
+}
+
+async function readState() {
+    const rows = await all('SELECT key, value FROM app_state');
+    const out = { settings: null, activity: {} };
+    for (const { key, value } of rows) {
+        try {
+            if (key === 'settings') out.settings = JSON.parse(value);
+            if (key === 'activity') out.activity = JSON.parse(value);
+        } catch { /* битое значение — как будто его нет */ }
+    }
+    return out;
+}
+
+app.get('/api/state', async (req, res) => {
+    try {
+        res.json(await readState());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/state', async (req, res) => {
+    const { settings, activity, replaceActivity = false } = req.body ?? {};
+    if (settings !== undefined && !validSettings(settings)) {
+        return res.status(400).json({ error: 'Invalid settings' });
+    }
+    if (activity !== undefined && !validActivity(activity)) {
+        return res.status(400).json({ error: 'Invalid activity' });
+    }
+    // Через ту же очередь, что и слова: чтение-слияние-запись не должны
+    // перемешаться с соседним запросом.
+    const job = writeQueue.then(async () => {
+        const cur = await readState();
+        if (activity) {
+            const merged = replaceActivity ? {} : { ...cur.activity };
+            for (const [day, n] of Object.entries(activity)) merged[day] = Math.max(merged[day] || 0, n);
+            if (replaceActivity) for (const day of Object.keys(merged)) if (!merged[day]) delete merged[day];
+            cur.activity = merged;
+            await run('INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+                ['activity', JSON.stringify(merged)]);
+        }
+        if (settings && (!cur.settings || (Number(settings.updatedAt) || 0) > (Number(cur.settings.updatedAt) || 0))) {
+            cur.settings = settings;
+            await run('INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+                ['settings', JSON.stringify(settings)]);
+        }
+        return cur;
+    });
+    writeQueue = job.catch(() => {});
+    try {
+        res.json(await job);
+    } catch (err) {
+        console.error('Ошибка сохранения состояния:', err.message);
+        res.status(500).json({ error: 'Ошибка сохранения состояния' });
     }
 });
 

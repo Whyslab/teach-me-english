@@ -1,5 +1,5 @@
 // Окно «Итоги тренировки».
-import { state, displayedStreak } from './store.js';
+import { state, streakDays, answersToday } from './store.js';
 import { escapeHtml, plural } from './util.js';
 import { displayWord } from './norsk.js';
 import { $, openModal } from './ui.js';
@@ -11,13 +11,14 @@ export function showResults() {
     const mins = Math.max(1, Math.round((Date.now() - t.startedAt) / 60000));
     $('results-emoji').textContent = accuracy >= 90 ? '🏆' : accuracy >= 70 ? '🎉' : accuracy >= 50 ? '💪' : '📚';
     const goal = state.settings.dailyGoal;
-    const streak = displayedStreak();
+    const streak = streakDays();
+    const today = answersToday();
     const cards = [
         [t.correct, 'Верно', 'ok'],
         [t.wrong, 'Ошибки', 'bad'],
         [`${accuracy}%`, 'Точность', accuracy >= 70 ? 'ok' : 'warn'],
         [`${mins} мин`, 'Время', ''],
-        [`${Math.min(state.streak.todayCount, goal)}/${goal}`, 'Цель дня', state.streak.todayCount >= goal ? 'ok' : ''],
+        [`${Math.min(today, goal)}/${goal}`, 'Цель дня', today >= goal ? 'ok' : ''],
         [`${streak} 🔥`, plural(streak, ['день подряд', 'дня подряд', 'дней подряд']), 'streak'],
     ];
     $('results-grid').innerHTML = cards.map(([v, l, c]) =>

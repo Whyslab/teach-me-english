@@ -224,6 +224,28 @@ test('a word relearned today is still hard until it is remembered on another day
     assert.equal(isHard(w), w.sm2EF < 2.2);
 });
 
+test('streakDays counts days in a row with the goal met, today only once met', async () => {
+    const { streakDays } = await load('store.js');
+    const { toDayKey } = await load('util.js');
+    const now = new Date(2026, 9, 7, 9).getTime();
+    const day = (n) => toDayKey(now - n * DAY);
+    assert.equal(streakDays({ [day(1)]: 10, [day(2)]: 12, [day(3)]: 3 }, 10, now), 2, 'today not met yet — the streak is not broken');
+    assert.equal(streakDays({ [day(0)]: 10, [day(1)]: 10, [day(2)]: 12 }, 10, now), 3);
+    assert.equal(streakDays({ [day(0)]: 15, [day(2)]: 12 }, 10, now), 1, 'a missed day breaks it');
+    assert.equal(streakDays({}, 10, now), 0);
+});
+
+test('introducedToday counts words whose first answer is today', async () => {
+    const { introducedToday } = await load('store.js');
+    const now = new Date(2026, 9, 7, 20).getTime();
+    const words = [
+        { history: [{ ts: now - 60_000, q: 0 }, { ts: now - 30_000, q: 2, r: 1 }] },
+        { history: [{ ts: now - 3 * DAY, q: 2 }, { ts: now - 1000, q: 2 }] },
+        { history: [] },
+    ];
+    assert.equal(introducedToday(words, now), 1);
+});
+
 test('practiceQueue prefers due words, then hard ones, and never exceeds the size', async () => {
     const { practiceQueue } = await load('srs.js');
     const now = 1000;

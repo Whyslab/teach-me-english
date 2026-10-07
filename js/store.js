@@ -1,6 +1,6 @@
 // Состояние приложения и его хранение: localStorage + синхронизация с сервером.
 import { toDayKey, DAY_MS } from './util.js';
-import { normalizeWord, isNew } from './srs.js';
+import { normalizeWord } from './srs.js';
 import { computeChanges, applyConfirmed, snapshotFor, fingerprint, isEmpty, BEACON_LIMIT } from './sync.js';
 
 export const DEFAULT_SETTINGS = {
@@ -18,16 +18,16 @@ export const DEFAULT_SETTINGS = {
 export const state = {
     words: [],
     settings: { ...DEFAULT_SETTINGS },
-    streak: { count: 0, lastDate: null, todayCount: 0 },
-    activity: {},       // { 'YYYY-MM-DD': ответов }
-    introduced: { day: '', ids: [] }, // новые слова, впервые отвеченные сегодня
+    activity: {},       // { 'YYYY-MM-DD': ответов } — общий с сервером, из него считается серия
     loaded: false,
     lastSyncError: null,
 };
 
 // Ключи старой версии, которые больше ничего не значат.
 const LEGACY_KEYS = ['userXP', 'achievements', 'weeklyChallenge', 'timeLeft', 'lastVisit',
-                     'timerPos', 'isTrainingActive', 'selectedTheme', 'themeId', 'isMuted'];
+                     'timerPos', 'isTrainingActive', 'selectedTheme', 'themeId', 'isMuted',
+                     // Серия и «введено сегодня» теперь считаются из активности и истории слов.
+                     'streakData', 'introducedToday'];
 
 function read(key, fallback) {
     try {
@@ -60,15 +60,13 @@ export function loadLocal() {
         if (legacyTheme) state.settings.theme = legacyTheme;
     }
     migrateSettings(state.settings);
-    state.streak = { ...state.streak, ...read('streakData', {}) };
     state.activity = read('dailyActivity', {}) || {};
-    state.introduced = read('introducedToday', { day: '', ids: [] });
     const words = read('myWords', []);
     state.words = Array.isArray(words) ? words.map(normalizeWord) : [];
     for (const k of LEGACY_KEYS) {
         try { localStorage.removeItem(k); } catch { /* приватный режим */ }
     }
-    saveSettings();
+    write('settings', state.settings);
 }
 
 // Разовые переделки сохранённых настроек. version растёт с каждой.
@@ -82,9 +80,17 @@ export function migrateSettings(s) {
     return s;
 }
 
-export function saveSettings() { write('settings', state.settings); }
-export function saveStreak() { write('streakData', state.streak); }
-export function saveActivity() { write('dailyActivity', state.activity); }
+// Изменение настроек пользователем: время правки решает, чьи настройки
+// новее — этого устройства или сервера.
+export function saveSettings() {
+    state.settings.updatedAt = Date.now();
+    write('settings', state.settings);
+    scheduleStatePush();
+}
+export function saveActivity() {
+    write('dailyActivity', state.activity);
+    scheduleStatePush();
+}
 
 // ---------------------------------------------------------------------------
 // Сервер
@@ -160,6 +166,12 @@ export async function loadFromServer() {
             rememberServerState(state.words);
             persistPending(pendingChanges());
         }
+        // Настройки и активность. Их сбой не должен ломать загрузку слов.
+        try {
+            await pushState();
+        } catch (e) {
+            console.warn('Состояние не синхронизировано:', e);
+        }
         state.lastSyncError = null;
         return true;
     } catch (e) {
@@ -228,54 +240,88 @@ export function beaconPayload() {
 
 // ---------------------------------------------------------------------------
 // Дневные счётчики
+//
+// Всё выводится из данных, а не хранится отдельно: «введено сегодня» — из
+// истории слов, серия — из ответов по дням. Раньше это были отдельные
+// счётчики в localStorage: на телефоне и компьютере они расходились, и
+// каждое устройство давало свои 15 новых слов в день.
 // ---------------------------------------------------------------------------
-function rollIntroduced() {
-    const today = toDayKey();
-    if (state.introduced.day !== today) state.introduced = { day: today, ids: [] };
+
+// Новые слова, впервые отвеченные сегодня (для дневного лимита).
+export function introducedToday(words = state.words, now = Date.now()) {
+    const today = toDayKey(now);
+    return words.filter(w => w.history?.length && toDayKey(w.history[0].ts) === today).length;
 }
 
-export function introducedToday() {
-    rollIntroduced();
-    return state.introduced.ids.length;
-}
-
-// Вызывается перед оценкой ответа: если слово новое — оно «введено» сегодня.
-export function markIntroduced(word) {
-    if (!isNew(word)) return;
-    rollIntroduced();
-    if (!state.introduced.ids.includes(word.id)) {
-        state.introduced.ids.push(word.id);
-        write('introducedToday', state.introduced);
-    }
-}
-
-export function recordAnswer(correct) {
+export function recordAnswer() {
     const key = toDayKey();
     state.activity[key] = (Number(state.activity[key]) || 0) + 1;
     saveActivity();
-    rollStreak();
-    if (correct) state.streak.todayCount++;
-    saveStreak();
 }
 
-// Стрик растёт, если вчера дневная цель была выполнена.
-export function rollStreak() {
-    const today = new Date().toDateString();
-    const yesterday = new Date(Date.now() - DAY_MS).toDateString();
-    const s = state.streak;
-    if (s.lastDate !== today) {
-        s.count = (s.lastDate === yesterday && s.todayCount >= state.settings.dailyGoal)
-            ? (s.count || 0) + 1
-            : 0;
-        s.todayCount = 0;
-        s.lastDate = today;
-        saveStreak();
+export function answersToday() {
+    return Number(state.activity[toDayKey()]) || 0;
+}
+
+// Серия: дни подряд, когда выполнена цель по ответам. Сегодняшний день
+// засчитывается, когда цель выполнена; пока нет — серия не обрывается.
+export function streakDays(activity = state.activity, goal = state.settings.dailyGoal, now = Date.now()) {
+    const met = (t) => (Number(activity[toDayKey(t)]) || 0) >= goal;
+    let n = met(now) ? 1 : 0;
+    // Шаг по полудням: переход на летнее время не сбивает счёт дней.
+    const noon = new Date(now);
+    noon.setHours(12, 0, 0, 0);
+    for (let t = noon.getTime() - DAY_MS; met(t); t -= DAY_MS) n++;
+    return n;
+}
+
+// ---------------------------------------------------------------------------
+// Общее состояние на сервере: настройки и активность (см. POST /api/state)
+// ---------------------------------------------------------------------------
+// Звук выключают на конкретном устройстве — его не переносим.
+const LOCAL_ONLY_SETTINGS = ['muted'];
+
+function statePayload(extra = {}) {
+    const settings = { ...state.settings };
+    for (const k of LOCAL_ONLY_SETTINGS) delete settings[k];
+    // Сервер отвергнет запрос целиком из-за одной кривой записи — отсеиваем.
+    const activity = {};
+    for (const [day, n] of Object.entries(state.activity || {})) {
+        const v = Math.round(Number(n));
+        if (/^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(v) && v > 0) activity[day] = Math.min(v, 100000);
+    }
+    return { settings, activity, ...extra };
+}
+
+function adoptState(remote) {
+    if (remote.activity && typeof remote.activity === 'object') {
+        state.activity = remote.activity;
+        write('dailyActivity', state.activity);
+    }
+    const s = remote.settings;
+    if (s && (Number(s.updatedAt) || 0) > (Number(state.settings.updatedAt) || 0)) {
+        const local = Object.fromEntries(LOCAL_ONLY_SETTINGS.map(k => [k, state.settings[k]]));
+        state.settings = migrateSettings({ ...DEFAULT_SETTINGS, ...s, ...local });
+        write('settings', state.settings);
     }
 }
 
-// Текущий стрик с учётом сегодняшнего дня, если цель уже выполнена.
-export function displayedStreak() {
-    rollStreak();
-    const s = state.streak;
-    return s.count + (s.todayCount >= state.settings.dailyGoal ? 1 : 0);
+let statePushTimer = null;
+function scheduleStatePush() {
+    if (!state.loaded) return;
+    clearTimeout(statePushTimer);
+    statePushTimer = setTimeout(() => pushState().catch(() => {}), 2000);
+}
+
+// Отправляет своё, получает слияние. replaceActivity — сброс и восстановление.
+export async function pushState(extra = {}) {
+    clearTimeout(statePushTimer);
+    statePushTimer = null;
+    const res = await api('/api/state', { method: 'POST', body: JSON.stringify(statePayload(extra)) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    adoptState(await res.json());
+}
+
+export function stateBeaconPayload() {
+    return statePushTimer ? JSON.stringify(statePayload()) : null;
 }
