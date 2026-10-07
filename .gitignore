@@ -30,3 +30,6 @@ tme-test-*.db*
 
 # graphify knowledge graph (regenerate with: graphify update .)
 graphify-out/
+
+# Python bytecode (tts_worker.py)
+__pycache__/
