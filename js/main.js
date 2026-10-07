@@ -13,7 +13,7 @@ import { stripParticle } from './norsk.js';
 import { plural, escapeHtml } from './util.js';
 import { $, showToast, showConfirm, openModal, closeModal, topModal, initSpeech, speak } from './ui.js';
 import { applyTheme, setTheme } from './themes.js';
-import { wordFormHtml, readWordForm, clearWordForm, syncGrammarVisibility, guessForms, insertChar } from './wordform.js';
+import { wordFormHtml, readWordForm, clearWordForm, syncGrammarVisibility, guessForms, insertChar, fillFromDictionary } from './wordform.js';
 import { dedupeKey } from './format.js';
 import { renderList, listActions, initList, onListRendered } from './list.js';
 import { renderStats, showForgettingStats, showWordHistory } from './stats.js';
@@ -131,6 +131,12 @@ const actions = {
     ...tatoebaActions,
     'add-word'() { addWord(); },
     'insert-char'(el, e) { insertChar(el.dataset.char, e, $('add-no')); },
+    async 'dict-fill'(el) {
+        const p = el.closest('.word-form').dataset.prefix;
+        if (!$(`${p}-no`).value.trim()) { showToast('Сначала введи норвежское слово', 'info'); return; }
+        const d = await fillFromDictionary(p, { overwrite: true });
+        if (!d) showToast('В Ordbøkene такого слова нет (или нет сети). Проверь написание.', 'info', 4000);
+    },
     'guess-forms'(el) {
         const p = el.closest('.word-form').dataset.prefix;
         if (!guessForms(p)) showToast('Сначала введи слово, а для существительного — выбери род', 'info');
@@ -226,6 +232,10 @@ function initAddForm() {
         syncGrammarVisibility(p);
     }
     $('add-no').addEventListener('blur', autoTranslate);
+    // Ушёл из поля слова, а часть речи не выбрана — подтянуть из словаря.
+    $('add-no').addEventListener('blur', () => {
+        if (!$('add-pos').value) fillFromDictionary('add');
+    });
     $('set-rate').addEventListener('input', renderRateLabel);
     $('add-form').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.isComposing && e.target.matches('input')) {

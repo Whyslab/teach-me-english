@@ -36,6 +36,8 @@ export function wordFormHtml(prefix) {
                         <input type="radio" name="${p}-gender" value="${k}" data-change="gender"><span>${g.article}</span>
                     </label>`).join('')}
             </span>
+            <button type="button" class="outline-btn small" id="${p}-dict" data-action="dict-fill"
+                    title="Часть речи, род и формы из официального словаря Ordbøkene">📘 из словаря</button>
             <button type="button" class="outline-btn small" id="${p}-guess" data-action="guess-forms" hidden
                     title="Заполнить регулярные формы. Неправильные слова (bok → bøker, liten → små) проверь в Ordbøkene.">⚡ формы по правилу</button>
         </div>
@@ -76,6 +78,42 @@ export function guessForms(p) {
         if (input && !input.value.trim()) input.value = value;
     }
     return true;
+}
+
+// Часть речи, род и формы из Ordbøkene (через сервер, /api/ordbok).
+// overwrite — по кнопке: заменить и то, что уже заполнено; при уходе из
+// поля слова заполняются только пустые поля.
+// Возвращает разбор словаря или null (нет слова, нет сети, слово успели поменять).
+export async function fillFromDictionary(p, { overwrite = false } = {}) {
+    const raw = el(p, 'no').value.trim();
+    if (!raw) return null;
+    const btn = el(p, 'dict');
+    btn.disabled = true;
+    try {
+        const res = await fetch(`/api/ordbok?w=${encodeURIComponent(raw)}`);
+        if (!res.ok) return null;
+        const d = await res.json();
+        // Пока шёл запрос, слово могли исправить — тогда ответ уже не про него.
+        if (el(p, 'no').value.trim() !== raw) return null;
+        if (!overwrite && el(p, 'pos').value && el(p, 'pos').value !== d.pos) return null;
+        el(p, 'no').value = d.original;
+        el(p, 'pos').value = d.pos;
+        if (d.gender) {
+            document.querySelectorAll(`input[name="${p}-gender"]`).forEach(r => { r.checked = r.value === d.gender; });
+        }
+        for (const [key, value] of Object.entries(d.forms || {})) {
+            const input = el(p, `form-${key}`);
+            if (input && (overwrite || !input.value.trim())) input.value = value;
+        }
+        syncGrammarVisibility(p);
+        el(p, 'pos').classList.add('auto-filled');
+        setTimeout(() => el(p, 'pos').classList.remove('auto-filled'), 1500);
+        return d;
+    } catch {
+        return null;   // офлайн — просто без подсказки
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 export function readWordForm(p) {

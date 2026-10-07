@@ -458,3 +458,42 @@ test('POST /api/state rejects malformed input', async () => {
     await request(app).post('/api/state').send({ activity: [] }).expect(400);
     await request(app).post('/api/state').send({ settings: 'x' }).expect(400);
 });
+
+// ---------------------------------------------------------------------------
+// Ordbøkene: разбор на сохранённых ответах словаря, без сети
+// ---------------------------------------------------------------------------
+const ordbok = require('../ordbok.js');
+const FIX = path.join(__dirname, 'fixtures', 'ordbok');
+const offline = async (p) => {
+    const search = p.match(/\/api\/articles\?w=([^&]+)/);
+    if (search) return JSON.parse(fs.readFileSync(path.join(FIX, `search-${decodeURIComponent(search[1])}.json`), 'utf8'));
+    const id = p.match(/article\/(\d+)\.json/)[1];
+    return JSON.parse(fs.readFileSync(path.join(FIX, `article-${id}.json`), 'utf8'));
+};
+
+test('ordbok: the article decides noun or verb for a word that is both', async () => {
+    const noun = await ordbok.lookup('en uttale', offline);
+    assert.deepStrictEqual([noun.pos, noun.gender, noun.forms.defPl], ['noun', 'm', 'uttalene']);
+    const verb = await ordbok.lookup('å uttale', offline);
+    assert.deepStrictEqual([verb.pos, verb.original, verb.forms.past], ['verb', 'å uttale', 'uttalte']);
+});
+
+test('ordbok: the main bokmål forms win over the radical -a forms', async () => {
+    assert.deepStrictEqual((await ordbok.lookup('å snakke', offline)).forms,
+        { present: 'snakker', past: 'snakket', perfect: 'har snakket' });
+    assert.deepStrictEqual((await ordbok.lookup('hus', offline)).forms,
+        { defSg: 'huset', indefPl: 'hus', defPl: 'husene' });
+});
+
+test('ordbok: irregular forms come from the dictionary, the article picks the gender', async () => {
+    const bok = await ordbok.lookup('bok', offline);
+    assert.deepStrictEqual([bok.gender, bok.forms.defSg, bok.forms.indefPl], ['f', 'boka', 'bøker']);
+    const enBok = await ordbok.lookup('en bok', offline);
+    assert.deepStrictEqual([enBok.gender, enBok.forms.defSg], ['m', 'boken']);
+    assert.deepStrictEqual((await ordbok.lookup('gå', offline)).forms, { present: 'går', past: 'gikk', perfect: 'har gått' });
+    assert.deepStrictEqual((await ordbok.lookup('stor', offline)).forms, { neuter: 'stort', plural: 'store' });
+});
+
+test('GET /api/ordbok rejects an empty word', async () => {
+    await request(app).get('/api/ordbok?w=').expect(400);
+});

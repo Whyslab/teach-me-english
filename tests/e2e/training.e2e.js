@@ -222,3 +222,22 @@ test('sentence order: picking the words in the right order is correct, a wrong o
     await page.keyboard.press('Escape');
     await context.close();
 });
+
+test('typing a word and leaving the field fills part of speech, gender and forms from Ordbøkene', async () => {
+    const { page, context, errors } = await openApp(browser, server);
+    let asked = '';
+    await page.route('**/api/ordbok?**', (route) => {
+        asked = new URL(route.request().url()).searchParams.get('w');
+        route.fulfill({ json: { lemma: 'uttale', original: 'uttale', pos: 'noun', gender: 'm',
+            forms: { defSg: 'uttalen', indefPl: 'uttaler', defPl: 'uttalene' } } });
+    });
+    await page.fill('#add-no', 'en uttale');
+    await page.click('#add-ru');
+    await page.waitForFunction(() => document.getElementById('add-pos').value === 'noun');
+    assert.equal(asked, 'en uttale');
+    assert.equal(await page.inputValue('#add-no'), 'uttale', 'the article becomes the gender');
+    assert.ok(await page.isChecked('input[name="add-gender"][value="m"]'));
+    assert.equal(await page.inputValue('#add-form-defPl'), 'uttalene');
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+});

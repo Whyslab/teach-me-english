@@ -95,7 +95,7 @@ input[type="text"], input[type="number"], textarea, select {
 }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); background: var(--bg-3); }
 input::placeholder, textarea::placeholder { color: var(--text-3); }
-input.auto-filled { border-color: var(--green); }
+input.auto-filled, select.auto-filled { border-color: var(--green); }
 select { width: auto; cursor: pointer; padding: 8px 12px; }
 
 .action-btn {
