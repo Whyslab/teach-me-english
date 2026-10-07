@@ -159,3 +159,13 @@ test('the help explains levels and opens from the stats row', async () => {
     assert.equal(await page.isVisible('#help-modal'), false);
     await context.close();
 });
+
+test('practice modes are tucked away until opened, and the choice is remembered', async () => {
+    const { page, context } = await openApp(browser, server, { practiceOpen: false });
+    assert.equal(await page.isVisible('[data-action="start-quiz"]'), false);
+    await page.click('#practice-details summary');
+    assert.ok(await page.isVisible('[data-action="start-quiz"]'));
+    await page.reload();
+    assert.ok(await page.isVisible('[data-action="start-quiz"]'), 'stays open after a reload');
+    await context.close();
+});

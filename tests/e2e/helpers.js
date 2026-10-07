@@ -90,8 +90,10 @@ async function launch() {
 
 // Страница с перехватом звука: какие фразы проиграны с сервера и какие
 // ушли в браузерный синтез речи.
-async function openApp(browser, server, { context } = {}) {
+async function openApp(browser, server, { context, practiceOpen = true } = {}) {
     const ctx = context || await browser.newContext();
+    // Режимы практики спрятаны под «Практика ▾»; тестам они нужны под рукой.
+    if (practiceOpen) await ctx.addInitScript(() => localStorage.setItem('practiceOpen', '1'));
     await ctx.addInitScript(() => {
         window.__played = [];
         window.__browserSpeech = [];

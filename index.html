@@ -58,7 +58,8 @@
                 <button id="start-training-btn" data-action="start-training">Начать тренировку</button>
                 <div id="start-hint"></div>
                 <button class="link-btn marathon-link" data-action="start-marathon" title="Основная тренировка без дневного лимита новых слов — двигает расписание">🏃 Марафон: то же, но без лимита новых слов</button>
-                <div class="practice-caption">Практика — доступна всегда, расписание не меняет:</div>
+                <details id="practice-details" class="practice-details">
+                <summary>🧘 Практика <span class="practice-caption">— 7 режимов, доступна всегда, расписание не меняет</span></summary>
                 <div class="mode-btns-row">
                     <button class="mode-btn" data-action="start-write" title="Направление переключается кнопкой режима внутри тренировки">✍️ Письмо</button>
                     <button class="mode-btn" data-action="start-dictation" title="Слово звучит — пишешь его по-норвежски">🎧 Диктант</button>
@@ -68,6 +69,7 @@
                     <button class="mode-btn" data-action="start-cloze" title="Вставь слово в нужной форме в предложение">🧩 Пропуски</button>
                     <button class="mode-btn" data-action="start-hard">⚠️ Трудные</button>
                 </div>
+                </details>
             </div>
 
             <div class="panel">

@@ -54,12 +54,19 @@ function write(key, value) {
 export function loadLocal() {
     const legacyTheme = localStorage.getItem('themeId');
     const legacyMuted = localStorage.getItem('isMuted') === 'true';
-    state.settings = { ...DEFAULT_SETTINGS, ...read('settings', {}) };
+    const stored = read('settings', null);
+    state.settings = { ...DEFAULT_SETTINGS, ...(stored || {}) };
     if (!localStorage.getItem('settings')) {
         if (legacyMuted) state.settings.muted = true;
         if (legacyTheme) state.settings.theme = legacyTheme;
     }
     migrateSettings(state.settings);
+    // Настройки, сохранённые до того, как они стали общими, — настоящие,
+    // а не значения по умолчанию свежего устройства. Метка времени даёт им
+    // победить при первой встрече с сервером. У свежего устройства — 0:
+    // любые настройки с сервера новее.
+    if (!stored) state.settings.updatedAt = 0;
+    else if (!('updatedAt' in stored)) state.settings.updatedAt = Date.now();
     state.activity = read('dailyActivity', {}) || {};
     const words = read('myWords', []);
     state.words = Array.isArray(words) ? words.map(normalizeWord) : [];

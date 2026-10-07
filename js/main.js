@@ -239,6 +239,15 @@ function initAddForm() {
     });
 }
 
+// Раскрыта ли «Практика» — помним на этом устройстве.
+function initPracticeToggle() {
+    const box = $('practice-details');
+    try { box.open = localStorage.getItem('practiceOpen') === '1'; } catch { /* приватный режим */ }
+    box.addEventListener('toggle', () => {
+        try { localStorage.setItem('practiceOpen', box.open ? '1' : '0'); } catch { /* ignore */ }
+    });
+}
+
 async function init() {
     setWriteErrorHandler((e) => {
         console.error(e);
@@ -265,6 +274,7 @@ async function init() {
     onListRendered(renderStats);
     onTrainingFinished(renderAll);
 
+    initPracticeToggle();
     renderAll();
     await loadFromServer();
     applyTheme();   // настройки могли прийти с сервера
