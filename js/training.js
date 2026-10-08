@@ -406,9 +406,11 @@ export function handleTrainingKey(e) {
     if (t.mode === 'order') {
         if (e.key === 'Enter' && t.checked !== null) { advance(); return true; }
         if (/^[1-9]$/.test(e.key)) { pick(Number(e.key) - 1); return true; }
-        // Backspace — убрать последнее слово; когда убирать нечего — обычная отмена ответа.
-        if (e.key === 'Backspace' && t.checked === null && t.current.picked.length) {
-            unpick(t.current.picked.length - 1);
+        // Backspace — убрать последнее слово. Дальше в отмену ответа он не
+        // проваливается: зажатый Backspace откатил бы десятки ответов.
+        // Отменить ответ — стрелка вниз или кнопка.
+        if (e.key === 'Backspace' && t.checked === null) {
+            if (t.current.picked.length && !e.repeat) unpick(t.current.picked.length - 1);
             return true;
         }
     }

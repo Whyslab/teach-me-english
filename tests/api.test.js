@@ -555,6 +555,24 @@ test('parseCards reads every card of a real Lingu screenshot', () => {
     ]);
 });
 
+test('parseCards keeps a wrapped example whole and does not lose the next card', () => {
+    const wrapped = lingu.parseCards('en uttale\nen uttale\nen måte\n"Jeg øver på uttale hver\ndag med læreren min."\net hus\net hus\nen bygning\n"Huset er stort."');
+    assert.deepStrictEqual(wrapped.map(c => [c.original, c.example]), [
+        ['en uttale', 'Jeg øver på uttale hver dag med læreren min.'],
+        ['et hus', 'Huset er stort.'],
+    ]);
+    const unquoted = lingu.parseCards('en uttale\nen uttale\nen måte å si noe på\nJeg øver på uttale.\net hus\net hus\nen bygning\n"Huset er stort."');
+    assert.deepStrictEqual(unquoted.map(c => [c.original, c.definition, c.example]), [
+        ['en uttale', 'en måte å si noe på', 'Jeg øver på uttale.'],
+        ['et hus', 'en bygning', 'Huset er stort.'],
+    ]);
+    const noExample = lingu.parseCards('å si\nå si\nå uttrykke\nå snakke\nå snakke\nå prate\n"Han snakker norsk."');
+    assert.deepStrictEqual(noExample.map(c => [c.original, c.definition, c.example]), [
+        ['å si', 'å uttrykke', ''],
+        ['å snakke', 'å prate', 'Han snakker norsk.'],
+    ], 'a card without an example ends where the next word starts');
+});
+
 test('parseCards skips noise and repeated words', () => {
     assert.deepStrictEqual(lingu.parseCards(''), []);
     assert.deepStrictEqual(lingu.parseCards('Substantiv\n12:45\n•'), [], 'no card without a definition or example');
@@ -637,4 +655,32 @@ test('pickTranslation skips junk from the translation memory', () => {
     assert.equal(lingu.pickTranslation({ responseStatus: 429 }, 'hus'), '');
     assert.equal(lingu.pickTranslation({ responseStatus: 200, responseData: { translatedText: 'Я практикую произношение.' } },
         'Jeg øver på uttale.'), 'Я практикую произношение.');
+});
+
+test('POST /api/import/screenshot: known words skip the dictionary and the translator', async () => {
+    process.env.TESSERACT_BIN = path.join(__dirname, 'fixtures', 'fake-tesseract.js');
+    process.env.FAKE_OCR_TEXT = LINGU_OCR;
+    const saved = { ...lingu.deps };
+    const asked = [];
+    lingu.deps.lookup = async (w) => { asked.push(w); return null; };
+    lingu.deps.tr = async (s) => (s === 'en konsonant' ? 'согласный' : '');
+    lingu.deps.knownWords = async () => new Set(['å høre', 'å si', 'uttale', 'å snakke']);
+    try {
+        const res = await request(app).post('/api/import/screenshot')
+            .set('Content-Type', 'image/png').send(Buffer.from('png')).expect(200);
+        assert.deepStrictEqual(res.body.items.map(i => [i.original, Boolean(i.known)]), [
+            ['konsonant', false], ['å høre', true], ['å si', true], ['uttale', true], ['å snakke', true],
+        ]);
+        assert.deepStrictEqual(asked, ['en konsonant'], 'only the new word goes to the dictionary');
+        assert.equal(res.body.items[0].translate, 'согласный');
+    } finally {
+        Object.assign(lingu.deps, saved);
+        delete process.env.TESSERACT_BIN;
+        delete process.env.FAKE_OCR_TEXT;
+    }
+});
+
+test('wordKey keeps å apart from the noun and drops the article', () => {
+    assert.equal(lingu.wordKey('en  Uttale'), 'uttale');
+    assert.equal(lingu.wordKey('å uttale'), 'å uttale');
 });

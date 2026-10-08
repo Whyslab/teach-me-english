@@ -3,11 +3,11 @@
 // галочки, правка перевода, уже имеющиеся слова отмечены и не добавляются.
 import { state, saveWords } from './store.js';
 import { normalizeWord } from './srs.js';
-import { GENDERS, POS, displayWord } from './norsk.js';
-import { dedupeKey } from './format.js';
+import { GENDERS, POS, displayWord, stripParticle } from './norsk.js';
 import { escapeHtml, escapeAttr, plural } from './util.js';
-import { $, showToast, openModal, closeModal } from './ui.js';
+import { $, showToast, openModal, closeModal, topModal } from './ui.js';
 import { renderList } from './list.js';
+import { isTraining } from './training.js';
 
 const TAG = 'lingu';
 const TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -16,10 +16,17 @@ let busy = false;
 
 const wordsWord = (n) => plural(n, ['слово', 'слова', 'слов']);
 
-// Есть ли слово уже в словаре (как при обычном добавлении: слово + часть речи).
+// Одно ли это слово: без артикля и «å», без регистра; часть речи должна
+// совпасть, если она известна у обоих (uttale — сущ., å uttale — глагол).
+// Слово без части речи (добавлено вручную) совпадает с любым.
+function sameWord(a, b) {
+    return stripParticle(a.original).toLowerCase() === stripParticle(b.original).toLowerCase() &&
+        (!a.pos || !b.pos || a.pos === b.pos);
+}
+
+// Слово из словаря, совпадающее с этим, или true, если сервер уже узнал его.
 function existing(item) {
-    const key = dedupeKey(item.original, item.pos);
-    return state.words.find(w => dedupeKey(w.original, w.pos) === key);
+    return state.words.find(w => sameWord(w, item)) || (item.known ? { translate: '' } : null);
 }
 
 export async function importScreenshot(file) {
@@ -35,15 +42,19 @@ export async function importScreenshot(file) {
     $('shot-add').hidden = true;
     openModal('shot-modal');
     try {
+        // Распознавание идёт по одному; с запасом на очередь и медленную сеть.
         const res = await fetch('/api/import/screenshot', {
             method: 'POST', headers: { 'Content-Type': file.type }, body: file,
+            signal: AbortSignal.timeout(120000),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         items = (data.items || []).map(it => ({ ...it, dup: existing(it), checked: !existing(it) }));
         render();
     } catch (e) {
-        $('shot-status').textContent = `Не получилось: ${e.message}. Сервер запущен?`;
+        $('shot-status').textContent = e.name === 'TimeoutError'
+            ? 'Сервер не ответил за 2 минуты. Попробуй ещё раз.'
+            : `Не получилось: ${e.message}. Сервер запущен?`;
     } finally {
         busy = false;
     }
@@ -85,7 +96,9 @@ function updateAddButton() {
 }
 
 function addChecked() {
-    const chosen = items.filter(it => it.checked && !it.dup);
+    // Одно слово могло попасться дважды (en bok и ei bok) — добавляем один раз.
+    const chosen = items.filter(it => it.checked && !it.dup)
+        .filter((it, i, all) => all.findIndex(o => sameWord(o, it)) === i);
     const missing = chosen.filter(it => !it.translate.trim());
     if (missing.length) {
         showToast(`Впиши перевод: ${missing.map(it => it.original).join(', ')}`, 'warning', 5000);
@@ -136,7 +149,11 @@ export function initShot() {
         if (items[i] && e.target.matches('.shot-tr')) items[i].translate = e.target.value;
     });
     document.addEventListener('paste', (e) => {
-        if (e.target.matches?.('input, textarea')) return;
+        if (e.target.matches?.('input, textarea') || isTraining()) return;
+        // Поверх другого окна (в том числе недопроверенного списка) — нет;
+        // окно импорта — можно, там об этом и написано.
+        const modal = topModal();
+        if (modal && modal.id !== 'import-modal') return;
         const file = imageFromPaste(e);
         if (!file) return;
         e.preventDefault();

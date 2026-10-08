@@ -209,14 +209,19 @@ test('sentence order: picking the words in the right order is correct, a wrong o
     }
     assert.match(await page.textContent('#tr-feedback'), /Верно/);
     await page.keyboard.press('Enter');
-    // Неправильно: слова в выданном (перемешанном) порядке, но первое — последним.
-    ({ pool } = await answerFor());
-    const order = [...pool.keys()];
-    order.push(order.shift());
-    for (const i of order) await page.click(`.order-pool [data-index="${i}"]`);
-    const fb = await page.textContent('#tr-feedback');
-    // Перемешанный порядок мог случайно совпасть с правильным — тогда «верно» честно.
-    assert.match(fb, /Верно|Порядок другой/);
+    // Неправильно: правильный порядок, но два первых разных слова переставлены.
+    ({ example, pool } = await answerFor());
+    const right = orderTokens(example);
+    const k = right.findIndex(tok => tok.toLowerCase() !== right[0].toLowerCase());
+    const wrong = [...right];
+    [wrong[0], wrong[k]] = [wrong[k], wrong[0]];
+    const taken = new Set();
+    for (const tok of wrong) {
+        const i = pool.findIndex((p, j) => !taken.has(j) && p.toLowerCase() === tok.toLowerCase());
+        taken.add(i);
+        await page.click(`.order-pool [data-index="${i}"]`);
+    }
+    assert.match(await page.textContent('#tr-feedback'), /Порядок другой/);
     assert.ok(await page.isVisible('.order-answer'), 'the right sentence is shown after the check');
     assert.deepStrictEqual(errors, []);
     await page.keyboard.press('Escape');
@@ -269,5 +274,26 @@ test('a screenshot becomes a checklist; words already in the deck are not added 
         ['å uttrykke', 'выражать', '', 'Han uttrykker seg godt.'],
     ]);
     assert.deepStrictEqual(errors, []);
+    await context.close();
+});
+
+test('the dictionary button after the automatic fill keeps the noun the article asked for', async () => {
+    const { page, context } = await openApp(browser, server);
+    const asked = [];
+    await page.route('**/api/ordbok?**', (route) => {
+        const w = new URL(route.request().url()).searchParams.get('w');
+        asked.push(w);
+        route.fulfill({ json: w === 'en uttale'
+            ? { lemma: 'uttale', original: 'uttale', pos: 'noun', gender: 'm', forms: { defSg: 'uttalen' } }
+            : { lemma: 'uttale', original: 'å uttale', pos: 'verb', gender: '', forms: { past: 'uttalte' } } });
+    });
+    await page.fill('#add-no', 'en uttale');
+    await page.click('#add-ru');
+    await page.waitForFunction(() => document.getElementById('add-pos').value === 'noun');
+    await page.click('#add-dict');
+    await page.waitForTimeout(300);
+    assert.equal(await page.inputValue('#add-pos'), 'noun');
+    assert.equal(await page.inputValue('#add-no'), 'uttale');
+    assert.deepStrictEqual(asked, ['en uttale'], 'the button reuses the query that filled the field');
     await context.close();
 });

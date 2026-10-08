@@ -281,7 +281,12 @@ app.get('/api/tatoeba', limiter, (req, res) => {
 // Озвучка через Piper (см. tts.js).
 app.use(require('./tts').router);
 app.use(require('./ordbok').router);
-app.use(require('./lingu').router);
+const lingu = require('./lingu');
+lingu.deps.knownWords = async () => {
+    await ready;
+    return new Set((await all('SELECT original FROM words')).map(r => lingu.wordKey(r.original)));
+};
+app.use(lingu.router);
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));

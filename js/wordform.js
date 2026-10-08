@@ -84,36 +84,50 @@ export function guessForms(p) {
 // overwrite — по кнопке: заменить и то, что уже заполнено; при уходе из
 // поля слова заполняются только пустые поля.
 // Возвращает разбор словаря или null (нет слова, нет сети, слово успели поменять).
-export async function fillFromDictionary(p, { overwrite = false } = {}) {
-    const raw = el(p, 'no').value.trim();
-    if (!raw) return null;
-    const btn = el(p, 'dict');
-    btn.disabled = true;
-    try {
-        const res = await fetch(`/api/ordbok?w=${encodeURIComponent(raw)}`);
-        if (!res.ok) return null;
-        const d = await res.json();
-        // Пока шёл запрос, слово могли исправить — тогда ответ уже не про него.
-        if (el(p, 'no').value.trim() !== raw) return null;
-        if (!overwrite && el(p, 'pos').value && el(p, 'pos').value !== d.pos) return null;
-        el(p, 'no').value = d.original;
-        el(p, 'pos').value = d.pos;
-        if (d.gender) {
-            document.querySelectorAll(`input[name="${p}-gender"]`).forEach(r => { r.checked = r.value === d.gender; });
-        }
-        for (const [key, value] of Object.entries(d.forms || {})) {
-            const input = el(p, `form-${key}`);
-            if (input && (overwrite || !input.value.trim())) input.value = value;
-        }
-        syncGrammarVisibility(p);
-        el(p, 'pos').classList.add('auto-filled');
-        setTimeout(() => el(p, 'pos').classList.remove('auto-filled'), 1500);
-        return d;
-    } catch {
-        return null;   // офлайн — просто без подсказки
-    } finally {
-        btn.disabled = false;
+// Один запрос на одно слово: уход из поля и нажатие кнопки сразу за ним
+// (фокус ещё в поле) не должны давать два запроса — и кнопка не должна
+// «съедаться», как было, когда она блокировалась на время запроса.
+const lookups = new Map();
+function lookupWord(raw) {
+    if (!lookups.has(raw)) {
+        const job = fetch(`/api/ordbok?w=${encodeURIComponent(raw)}`, { signal: AbortSignal.timeout(15000) })
+            .then(res => (res.ok ? res.json() : null))
+            .catch(() => null);
+        lookups.set(raw, job);
+        // Неудачу (сеть) не запоминаем — следующая попытка спросит снова.
+        job.then(d => { if (!d) lookups.delete(raw); });
+        if (lookups.size > 200) lookups.delete(lookups.keys().next().value);
     }
+    return lookups.get(raw);
+}
+
+// Какой запрос заполнил поле: «en uttale» превращается в «uttale», и
+// повторный запрос по «uttale» без артикля вернул бы уже глагол.
+const lastFill = {};
+
+export async function fillFromDictionary(p, { overwrite = false } = {}) {
+    const typed = el(p, 'no').value.trim();
+    if (!typed) return null;
+    const raw = lastFill[p]?.original === typed ? lastFill[p].query : typed;
+    const d = await lookupWord(raw);
+    if (!d) return null;
+    // Пока шёл запрос, слово могли исправить — тогда ответ уже не про него.
+    if (el(p, 'no').value.trim() !== typed) return null;
+    if (!overwrite && el(p, 'pos').value && el(p, 'pos').value !== d.pos) return null;
+    el(p, 'no').value = d.original;
+    lastFill[p] = { original: d.original, query: raw };
+    el(p, 'pos').value = d.pos;
+    if (d.gender) {
+        document.querySelectorAll(`input[name="${p}-gender"]`).forEach(r => { r.checked = r.value === d.gender; });
+    }
+    for (const [key, value] of Object.entries(d.forms || {})) {
+        const input = el(p, `form-${key}`);
+        if (input && (overwrite || !input.value.trim())) input.value = value;
+    }
+    syncGrammarVisibility(p);
+    el(p, 'pos').classList.add('auto-filled');
+    setTimeout(() => el(p, 'pos').classList.remove('auto-filled'), 1500);
+    return d;
 }
 
 export function readWordForm(p) {

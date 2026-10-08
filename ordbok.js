@@ -5,7 +5,6 @@
 // API открытое, без ключа: /api/articles?w=… находит статьи, а
 // /bm/article/<id>.json отдаёт парадигмы склонения. Разбор вынесен в чистые
 // функции — они тестируются на сохранённых ответах без сети.
-const https = require('https');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 
@@ -95,7 +94,7 @@ function pickParadigm(articles, query) {
                 if (paradigm.to) return;   // устаревшее написание
                 const result = paradigmForms(paradigm);
                 if (query.pos && result.pos !== query.pos) return;
-                candidates.push({ result, order: ai * 100 + pi });
+                candidates.push({ result, lemma: String(lem.lemma), order: ai * 100 + pi });
             });
         }
     });
@@ -103,37 +102,32 @@ function pickParadigm(articles, query) {
     const rank = (c) => (query.gender && c.result.gender !== query.gender ? 10 : 0) + radicalScore(c.result);
     candidates.sort((a, b) => rank(a) - rank(b) || a.order - b.order);
     const best = candidates[0].result;
+    // Написание из словаря, а не из запроса: иначе кеш отдавал бы «Bok»
+    // на «bok», если первым спросили с заглавной.
+    const lemmaText = candidates[0].lemma;
     const forms = Object.fromEntries(Object.entries(best.forms).filter(([, v]) => v));
     // Род из запроса важнее словарного, если словарь его допускает:
     // «en bok» тоже правильно, хотя первой идёт «ei bok».
     const gender = best.pos === 'noun' && query.gender &&
         candidates.some(c => c.result.gender === query.gender) ? query.gender : best.gender;
     return {
-        lemma: query.lemma,
-        original: best.pos === 'verb' ? `å ${query.lemma}` : query.lemma,
+        lemma: lemmaText,
+        original: best.pos === 'verb' ? `å ${lemmaText}` : lemmaText,
         pos: best.pos,
         gender,
         forms,
     };
 }
 
-function getJson(path) {
-    return new Promise((resolve, reject) => {
-        const req = https.get({ hostname: HOST, path, timeout: TIMEOUT_MS, headers: { Accept: 'application/json' } }, (res) => {
-            if (res.statusCode !== 200) {
-                res.resume();
-                return reject(new Error(`ord.uib.no ответил ${res.statusCode}`));
-            }
-            let body = '';
-            res.setEncoding('utf8');
-            res.on('data', (c) => { body += c; if (body.length > 2_000_000) req.destroy(new Error('too large')); });
-            res.on('end', () => {
-                try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
-            });
-        });
-        req.on('timeout', () => req.destroy(new Error('ord.uib.no не ответил вовремя')));
-        req.on('error', reject);
+// Встроенный fetch с жёстким таймаутом: прежний https.get при обрыве
+// посреди ответа не завершал промис никогда, и импорт со скриншота висел.
+async function getJson(path) {
+    const res = await fetch(`https://${HOST}${path}`, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
     });
+    if (!res.ok) throw new Error(`ord.uib.no ответил ${res.status}`);
+    return res.json();
 }
 
 // Кеш в памяти: одно и то же слово при импорте и добавлении ищется не раз.

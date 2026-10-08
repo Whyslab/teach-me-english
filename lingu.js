@@ -13,7 +13,6 @@
 //     "Jeg øver på uttale."  ← пример
 // Колонки tesseract читает вперемешку, поэтому заголовки разделов не
 // используются: часть речи видна по самому слову (en/ei/et, å) и по словарю.
-const https = require('https');
 const { spawn } = require('child_process');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
@@ -21,10 +20,11 @@ const ordbok = require('./ordbok');
 
 const OCR_TIMEOUT_MS = 30000;
 const MAX_IMAGE = 10 * 1024 * 1024;
-const MAX_CARDS = 40;
+const MAX_CARDS = 25;
 
 const HEADER = /^(substantiv|substantiver|verb|verb[ae]r|adjektiv|adjektiver|adverb|adverber|preposisjon(er)?|pronomen|konjunksjon(er)?|subjunksjon(er)?|uttrykk|frase(r)?|interjeksjon(er)?|tallord|determinativ(er)?|ord)$/i;
 const QUOTE_START = /^["“”„«'’‘]/;
+const CLOSES_QUOTE = /["“”»'’‘]\s*$/;
 const squash = (s) => s.toLowerCase().replace(/\s+/g, '');
 
 function cleanSentence(line) {
@@ -38,28 +38,60 @@ function looksLikeWord(line) {
 }
 
 // Текст распознавания → карточки { original, definition, example }.
+//
+// Опоры две. Слово карточки идёт дважды подряд (цветом и жирным) — так
+// начало новой карточки видно, даже если у прошлой не нашёлся пример.
+// Пример начинается с кавычки и может переноситься на следующие строки,
+// пока не встретится закрывающая кавычка.
 function parseCards(text) {
-    const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean)
+        .filter(l => !HEADER.test(l));
     const cards = [];
     let cur = null;
+    let openExample = false;
     const finish = () => {
-        if (cur && looksLikeWord(cur.original) && (cur.definition || cur.example)) cards.push(cur);
+        if (cur) {
+            cur.example = cleanSentence(cur.example);
+            if (looksLikeWord(cur.original) && (cur.definition || cur.example)) cards.push(cur);
+        }
         cur = null;
+        openExample = false;
     };
-    for (const line of lines) {
-        if (HEADER.test(line)) continue;
+    const startsCard = (i) => i + 1 < lines.length && squash(lines[i]) === squash(lines[i + 1]) &&
+        !QUOTE_START.test(lines[i]);
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (startsCard(i)) {
+            finish();
+            // Дубль жирным иногда теряет пробел («enuttale») — берём вариант с пробелом.
+            const a = line, b = lines[i + 1];
+            cur = { original: (a.includes(' ') ? a : b).replace(/\s+/g, ' '), definition: '', example: '' };
+            i++;
+            continue;
+        }
+        if (openExample) {
+            cur.example += ` ${line}`;
+            if (CLOSES_QUOTE.test(line)) finish();
+            continue;
+        }
         if (QUOTE_START.test(line)) {
-            if (cur) {
-                cur.example = cleanSentence(line);
-                finish();
-            }
+            if (!cur) continue;
+            cur.example = line;
+            if (CLOSES_QUOTE.test(line.slice(1))) finish();
+            else openExample = true;
             continue;
         }
         if (!cur) {
             cur = { original: line.replace(/\s+/g, ' '), definition: '', example: '' };
         } else if (squash(line) === squash(cur.original)) {
-            // Дубль жирным; распознавание иногда теряет в нём пробел («enuttale»).
-            if (line.includes(' ') && !cur.original.includes(' ')) cur.original = line;
+            continue;
+        } else if (cur.example) {
+            continue;
+        } else if (cur.definition && /^\p{Lu}.*[.!?]$/u.test(line)) {
+            // Пример без кавычек: предложение с заглавной и точкой. Объяснения
+            // в карточках пишутся со строчной.
+            cur.example = line;
+            finish();
         } else if (!cur.definition) {
             cur.definition = line;
         } else {
@@ -76,7 +108,11 @@ function parseCards(text) {
 // временных файлов.
 function ocr(image, { bin = process.env.TESSERACT_BIN || 'tesseract' } = {}) {
     return new Promise((resolve, reject) => {
-        const child = spawn(bin, ['stdin', 'stdout', '-l', 'nor'], { stdio: ['pipe', 'pipe', 'pipe'] });
+        // Не больше двух ядер: на ноутбуке с 8 ГБ tesseract на все ядра
+        // заметно подвешивает остальное.
+        const child = spawn(bin, ['stdin', 'stdout', '-l', 'nor'], {
+            stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, OMP_THREAD_LIMIT: '2' },
+        });
         let out = '';
         let err = '';
         const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('распознавание заняло слишком долго')); }, OCR_TIMEOUT_MS);
@@ -119,23 +155,19 @@ function pickTranslation(data, query) {
     return String(candidates.find(plausible) || '').trim();
 }
 
-// Перевод норвежский → русский; при любой ошибке — пустая строка.
-function translate(text) {
-    const q = String(text || '').trim();
-    if (!q) return Promise.resolve('');
-    const path = `/get?q=${encodeURIComponent(q.slice(0, 450))}&langpair=nb-NO|ru-RU`;
-    return new Promise((resolve) => {
-        const req = https.get({ hostname: 'api.mymemory.translated.net', path, timeout: 10000 }, (res) => {
-            let body = '';
-            res.setEncoding('utf8');
-            res.on('data', (c) => { body += c; });
-            res.on('end', () => {
-                try { resolve(pickTranslation(JSON.parse(body), q)); } catch { resolve(''); }
-            });
-        });
-        req.on('timeout', () => req.destroy());
-        req.on('error', () => resolve(''));
-    });
+// Перевод норвежский → русский; при любой ошибке или таймауте — пустая строка.
+async function translate(text) {
+    // По символам, а не по UTF-16: срез посреди эмодзи ломал encodeURIComponent.
+    const q = Array.from(String(text || '').trim()).slice(0, 450).join('');
+    if (!q) return '';
+    try {
+        const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=nb-NO|ru-RU`,
+            { signal: AbortSignal.timeout(10000) });
+        if (!res.ok) return '';
+        return pickTranslation(await res.json(), q);
+    } catch {
+        return '';
+    }
 }
 
 // Не больше n запросов наружу одновременно.
@@ -172,6 +204,17 @@ async function enrich(card, { lookup = ordbok.lookup, tr = translate } = {}) {
     };
 }
 
+// Ключ слова для «уже есть в словаре»: без артикля, но с «å» — иначе
+// существительное «uttale» совпало бы с глаголом «å uttale».
+const ARTICLE = /^(en|ei|et)\s+/i;
+function wordKey(original) {
+    return String(original || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(ARTICLE, '');
+}
+
+// Подменяются в тестах; knownWords задаёт server.js (у него база).
+const deps = { lookup: ordbok.lookup, tr: translate, knownWords: async () => new Set() };
+let ocrQueue = Promise.resolve();
+
 const router = express.Router();
 const limiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
 
@@ -182,15 +225,25 @@ router.post('/api/import/screenshot', limiter,
             return res.status(415).json({ error: 'Нужна картинка PNG, JPEG или WebP' });
         }
         let text;
+        // Строго по одному: tesseract тяжёлый, а все клиенты через Tailscale
+        // приходят как 127.0.0.1 и делят один лимит запросов.
+        const job = ocrQueue.then(() => ocr(req.body));
+        ocrQueue = job.catch(() => {});
         try {
-            text = await ocr(req.body);
+            text = await job;
         } catch (err) {
             return res.status(500).json({ error: `Не удалось распознать текст: ${err.message}` });
         }
         const cards = parseCards(text);
         if (!cards.length) return res.json({ items: [], text });
-        const items = await mapLimit(cards, 3, (c) => enrich(c));
+        // Слова, которые уже есть, не тратят запросы к словарю и переводчику.
+        let known = new Set();
+        try { known = await deps.knownWords(); } catch { /* без проверки — просто медленнее */ }
+        const items = await mapLimit(cards, 3, (c) => (known.has(wordKey(c.original))
+            ? { original: c.original.replace(ARTICLE, ''), translate: '', example: c.example, exampleTranslate: '',
+                definition: c.definition, pos: '', gender: '', forms: {}, known: true }
+            : enrich(c, deps)));
         res.json({ items });
     });
 
-module.exports = { router, parseCards, enrich, ocr, translate, pickTranslation };
+module.exports = { router, deps, wordKey, parseCards, enrich, ocr, translate, pickTranslation };

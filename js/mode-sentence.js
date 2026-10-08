@@ -9,7 +9,7 @@ import { t } from './session.js';
 
 const SIZE = 20;
 const MIN_TOKENS = 3;
-const MAX_TOKENS = 10;
+const MAX_TOKENS = 9;   // клавиши 1–9
 
 const withExample = () => state.words.filter(w => w.example && w.exampleTranslate);
 
