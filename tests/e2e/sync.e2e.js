@@ -45,11 +45,23 @@ test('answers made while the server is down survive a reload', async () => {
     const pending = await page.evaluate(() => JSON.parse(localStorage.getItem('pendingSync')));
     assert.ok(pending.ids.includes(target), 'the edit is remembered as unsynced');
 
+    // Ловушка для редкой гонки (октябрь 2026: ~1 падение на 10–15 полных
+    // прогонов под нагрузкой, причина не найдена). Если правка не дошла до
+    // сервера, тест выводит хронологию запросов — по ней видно, кто и когда
+    // прислал старую версию слова.
+    const log = [];
+    page.on('request', r => { if (r.url().includes('/api/')) log.push(`${Date.now() % 100000} REQ ${r.method()} ${r.url().split('/api/')[1]} ${(r.postData() || '').includes('офлайн') ? 'NEW' : (r.postData() || '').includes(String(target)) ? 'OLD!' : ''}`); });
+    page.on('response', r => { if (r.url().includes('/api/')) log.push(`${Date.now() % 100000} RES ${r.status()} ${r.url().split('/api/')[1]}`); });
+    page.on('console', m => log.push(`console ${m.type()} ${m.text()}`));
     await server.start();
+    log.push(`${Date.now() % 100000} started; pending=${await page.evaluate(() => localStorage.getItem('pendingSync'))}`);
     await page.reload();
+    log.push(`${Date.now() % 100000} reloaded; pending=${await page.evaluate(() => localStorage.getItem('pendingSync'))}`);
     await waitSynced(page);
     const onServer = (await server.words()).find(w => w.id === target);
-    assert.equal(onServer.translate, 'дом, здание (офлайн)', 'the offline edit reached the server');
+    if (onServer.translate !== 'дом, здание (офлайн)') {
+        throw new Error(`the offline edit did not reach the server; timeline:\n${log.join('\n')}`);
+    }
     const inBrowser = await page.evaluate(id => JSON.parse(localStorage.getItem('myWords')).find(x => x.id === id).translate, target);
     assert.equal(inBrowser, 'дом, здание (офлайн)', 'the reload did not overwrite it with the old server copy');
     assert.deepStrictEqual(errors, []);
@@ -134,7 +146,15 @@ test('settings and answers made on one device show up on another', async () => {
 
     const b = await openApp(browser, server);   // свой контекст — пустой localStorage
     await waitSynced(b.page);
-    await b.page.waitForFunction(() => document.getElementById('daily-goal').textContent === '7');
+    // Ловушка для той же редкой гонки: при падении — что видят сервер и оба устройства.
+    try {
+        await b.page.waitForFunction(() => document.getElementById('daily-goal').textContent === '7', null, { timeout: 8000 });
+    } catch (e) {
+        const srv = await (await fetch(`${server.url}/api/state`)).json();
+        const bs = await b.page.evaluate(() => localStorage.getItem('settings'));
+        const as = await a.page.evaluate(() => localStorage.getItem('settings'));
+        throw new Error(`device B did not get the settings: server=${JSON.stringify(srv.settings)} B=${bs} A=${as} errorsB=${JSON.stringify(b.errors)}`);
+    }
     assert.equal(await b.page.evaluate(() => Number(document.getElementById('daily-count').textContent)), answered,
         'today\'s answers come from the server');
     assert.deepStrictEqual([...a.errors, ...b.errors], []);
