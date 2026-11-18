@@ -8,6 +8,7 @@ const path = require('node:path');
 const DB = path.join(os.tmpdir(), `tme-test-${process.pid}.db`);
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_PATH = DB;
+process.env.LLM_DISABLED = '1';   // без настоящего ИИ-шлюза
 
 // Озвучка: поддельный piper и временный каталог для кеша звука.
 const TTS_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tme-tts-'));

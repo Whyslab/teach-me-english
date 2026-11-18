@@ -13,7 +13,7 @@ import { stripParticle } from './norsk.js';
 import { plural, escapeHtml } from './util.js';
 import { $, showToast, showConfirm, openModal, closeModal, topModal, initSpeech, speak } from './ui.js';
 import { applyTheme, setTheme } from './themes.js';
-import { wordFormHtml, readWordForm, clearWordForm, syncGrammarVisibility, guessForms, insertChar, fillFromDictionary } from './wordform.js';
+import { wordFormHtml, readWordForm, clearWordForm, syncGrammarVisibility, guessForms, insertChar, fillFromDictionary, applySuggestion, clearAutoFilled, renderPreview } from './wordform.js';
 import { dedupeKey } from './format.js';
 import { renderList, listActions, initList, onListRendered } from './list.js';
 import { renderStats, showForgettingStats, showWordHistory } from './stats.js';
@@ -25,10 +25,28 @@ import { openTatoeba, tatoebaActions } from './tatoeba.js';
 // ---------------------------------------------------------------------------
 // Добавление слова
 // ---------------------------------------------------------------------------
+let adding = false;
 async function addWord() {
+    // Двойное нажатие, пока ждём подсказку или подтверждение, добавило бы слово дважды.
+    if (adding) return;
+    adding = true;
+    try { await addWordOnce(); } finally { adding = false; }
+}
+
+async function addWordOnce() {
+    // Подсказка ещё идёт — дождаться: иначе слово ушло бы без перевода,
+    // а форма очистилась бы до её прихода.
+    if (suggesting) await suggesting;
+    // Пока ждали, окно закрыли — передумал.
+    if (!$('add-modal').classList.contains('open')) return;
+    settleWord();
     const data = readWordForm('add');
     if (!data.original || !data.translate) {
-        showToast('Заполни норвежское слово и перевод', 'info');
+        if (data.original && !data.translate) {
+            setAddStatus('Впиши перевод — подсказка не пришла', 'warn');
+        } else {
+            showToast('Заполни норвежское слово и перевод', 'info');
+        }
         $(data.original ? 'add-ru' : 'add-no').focus();
         return;
     }
@@ -39,39 +57,132 @@ async function addWord() {
             `<b lang="nb">${escapeHtml(dup.original)}</b> — ${escapeHtml(dup.translate)} уже есть в словаре.<br>Добавить ещё раз?`,
             'Добавить', 'Отмена');
         if (!ok) { $('add-no').focus(); return; }
+        if (!$('add-modal').classList.contains('open')) return;
     }
     const now = Date.now();
     state.words.push(normalizeWord({ ...data, id: now, addedAt: now, nextReview: now, level: 0 }));
     saveWords();
     clearWordForm('add');
+    lastSuggested = '';
     $('tatoeba-fetch-btn').hidden = true;
     renderList();
+    // Окно остаётся открытым: слова обычно добавляют по несколько подряд.
+    setAddStatus(`«${data.original}» добавлено. Следующее?`, 'ok');
     showToast(`«${data.original}» добавлено`, 'success', 1500);
     $('add-no').focus();
 }
 
-// Автоперевод норвежский → русский при уходе из поля слова.
-// По умолчанию выключен (⚙️ Настройки): для пары норвежский → русский MyMemory
-// часто подставляет редкое значение или английское слово.
-async function autoTranslate() {
-    const no = $('add-no').value.trim();
-    const ru = $('add-ru');
-    $('tatoeba-fetch-btn').hidden = !no;
-    if (!state.settings.autoTranslate || !no || ru.value.trim()) return;
-    const query = stripParticle(no);
-    ru.placeholder = '⏳ переводим…';
-    try {
-        const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(query)}&langpair=nb-NO|ru-RU`);
-        const data = await res.json();
-        const text = data?.responseStatus === 200 ? data.responseData?.translatedText : '';
-        // MyMemory, не найдя перевода, возвращает исходное слово — такой «перевод» не нужен.
-        if (text && !ru.value && text.toLowerCase() !== query.toLowerCase()) {
-            ru.value = text;
-            ru.classList.add('auto-filled');
-            setTimeout(() => ru.classList.remove('auto-filled'), 1500);
-        }
-    } catch { /* офлайн — просто без подсказки */ }
-    ru.placeholder = 'русский перевод';
+// ---------------------------------------------------------------------------
+// Подсказка при добавлении: перевод, пример, род и формы (/api/word/suggest —
+// ИИ на сервере и Ordbøkene). Запрос — когда слово дописано: Enter, уход из
+// поля или пауза в наборе.
+// ---------------------------------------------------------------------------
+let suggesting = null;      // текущий запрос (промис) — addWord его ждёт
+let lastSuggested = '';     // для какого написания уже спрашивали
+let pendingWord = null;     // { typed, original }: поле ещё не переписано на словарное
+const suggestCache = new Map();
+
+// Подсказка по паузе в наборе не трогает само поле: человек ещё печатает
+// («en hu» → «hu» стёрло бы артикль и сбило курсор). Словарное написание
+// («en uttale» → «uttale») ставится на Enter, уходе из поля или добавлении.
+function settleWord() {
+    if (!pendingWord) return;
+    const input = $('add-no');
+    if (input.value.trim() === pendingWord.typed) {
+        input.value = pendingWord.original;
+        lastSuggested = pendingWord.original;
+        renderPreview('add');
+    }
+    pendingWord = null;
+}
+
+function setAddStatus(text, kind = '', spin = false) {
+    const box = $('add-status');
+    if (!box) return;
+    box.className = `add-status${kind ? ` ${kind}` : ''}`;
+    box.innerHTML = `${spin ? '<span class="spinner"></span>' : ''}<span>${escapeHtml(text)}</span>`;
+}
+
+function fetchSuggestion(word) {
+    if (!suggestCache.has(word)) {
+        const job = fetch('/api/word/suggest', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ word }), signal: AbortSignal.timeout(50000),
+        }).then(r => (r.ok ? r.json() : { failed: r.status })).catch(() => ({ failed: 0 }));
+        suggestCache.set(word, job);
+        job.then(d => { if (d.failed !== undefined) suggestCache.delete(word); });
+        if (suggestCache.size > 100) suggestCache.delete(suggestCache.keys().next().value);
+    }
+    return suggestCache.get(word);
+}
+
+async function suggestForAdd({ typing = false } = {}) {
+    const typed = $('add-no').value.trim();
+    $('tatoeba-fetch-btn').hidden = !typed;
+    if (!typing) settleWord();
+    if (!typed || typed === lastSuggested) return;
+    // Обрывок в паузе набора («en h») — не спрашивать.
+    if (typing && typed.replace(/^(en|ei|et|å)\s+/i, '').length < 3) return;
+    if (state.settings.smartAdd === false) {
+        // Подсказка выключена — только грамматика из словаря, как раньше.
+        lastSuggested = typed;
+        if (!$('add-pos').value) fillFromDictionary('add');
+        setAddStatus('Подсказка выключена в настройках — впиши перевод', '');
+        return;
+    }
+    lastSuggested = typed;
+    setAddStatus('Ищу перевод и пример…', '', true);
+    const job = fetchSuggestion(typed);
+    suggesting = job;
+    const d = await job;
+    if (suggesting === job) suggesting = null;
+    // Пока ждали, слово поменяли — ответ уже не про него.
+    if ($('add-no').value.trim() !== typed) return;
+    if (d.failed !== undefined) {
+        lastSuggested = '';   // следующий Enter или уход из поля спросят снова
+        setAddStatus(d.failed === 429 ? 'Слишком много запросов — подожди минуту или впиши перевод сам'
+            : d.failed ? 'Сервер не смог подсказать — впиши перевод сам или нажми Enter ещё раз'
+                : 'Нет связи с сервером — впиши перевод сам', 'warn');
+        return;
+    }
+    const focused = document.activeElement === $('add-no');
+    applySuggestion('add', d, typed, { keepWord: typing && focused });
+    if (typing && focused && d.original && d.original !== typed) {
+        pendingWord = { typed, original: d.original };
+        lastSuggested = typed;
+    } else {
+        lastSuggested = $('add-no').value.trim();
+    }
+    const what = d.source === 'ai' ? 'Перевод и пример подсказал ИИ' : d.source === 'translator' ? 'Перевод машинный' : 'Перевода не нашёл — впиши сам';
+    setAddStatus(`${what}${d.inDictionary ? ' · род и формы из Ordbøkene' : ''}. Проверь и добавляй.`, d.translate ? 'ok' : 'warn');
+}
+
+function openAdd() {
+    openModal('add-modal');
+    if (!$('add-no').value.trim()) setAddStatus('Напиши слово — перевод, род и пример подставятся сами.');
+    setTimeout(() => $('add-no').focus(), 60);
+}
+
+// ---------------------------------------------------------------------------
+// Разделы: Сегодня · Слова · Прогресс (адрес #words, #progress)
+// ---------------------------------------------------------------------------
+const VIEWS = ['today', 'words', 'progress'];
+function showView(name, { push = true, user = false } = {}) {
+    const v = VIEWS.includes(name) ? name : 'today';
+    for (const id of VIEWS) $(`view-${id}`).hidden = id !== v;
+    document.querySelectorAll('[data-action="go"]').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === v);
+        if (b.classList.contains('tab') || b.classList.contains('bn-item')) b.setAttribute('aria-current', b.dataset.view === v ? 'page' : 'false');
+    });
+    // Нажатие на вкладку — новая запись истории: «Назад» на Android
+    // возвращает на прошлую вкладку, а не закрывает приложение.
+    if (push && location.hash.slice(1) !== v) {
+        const url = v === 'today' ? location.pathname + location.search : `#${v}`;
+        if (user) history.pushState(null, '', url); else history.replaceState(null, '', url);
+    }
+    window.scrollTo(0, 0);
+    // Холст недельного графика рисуется по размеру — перерисовать на видимом.
+    if (v === 'progress') renderStats();
 }
 
 // ---------------------------------------------------------------------------
@@ -82,7 +193,7 @@ function openSettings() {
     $('set-pause').value = state.settings.pauseNewAt;
     $('set-goal').value = state.settings.dailyGoal;
     $('set-autospeak').checked = !!state.settings.autoSpeak;
-    $('set-autotranslate').checked = !!state.settings.autoTranslate;
+    $('set-autotranslate').checked = state.settings.smartAdd !== false;
     $('set-cards-dir').value = state.settings.cardsDir || 'no-ru';
     $('set-rate').value = state.settings.speechRate || 1;
     renderRateLabel();
@@ -107,7 +218,7 @@ function saveSettingsForm() {
         pauseNewAt: pause,
         dailyGoal: g,
         autoSpeak: $('set-autospeak').checked,
-        autoTranslate: $('set-autotranslate').checked,
+        smartAdd: $('set-autotranslate').checked,
         cardsDir: $('set-cards-dir').value,
         speechRate: Number($('set-rate').value) || 1,
     });
@@ -118,7 +229,7 @@ function saveSettingsForm() {
 }
 
 function renderMute() {
-    $('mute-icon').textContent = state.settings.muted ? '🔇' : '🔊';
+    $('mute-icon').setAttribute('href', state.settings.muted ? '#i-mute' : '#i-volume');
     $('mute-btn').setAttribute('aria-pressed', String(state.settings.muted));
 }
 
@@ -132,6 +243,8 @@ const actions = {
     ...shotActions,
     ...tatoebaActions,
     'add-word'() { addWord(); },
+    'open-add'() { openAdd(); },
+    'go'(el) { showView(el.dataset.view, { user: true }); },
     'insert-char'(el, e) { insertChar(el.dataset.char, e, $('add-no')); },
     async 'dict-fill'(el) {
         const p = el.closest('.word-form').dataset.prefix;
@@ -150,9 +263,9 @@ const actions = {
     },
     'tatoeba-edit'() { openTatoeba($('edit-no').value, 'edit'); },
     'history-word'(el) { showWordHistory(el.dataset.id); },
-    'open-stats'() { showForgettingStats(); },
-    'open-help'() { openModal('help-modal'); },
-    'open-theme'() { openModal('theme-modal'); },
+    'open-stats'() { closeModal('settings-modal'); showForgettingStats(); },
+    'open-help'() { closeModal('settings-modal'); openModal('help-modal'); },
+    'open-theme'() { openSettings(); },
     'set-theme'(el) { setTheme(el.dataset.theme); renderStats(); },
     'open-settings'() { openSettings(); },
     'save-settings'() { saveSettingsForm(); },
@@ -228,20 +341,36 @@ function renderAll() {
 
 function initAddForm() {
     $('add-form').innerHTML = wordFormHtml('add');
-    $('edit-form').innerHTML = wordFormHtml('edit');
+    $('edit-form').innerHTML = wordFormHtml('edit', { open: true });
     for (const p of ['add', 'edit']) {
         $(`${p}-pos`).addEventListener('change', () => syncGrammarVisibility(p));
+        $(`${p}-form`).addEventListener('input', () => renderPreview(p));
+        $(`${p}-form`).addEventListener('change', () => renderPreview(p));
         syncGrammarVisibility(p);
     }
-    $('add-no').addEventListener('blur', autoTranslate);
-    // Ушёл из поля слова, а часть речи не выбрана — подтянуть из словаря.
-    $('add-no').addEventListener('blur', () => {
-        if (!$('add-pos').value) fillFromDictionary('add');
+    let typingTimer = null;
+    $('add-no').addEventListener('input', () => {
+        clearTimeout(typingTimer);
+        // Слово поменяли — подставленное для прошлого слова больше не про него.
+        if (lastSuggested && $('add-no').value.trim() !== lastSuggested) {
+            clearAutoFilled('add');
+            lastSuggested = '';
+        }
+        pendingWord = null;
+        typingTimer = setTimeout(() => suggestForAdd({ typing: true }), 1300);
     });
+    $('add-no').addEventListener('blur', () => { clearTimeout(typingTimer); suggestForAdd(); });
     $('set-rate').addEventListener('input', renderRateLabel);
     $('add-form').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.isComposing && e.target.matches('input')) {
             e.preventDefault();
+            // В поле слова Enter сначала ищет перевод, второй Enter — добавляет.
+            if (e.target.id === 'add-no' && pendingWord && $('add-ru').value.trim()) settleWord();
+            if (e.target.id === 'add-no' && (!$('add-ru').value.trim() || $('add-no').value.trim() !== lastSuggested)) {
+                clearTimeout(typingTimer);
+                suggestForAdd();
+                return;
+            }
             addWord();
         }
     });
@@ -256,7 +385,7 @@ function initAddForm() {
 // Раскрыта ли «Практика» — помним на этом устройстве.
 function initPracticeToggle() {
     const box = $('practice-details');
-    try { box.open = localStorage.getItem('practiceOpen') === '1'; } catch { /* приватный режим */ }
+    try { box.open = localStorage.getItem('practiceOpen') !== '0'; } catch { /* приватный режим */ }
     box.addEventListener('toggle', () => {
         try { localStorage.setItem('practiceOpen', box.open ? '1' : '0'); } catch { /* ignore */ }
     });
@@ -290,15 +419,17 @@ async function init() {
     onTrainingFinished(renderAll);
 
     initPracticeToggle();
+    showView(location.hash.slice(1), { push: false });
+    window.addEventListener('hashchange', () => showView(location.hash.slice(1), { push: false }));
     renderAll();
     await loadFromServer();
     applyTheme();   // настройки могли прийти с сервера
     renderAll();
 
     // Ярлык из манифеста: /?action=train
-    if (new URLSearchParams(location.search).get('action') === 'train') {
-        actions['start-training']();
-    }
+    const shortcut = new URLSearchParams(location.search).get('action');
+    if (shortcut === 'train') actions['start-training']();
+    if (shortcut === 'add') openAdd();
 }
 
 // ---------------------------------------------------------------------------

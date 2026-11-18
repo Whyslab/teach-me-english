@@ -83,6 +83,18 @@ function radicalScore(result) {
     return score;
 }
 
+// Слово без «å» и без артикля. Глаголы ученики пишут с «å» (так и в
+// Lingu, и в учебниках), поэтому «uttale» — это существительное
+// «произношение», а не глагол «å uttale». Из прилагательного и
+// существительного («fransk» — «французский» и «французский язык»)
+// берём прилагательное: существительное обычно пишут с артиклем.
+function bareScore(result, query, hasAdj) {
+    if (query.pos) return 0;
+    if (result.pos === 'verb') return 20;
+    if (result.pos === 'noun' && hasAdj) return 5;
+    return 0;
+}
+
 // Статьи → лучший разбор для запроса. articles — массив JSON-статей.
 function pickParadigm(articles, query) {
     const lemma = query.lemma.toLowerCase();
@@ -99,7 +111,14 @@ function pickParadigm(articles, query) {
         }
     });
     if (!candidates.length) return null;
-    const rank = (c) => (query.gender && c.result.gender !== query.gender ? 10 : 0) + radicalScore(c.result);
+    const hasAdj = candidates.some(c => c.result.pos === 'adj');
+    // Множественное без окончания (eksempel → eksempel) — допустимый, но
+    // редкий вариант, если словарь даёт и обычный (eksempler). У hus, ord
+    // других вариантов нет, и штраф их не трогает.
+    const zeroPlural = (c) => (c.result.pos === 'noun' && c.result.forms.indefPl === c.lemma.toLowerCase() &&
+        candidates.some(o => o.result.pos === 'noun' && o.result.forms.indefPl && o.result.forms.indefPl !== c.result.forms.indefPl) ? 1 : 0);
+    const rank = (c) => (query.gender && c.result.gender !== query.gender ? 10 : 0)
+        + bareScore(c.result, query, hasAdj) + radicalScore(c.result) + zeroPlural(c);
     candidates.sort((a, b) => rank(a) - rank(b) || a.order - b.order);
     const best = candidates[0].result;
     // Написание из словаря, а не из запроса: иначе кеш отдавал бы «Bok»

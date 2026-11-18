@@ -1,7 +1,7 @@
 // Режимы тренировки в браузере.
 const test = require('node:test');
 const assert = require('node:assert');
-const { createServer, launch, openApp, importA1, waitSynced } = require('./helpers');
+const { createServer, launch, openApp, importA1, waitSynced, goView, openAdd } = require('./helpers');
 
 let server, browser;
 test.before(async () => { server = await createServer(); browser = await launch(); });
@@ -148,9 +148,10 @@ test('the card-direction setting fixes the question side', async () => {
     await context.close();
 });
 
-test('the help explains levels and opens from the stats row', async () => {
+test('the help explains levels and opens from the settings', async () => {
     const { page, context } = await openApp(browser, server);
-    await page.click('.levels-hint [data-action="open-help"]');
+    await page.click('[data-action="open-settings"]');
+    await page.click('#settings-modal [data-action="open-help"]');
     assert.ok(await page.isVisible('#help-modal'));
     const text = await page.textContent('#help-modal');
     assert.match(text, /21 день/);
@@ -160,13 +161,14 @@ test('the help explains levels and opens from the stats row', async () => {
     await context.close();
 });
 
-test('practice modes are tucked away until opened, and the choice is remembered', async () => {
+test('practice modes are shown, can be folded away, and the choice is remembered', async () => {
     const { page, context } = await openApp(browser, server, { practiceOpen: false });
-    assert.equal(await page.isVisible('[data-action="start-quiz"]'), false);
+    assert.ok(await page.isVisible('[data-action="start-quiz"]'), 'open by default');
     await page.click('#practice-details summary');
-    assert.ok(await page.isVisible('[data-action="start-quiz"]'));
+    assert.equal(await page.isVisible('[data-action="start-quiz"]'), false);
     await page.reload();
-    assert.ok(await page.isVisible('[data-action="start-quiz"]'), 'stays open after a reload');
+    await page.waitForTimeout(500);
+    assert.equal(await page.isVisible('[data-action="start-quiz"]'), false, 'stays folded after a reload');
     await context.close();
 });
 
@@ -182,7 +184,7 @@ test('listening: a sentence plays, the translation is chosen, then the sentence 
     await page.keyboard.press(String(options.indexOf(right) + 1));
     assert.match(await page.textContent('#tr-feedback'), /Верно/);
     assert.ok(await page.isVisible('#listen-sentence'));
-    assert.equal(await page.textContent('#tr-source'), '🧘 Практика — расписание не меняется');
+    assert.equal(await page.textContent('#tr-source'), 'Практика — расписание не меняется');
     assert.deepStrictEqual(errors, []);
     await page.keyboard.press('Escape');
     await context.close();
@@ -228,22 +230,62 @@ test('sentence order: picking the words in the right order is correct, a wrong o
     await context.close();
 });
 
-test('typing a word and leaving the field fills part of speech, gender and forms from Ordbøkene', async () => {
+test('typing a word fills translation, example, gender and forms; Enter twice adds it', async () => {
     const { page, context, errors } = await openApp(browser, server);
-    let asked = '';
-    await page.route('**/api/ordbok?**', (route) => {
-        asked = new URL(route.request().url()).searchParams.get('w');
-        route.fulfill({ json: { lemma: 'uttale', original: 'uttale', pos: 'noun', gender: 'm',
-            forms: { defSg: 'uttalen', indefPl: 'uttaler', defPl: 'uttalene' } } });
+    const asked = [];
+    await page.route('**/api/word/suggest', (route) => {
+        asked.push(JSON.parse(route.request().postData()).word);
+        route.fulfill({ json: { original: 'uttale', pos: 'noun', gender: 'm', inDictionary: true,
+            forms: { defSg: 'uttalen', indefPl: 'uttaler', defPl: 'uttalene' },
+            translate: 'произношение', example: 'Uttalen er viktig.', exampleTranslate: 'Произношение важно.', source: 'ai' } });
     });
+    await openAdd(page);
     await page.fill('#add-no', 'en uttale');
-    await page.click('#add-ru');
-    await page.waitForFunction(() => document.getElementById('add-pos').value === 'noun');
-    assert.equal(asked, 'en uttale');
+    await page.press('#add-no', 'Enter');
+    await page.waitForFunction(() => document.getElementById('add-ru').value === 'произношение');
+    assert.deepStrictEqual(asked, ['en uttale'], 'one request per word');
     assert.equal(await page.inputValue('#add-no'), 'uttale', 'the article becomes the gender');
     assert.ok(await page.isChecked('input[name="add-gender"][value="m"]'));
     assert.equal(await page.inputValue('#add-form-defPl'), 'uttalene');
+    assert.equal(await page.inputValue('#add-example'), 'Uttalen er viktig.');
+    assert.match(await page.textContent('#add-preview'), /uttalen/);
+
+    await page.press('#add-no', 'Enter');   // второй Enter — добавить
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('myWords') || '[]').some(w => w.original === 'uttale'));
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('myWords')).find(w => w.original === 'uttale'));
+    assert.deepStrictEqual([saved.translate, saved.pos, saved.gender, saved.example, saved.forms.defSg],
+        ['произношение', 'noun', 'm', 'Uttalen er viktig.', 'uttalen']);
+    assert.equal(await page.inputValue('#add-no'), '', 'the form is ready for the next word');
+    assert.ok(await page.isVisible('#add-modal.open'), 'the window stays open for the next word');
+
+    // Следующее слово не наследует часть речи прошлого (так глаголы становились существительными).
+    await page.unroute('**/api/word/suggest');
+    await page.route('**/api/word/suggest', (route) => route.fulfill({ json: { original: 'å bo', pos: 'verb', gender: '',
+        forms: {}, translate: 'жить', example: '', exampleTranslate: '', source: 'ai', inDictionary: false } }));
+    await page.fill('#add-no', 'å bo');
+    await page.press('#add-no', 'Enter');
+    await page.waitForFunction(() => document.getElementById('add-ru').value === 'жить');
+    assert.equal(await page.inputValue('#add-pos'), 'verb');
     assert.deepStrictEqual(errors, []);
+    await context.close();
+});
+
+test('changing the word clears what the suggestion filled, but keeps what was typed by hand', async () => {
+    const { page, context } = await openApp(browser, server);
+    await page.route('**/api/word/suggest', (route) => {
+        const w = JSON.parse(route.request().postData()).word;
+        route.fulfill({ json: { original: w, pos: 'adj', gender: '', forms: {}, translate: w === 'flink' ? 'способный' : 'приятный',
+            example: '', exampleTranslate: '', source: 'ai', inDictionary: false } });
+    });
+    await openAdd(page);
+    await page.fill('#add-no', 'flink');
+    await page.press('#add-no', 'Enter');
+    await page.waitForFunction(() => document.getElementById('add-ru').value === 'способный');
+    await page.fill('#add-ex-ru', 'моё');
+    await page.fill('#add-no', 'hyggelig');
+    await page.press('#add-no', 'Enter');
+    await page.waitForFunction(() => document.getElementById('add-ru').value === 'приятный');
+    assert.equal(await page.inputValue('#add-ex-ru'), 'моё');
     await context.close();
 });
 
@@ -287,13 +329,48 @@ test('the dictionary button after the automatic fill keeps the noun the article 
             ? { lemma: 'uttale', original: 'uttale', pos: 'noun', gender: 'm', forms: { defSg: 'uttalen' } }
             : { lemma: 'uttale', original: 'å uttale', pos: 'verb', gender: '', forms: { past: 'uttalte' } } });
     });
+    await page.route('**/api/word/suggest', (route) => route.fulfill({ json: { original: 'uttale', pos: 'noun', gender: 'm',
+        forms: { defSg: 'uttalen' }, translate: 'произношение', example: '', exampleTranslate: '', source: 'ai', inDictionary: true } }));
+    await openAdd(page);
     await page.fill('#add-no', 'en uttale');
-    await page.click('#add-ru');
+    await page.press('#add-no', 'Enter');
     await page.waitForFunction(() => document.getElementById('add-pos').value === 'noun');
+    await page.click('#add-more summary');
     await page.click('#add-dict');
     await page.waitForTimeout(300);
     assert.equal(await page.inputValue('#add-pos'), 'noun');
     assert.equal(await page.inputValue('#add-no'), 'uttale');
     assert.deepStrictEqual(asked, ['en uttale'], 'the button reuses the query that filled the field');
+    await context.close();
+});
+
+test('a pause while typing does not rewrite the word; Enter does; a double tap adds once', async () => {
+    const { page, context, errors } = await openApp(browser, server);
+    await page.route('**/api/word/suggest', (route) => route.fulfill({ json: { original: 'uttale', pos: 'noun', gender: 'm',
+        forms: {}, translate: 'произношение', example: '', exampleTranslate: '', source: 'ai', inDictionary: true } }));
+    await openAdd(page);
+    await page.type('#add-no', 'en uttale');
+    await page.waitForFunction(() => document.getElementById('add-ru').value === 'произношение');
+    assert.equal(await page.inputValue('#add-no'), 'en uttale', 'still typing — the article stays');
+    const count = () => page.evaluate(() => JSON.parse(localStorage.getItem('myWords')).filter(w => w.original === 'uttale').length);
+    const before = await count();
+    await page.press('#add-no', 'Enter');   // перевод уже виден — Enter добавляет, артикль уходит в род
+    await page.waitForTimeout(300);
+    if (await page.isVisible('.confirm-box')) await page.keyboard.press('Enter');
+    assert.equal(await count(), before + 1);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('myWords')).filter(w => w.original === 'uttale').pop());
+    assert.equal(saved.gender, 'm');
+
+    await page.fill('#add-no', 'en uttale');
+    await page.press('#add-no', 'Enter');
+    await page.waitForFunction(() => document.getElementById('add-ru').value === 'произношение');
+    // Два нажатия подряд, пока первое ждёт подтверждения про дубль.
+    await page.evaluate(() => { const b = document.querySelector('#add-modal [data-action="add-word"]'); b.click(); b.click(); });
+    await page.waitForTimeout(400);
+    if (await page.isVisible('.confirm-box')) await page.keyboard.press('Enter');
+    await page.waitForTimeout(400);
+    assert.equal(await page.isVisible('.confirm-box'), false, 'one confirm, closed by one Enter');
+    assert.equal(await count(), before + 2);
+    assert.deepStrictEqual(errors, []);
     await context.close();
 });

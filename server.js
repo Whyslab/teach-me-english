@@ -7,6 +7,10 @@ const crypto = require('crypto');
 const https = require('https');
 const rateLimit = require('express-rate-limit');
 const app = express();
+// Телефон ходит через tailscale serve — локальный прокси с X-Forwarded-For.
+// Без этого express-rate-limit писал в журнал ValidationError на каждый
+// импорт скриншота. Доверяем только прокси на этой же машине.
+app.set('trust proxy', 'loopback');
 const PORT = Number(process.env.PORT) || 3000;
 // Слушать только этот компьютер. Чтобы открыть приложение с телефона:
 // HOST=0.0.0.0 в окружении службы плюс правило ufw на этот порт.
@@ -287,6 +291,7 @@ lingu.deps.knownWords = async () => {
     return new Set((await all('SELECT original FROM words')).map(r => lingu.wordKey(r.original)));
 };
 app.use(lingu.router);
+app.use(require('./suggest').router);
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));

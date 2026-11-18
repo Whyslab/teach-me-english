@@ -32,6 +32,7 @@ async function createServer() {
     const env = {
         ...process.env,
         NODE_ENV: 'test',
+        LLM_DISABLED: '1',
         PORT: String(port),
         HOST: '127.0.0.1',
         DATABASE_PATH: path.join(dir, 'vocab.db'),
@@ -117,7 +118,20 @@ async function openApp(browser, server, { context, practiceOpen = true } = {}) {
     return { page, context: ctx, errors };
 }
 
+// Раздел приложения: today | words | progress.
+async function goView(page, view) {
+    await page.evaluate((v) => { location.hash = v === 'today' ? '' : v; }, view);
+    await page.waitForFunction((v) => !document.getElementById(`view-${v}`).hidden, view);
+}
+
+// Окно «Новое слово» (кнопка есть и в шапке, и в нижней панели — берём видимую).
+async function openAdd(page) {
+    await page.click('[data-action="open-add"] >> visible=true');
+    await page.waitForSelector('#add-modal.open');
+}
+
 async function importA1(page) {
+    await goView(page, 'today');
     await page.click('[data-action="open-import"]');
     await page.click('#import-modal [data-action="import-a1"]');
     await page.click('.confirm-ok');
@@ -132,4 +146,4 @@ async function waitSynced(page) {
     }, null, { timeout: 10000 });
 }
 
-module.exports = { createServer, launch, openApp, importA1, waitSynced, ROOT };
+module.exports = { createServer, launch, openApp, importA1, waitSynced, goView, openAdd, ROOT };

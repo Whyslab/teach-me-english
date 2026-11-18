@@ -1,7 +1,7 @@
 // Синхронизация в настоящем браузере: изменения без сервера не теряются.
 const test = require('node:test');
 const assert = require('node:assert');
-const { createServer, launch, openApp, importA1, waitSynced } = require('./helpers');
+const { createServer, launch, openApp, importA1, waitSynced, goView, openAdd } = require('./helpers');
 
 let server, browser;
 test.before(async () => { server = await createServer(); browser = await launch(); });
@@ -38,6 +38,8 @@ test('answers made while the server is down survive a reload', async () => {
 
     await server.stop();
     // Правим слово, пока сервер лежит.
+    await goView(page, 'words');
+    await page.fill('#search-input', 'hus');   // в списке сначала новые, «hus» может быть ниже первой страницы
     await page.click(`.card[data-id="${target}"] [data-action="edit-word"]`);
     await page.fill('#edit-ru', 'дом, здание (офлайн)');
     await page.click('[data-action="save-edit"]');
@@ -89,7 +91,9 @@ test('deleting a word deletes it on the server', async () => {
     const { page, context } = await openApp(browser, server);
     await waitSynced(page);
     const before = (await server.words()).length;
-    await page.click('.card >> nth=0 >> [data-action="delete-word"]');
+    await goView(page, 'words');
+    await page.click('.card >> nth=0');
+    await page.click('#word-modal [data-action="delete-word"]');
     await waitSynced(page);
     assert.equal((await server.words()).length, before - 1);
     await context.close();
@@ -118,6 +122,7 @@ test('re-importing A1 fills missing adjective forms, A2 adds new words', async (
     assert.equal(stor.level, 3, 'progress is kept');
 
     const before = (await server.words()).length;
+    await goView(page, 'today');
     await page.click('[data-action="open-import"]');
     await page.click('#import-modal [data-action="import-a2"]');
     await page.click('.confirm-ok');

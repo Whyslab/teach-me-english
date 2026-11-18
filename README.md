@@ -30,9 +30,10 @@ Installable as a PWA and fully usable with no network connection.
 * **"❓ How it works"** dialog in the app: word levels 0–5, when a word counts as learned, main training vs. practice.
 * **Pronunciation:** a local neural voice via [Piper](https://github.com/OHF-Voice/piper1-gpl) (`no_NO-talesyntese-medium`, installed by `./deploy/install-voice.sh`, synthesized once per word and cached in `tts-cache/`; `GET /api/tts?text=…&rate=…`; a persistent worker process keeps the model loaded, and a speed slider lives in the settings), falling back to browser speech when Piper is absent, plus links to [Forvo](https://forvo.com/languages/no/) (native speakers) and [Ordbøkene](https://ordbokene.no/) (the official Bokmål dictionary).
 * **æ ø å buttons**; answers that are right except for the special letters are flagged separately.
-* **Auto-translation** Norwegian → Russian (off by default, enable in settings) and **Tatoeba examples** (Bokmål ↔ Russian).
+* **Smart add:** type `et land`, `å bo` or a bare word — the translation, a simple example, part of speech, gender and forms fill in by themselves (an LLM through an OpenAI-compatible gateway + Ordbøkene). Without the gateway it falls back to Google/MyMemory translation; **Tatoeba examples** (Bokmål ↔ Russian) are one click away.
+* **Screenshot import:** any screen with words (Lingu, a textbook, mixed Russian/Norwegian) → a checklist of words with translations and examples, read by a vision model; tesseract OCR is the offline fallback.
 * **Stats:** streak with a daily goal, review forecast, level curve, activity heatmap, hard words, per-word history.
-* **Offline PWA**, TXT/CSV/Anki export, JSON backup and restore, **4 themes** (system, dark, light, Nord).
+* **Offline PWA** with a phone-first layout (bottom navigation, sheet dialogs), TXT/CSV/Anki export, JSON backup and restore, **4 themes** (system, dark, light, Nord).
 
 ---
 
@@ -89,7 +90,8 @@ eple|яблоко
 | `GET` | `/api/tts/status` | Whether Piper is installed and which mode (worker / CLI) is used |
 | `GET` | `/api/tatoeba?word=…` | Bokmål → Russian example sentences (CORS proxy) |
 | `GET` | `/api/ordbok?w=…` | Part of speech, gender and forms from Ordbøkene (ord.uib.no); `en/ei/et/å` in the query pick the article |
-| `POST` | `/api/import/screenshot` | Raw PNG/JPEG/WebP body → OCR (tesseract `nor`) → word cards with grammar and MyMemory translations |
+| `POST` | `/api/word/suggest` | `{word}` → `{original, pos, gender, forms, translate, example, exampleTranslate, source}` — dictionary + LLM (`source: ai`), or a machine translation (`translator`) |
+| `POST` | `/api/import/screenshot` | Raw PNG/JPEG/WebP body → vision LLM (fallback: tesseract `nor+rus`) → word cards with grammar, translations and examples; `via: ai \| ocr` |
 
 Only the frontend is served statically — `index.html`, `sw.js`, `manifest.json`, icons, and files matching `js/*.js`, `css/*.css`, `decks/*.txt` (flat names only). The database, server sources and deploy scripts are not.
 
@@ -154,6 +156,11 @@ journalctl --user -u teach-me-norwegian -f
 | `PIPER_WORKER` | `tts_worker.py` under the venv's Python | Persistent worker executable (receives the model path); empty string disables it — one Piper process per phrase |
 | `TTS_CACHE_DIR` | `./tts-cache` | Where synthesized WAV files are cached |
 | `BACKUP_DIR` / `BACKUP_KEEP` | `~/Backups/teach-me-norwegian`, `14` | Daily backup location and how many copies to keep |
+| `LLM_URL` | `http://127.0.0.1:3001` | OpenAI-compatible gateway for translations, examples and screenshots |
+| `LLM_KEY_FILE` | `~/.config/opencode/freellmapi.key` | File with the gateway key; no key — AI features are off and the fallbacks are used |
+| `LLM_TEXT_MODELS` / `LLM_VISION_MODELS` | see `ai.js` | Comma-separated models, tried in order |
+| `LLM_DISABLED` | — | `1` turns AI off (the tests set it) |
+| `TESSDATA_DIR` | — | Extra tesseract data dir (e.g. with `rus.traineddata` when the system has only `nor`) |
 
 ---
 
@@ -165,6 +172,9 @@ journalctl --user -u teach-me-norwegian -f
 ## ⚠️ Known rough edges
 
 * Two devices editing the same word offline: the last one to sync wins for that word.
+* **Privacy:** with the gateway configured, typed words and imported screenshots are sent to the LLM providers behind it (Mistral, Gemini…), and words to Google's public translate endpoint. Without a key (or with `LLM_DISABLED=1`) everything except the dictionary lookup stays on the machine.
+* A bare word that is both a rare noun and a verb (`løpe`) is read as the noun — write verbs with `å`.
+* AI suggestions are a draft: the add dialog says where a translation came from, and it is meant to be glanced at before saving.
 * The Tatoeba and MyMemory language codes (`nob`, `nb-NO`) follow the services' documentation but were not verified against the live APIs during the migration.
 
 ---

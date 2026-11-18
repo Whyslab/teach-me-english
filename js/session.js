@@ -20,22 +20,22 @@ export const ITEM_MODES = [...DRILL_MODES, 'order'];
 export const EXERCISE_MODES = [...DRILL_MODES, 'gender', 'listen', 'order'];
 
 export const MODE_LABEL = {
-    'cards': '🎴 Карточки',
-    'write-no-ru': '✍️ Письмо: NO → RU',
-    'write-ru-no': '✍️ Письмо: RU → NO',
-    'dictation': '🎧 Диктант',
-    'quiz': '🎯 Угадай из 4',
-    'gender': '🏷 Угадай род: en / ei / et',
-    'forms': '🔤 Формы слов',
-    'cloze': '🧩 Пропуск в предложении',
-    'listen': '👂 Понимание на слух',
-    'order': '🧱 Собери предложение',
+    'cards': 'Карточки',
+    'write-no-ru': 'Письмо: NO → RU',
+    'write-ru-no': 'Письмо: RU → NO',
+    'dictation': 'Диктант',
+    'quiz': 'Угадай из 4',
+    'gender': 'Угадай род: en / ei / et',
+    'forms': 'Формы слов',
+    'cloze': 'Пропуск в предложении',
+    'listen': 'Понимание на слух',
+    'order': 'Собери предложение',
 };
 export const SOURCE_LABEL = {
     due: '',
-    marathon: '🏃 Марафон — без лимита новых слов',
-    practice: '🧘 Практика — расписание не меняется',
-    hard: '⚠️ Трудные слова · практика — расписание не меняется',
+    marathon: 'Марафон — без лимита новых слов',
+    practice: 'Практика — расписание не меняется',
+    hard: 'Трудные слова · практика',
 };
 
 export const t = {

@@ -80,6 +80,7 @@ export function startTraining({ mode = 'cards', source = 'due' } = {}) {
     $('training-section').classList.toggle('practice', practice);
     $('training-section').hidden = false;
     $('main-content').hidden = true;
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
     window.scrollTo(0, 0);
     next();
 }
@@ -136,6 +137,10 @@ function render() {
     $('tr-left').textContent = t.queue.length;
     $('tr-correct').textContent = t.correct;
     $('tr-wrong').textContent = t.wrong;
+    // Полоса: сколько из очереди уже снято верным ответом. Ошибка возвращает
+    // слово в очередь — полоса на месте, как в Duolingo.
+    const fill = $('tr-progress-fill');
+    if (fill) fill.style.width = `${Math.round(t.queue.length ? t.correct / (t.correct + t.queue.length) * 100 : 100)}%`;
 
     show('flashcard-wrap', isCard);
     show('tr-prompt', !isCard);
@@ -247,13 +252,13 @@ export function checkWritten() {
     const shown = DRILL_MODES.includes(t.mode) ? expected : toNorwegian ? displayWord(w) : expected;
     const fb = $('tr-feedback');
     if (t.checked === 'correct') {
-        fb.textContent = '✅ Верно!';
+        fb.textContent = 'Верно!';
         fb.className = 'tr-feedback ok';
     } else if (t.checked === 'letters') {
-        fb.textContent = `🟡 Почти — проверь æ ø å: ${shown}`;
+        fb.textContent = `Почти — проверь æ ø å: ${shown}`;
         fb.className = 'tr-feedback almost';
     } else {
-        fb.textContent = `❌ Правильно: ${shown}`;
+        fb.textContent = `Правильно: ${shown}`;
         fb.className = 'tr-feedback bad';
     }
 
@@ -351,7 +356,7 @@ function checkOrder() {
     if (ok) t.queue.shift(); else requeue(t.current);
     renderOrder();
     const fb = $('tr-feedback');
-    fb.textContent = ok ? '✅ Верно!' : '❌ Порядок другой — правильно так:';
+    fb.textContent = ok ? 'Верно!' : 'Порядок другой — правильно так:';
     fb.className = `tr-feedback ${ok ? 'ok' : 'bad'}`;
     speak(w.example);
     show('tr-next-btn', true);

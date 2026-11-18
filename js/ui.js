@@ -14,11 +14,11 @@ export function showToast(message, type = 'info', duration = 3500) {
         container.id = 'toast-container';
         document.body.appendChild(container);
     }
-    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    const icons = { success: 'check', error: 'x', warning: 'alert', info: 'help' };
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
+    toast.className = `toast toast-${icons[type] ? type : 'info'}`;
     toast.setAttribute('role', 'status');
-    toast.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span>${escapeHtml(message)}</span>`;
+    toast.innerHTML = `<span class="toast-icon"><svg class="ic"><use href="#i-${icons[type] || icons.info}"/></svg></span><span>${escapeHtml(message)}</span>`;
     toast.onclick = () => dismiss(toast);
     container.appendChild(toast);
     toast._timer = setTimeout(() => dismiss(toast), duration);
@@ -51,8 +51,8 @@ export function showConfirm(messageHtml, confirmText = 'Подтвердить',
             resolve(val);
         };
         const onKey = (e) => {
-            if (e.key === 'Escape') { e.stopPropagation(); close(false); }
-            if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(true); }
+            if (e.key === 'Escape') { e.stopImmediatePropagation(); close(false); }
+            if (e.key === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); close(true); }
         };
         overlay.querySelector('.confirm-ok').onclick = () => close(true);
         overlay.querySelector('.confirm-cancel').onclick = () => close(false);
@@ -69,8 +69,15 @@ export function openModal(id) {
     const m = $(id);
     if (!m) return;
     m.classList.add('open');
-    const focusable = m.querySelector('input, textarea, select, button:not(.modal-close)');
-    if (focusable) setTimeout(() => focusable.focus(), 50);
+    // Фокус — внутрь окна, чтобы Tab и Esc работали с клавиатуры. В поле —
+    // только с мышью: на телефоне фокус в поле открывает клавиатуру на пол-экрана
+    // (настройки открывались с выскочившей клавиатурой). Окно «Новое слово»
+    // ставит фокус в своё поле само.
+    const inner = m.querySelector('.modal-inner') || m;
+    const field = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
+        && m.querySelector('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), textarea');
+    if (!field && !inner.hasAttribute('tabindex')) inner.setAttribute('tabindex', '-1');
+    setTimeout(() => (field || inner).focus({ preventScroll: true }), 50);
 }
 
 export function closeModal(id) {

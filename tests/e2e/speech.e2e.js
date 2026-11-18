@@ -1,7 +1,7 @@
 // Озвучка в браузере: звук с сервера (Piper), скорость речи, предзагрузка.
 const test = require('node:test');
 const assert = require('node:assert');
-const { createServer, launch, openApp, importA1, waitSynced } = require('./helpers');
+const { createServer, launch, openApp, importA1, waitSynced, goView, openAdd } = require('./helpers');
 
 let server, browser;
 test.before(async () => { server = await createServer(); browser = await launch(); });
@@ -11,6 +11,8 @@ test('words are spoken by the server voice, not by browser speech', async () => 
     const { page, context, errors } = await openApp(browser, server);
     await importA1(page);
     await waitSynced(page);
+    await goView(page, 'words');
+    await page.selectOption('#sort-select', 'default');
     await page.click('.card >> nth=0 >> [data-action="speak-word"]');
     await page.waitForFunction(() => window.__played.length > 0);
     const played = await page.evaluate(() => window.__played);
@@ -39,6 +41,8 @@ test('the speech-rate slider changes the synthesized speed', async () => {
     assert.ok(server.piperCalls().includes('Hei! Jeg lærer norsk. @1.25'), 'rate 0.8 → length_scale 1.25');
     await page.click('[data-action="save-settings"]');
 
+    await goView(page, 'words');
+    await page.selectOption('#sort-select', 'default');
     await page.click('.card >> nth=1 >> [data-action="speak-word"]');
     await page.waitForTimeout(800);
     assert.ok(server.piperCalls().some(c => c.startsWith('ei kvinne @1.25')), 'saved rate is used for words');
@@ -52,6 +56,8 @@ test('without Piper the app falls back to browser speech', async () => {
     fs.renameSync(model, model + '.off');       // сервер больше не видит модель
     try {
         const { page, context } = await openApp(browser, server);
+        await goView(page, 'words');
+        await page.selectOption('#sort-select', 'default');
         await page.click('.card >> nth=0 >> [data-action="speak-word"]');
         await page.waitForTimeout(300);
         assert.deepStrictEqual(await page.evaluate(() => window.__browserSpeech), ['en mann']);

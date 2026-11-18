@@ -12,6 +12,7 @@ import { isTraining } from './training.js';
 const TAG = 'lingu';
 const TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 let items = [];
+let via = '';
 let busy = false;
 
 const wordsWord = (n) => plural(n, ['слово', 'слова', 'слов']);
@@ -37,7 +38,8 @@ export async function importScreenshot(file) {
     }
     busy = true;
     closeModal('import-modal');
-    $('shot-status').textContent = '⏳ Распознаю текст и ищу слова в словаре… (несколько секунд)';
+    closeModal('add-modal');
+    $('shot-status').innerHTML = '<span class="add-status"><span class="spinner"></span>Читаю скриншот и ищу слова в словаре… (несколько секунд)</span>';
     $('shot-list').innerHTML = '';
     $('shot-add').hidden = true;
     openModal('shot-modal');
@@ -50,6 +52,7 @@ export async function importScreenshot(file) {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         items = (data.items || []).map(it => ({ ...it, dup: existing(it), checked: !existing(it) }));
+        via = data.via || '';
         render();
     } catch (e) {
         $('shot-status').textContent = e.name === 'TimeoutError'
@@ -66,7 +69,7 @@ function render() {
         ? 'Слов не нашёл. Нужен скриншот карточек: слово, объяснение, пример в кавычках.'
         : `Нашёл ${items.length} ${wordsWord(items.length)}` +
           (items.length - fresh ? `, из них уже в словаре: ${items.length - fresh}` : '') +
-          '. Проверь перевод — он машинный.';
+          (via === 'ai' ? '. Перевод — со скриншота или от ИИ, проверь.' : '. Проверь перевод — он машинный.');
     $('shot-list').innerHTML = items.map((it, i) => {
         const gram = it.pos === 'noun' && GENDERS[it.gender] ? `${GENDERS[it.gender].article} · ${POS.noun}` : (POS[it.pos] || '');
         const forms = Object.values(it.forms || {}).join(' · ');
@@ -79,9 +82,9 @@ function render() {
                 <input type="text" class="shot-tr" data-index="${i}" value="${escapeAttr(it.dup ? it.dup.translate : it.translate)}"
                        placeholder="перевод" ${it.dup ? 'disabled' : ''} aria-label="Перевод">
                 ${forms ? `<div class="shot-meta" lang="nb">${escapeHtml(forms)}</div>` : ''}
-                ${it.definition ? `<div class="shot-meta" lang="nb">💬 ${escapeHtml(it.definition)}</div>` : ''}
-                ${it.example ? `<div class="shot-meta" lang="nb">“${escapeHtml(it.example)}”</div>` : ''}
-                ${it.exampleTranslate ? `<div class="shot-meta">${escapeHtml(it.exampleTranslate)}</div>` : ''}
+                ${it.definition ? `<div class="shot-meta" lang="nb">${escapeHtml(it.definition)}</div>` : ''}
+                ${it.example ? `<div class="shot-meta" lang="nb">«${escapeHtml(it.example)}»</div>` : ''}
+                ${it.exampleTranslate ? `<div class="shot-meta ru">${escapeHtml(it.exampleTranslate)}</div>` : ''}
             </div>
         </div>`;
     }).join('');

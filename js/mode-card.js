@@ -47,7 +47,7 @@ export function renderCard(w) {
     $('card-example-translate').textContent = w.exampleTranslate || '';
     $('card-example-block').hidden = !w.example;
     $('card-hint').textContent =
-        t.mode === 'cards' ? 'нажми или пробел — перевернуть'
+        t.mode === 'cards' ? (window.matchMedia?.('(hover: none)').matches ? 'нажми, чтобы перевернуть · свайп ← →' : 'нажми или пробел — перевернуть')
         : t.mode === 'dictation' ? 'слушай и пиши по-норвежски · Tab — ещё раз'
         : '';
 }

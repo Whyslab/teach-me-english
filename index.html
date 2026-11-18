@@ -2,9 +2,9 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Тренажёр норвежских слов (букмол) на интервальном повторении. Работает офлайн.">
-    <meta name="theme-color" content="#080810">
+    <meta name="theme-color" content="#0b0d12">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,317 +15,481 @@
     <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png">
     <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
     <link rel="stylesheet" href="/css/app.css">
-    <title>Лёгкий Словарь · Norsk</title>
+    <title>Norsk · словарь</title>
 </head>
 <body>
 
-<header class="header-bar">
-    <div class="header-side">
-        <button id="mute-btn" class="header-btn icon" data-action="toggle-mute" title="Звук вкл/выкл" aria-label="Звук"><span id="mute-icon">🔊</span></button>
-    </div>
-    <div class="header-side">
-        <button class="header-btn" data-action="open-stats" title="Статистика">📊 <span class="label">Статистика</span></button>
-        <button class="header-btn" data-action="open-import" title="Импорт">📥 <span class="label">Импорт</span></button>
-        <button class="header-btn" data-action="open-export" title="Экспорт и бэкап">📤 <span class="label">Экспорт</span></button>
-        <button class="header-btn" data-action="open-theme" title="Тема">🎨 <span class="label">Тема</span></button>
-        <button class="header-btn" data-action="open-settings" title="Настройки">⚙️ <span class="label">Настройки</span></button>
-        <button class="header-btn" data-action="open-help" title="Как это работает: уровни, повторения, практика">❓ <span class="label">Как это работает</span></button>
+<!-- Иконки: одна линия 1.8, в духе Lucide. <svg class="ic"><use href="#i-…"/></svg> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+        <symbol id="i-today" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+        <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5v-2z"/><path d="M8 7h7M8 11h5"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></symbol>
+        <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+        <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
+        <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6M16 9l6 6"/></symbol>
+        <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+        <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M10 13h4M7 16h10"/></symbol>
+        <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+        <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+        <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+        <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3.3.3 1.4 1.2 2.8 2.5 2.8z"/></symbol>
+        <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3v4zM3 19a2 2 0 0 0 2 2h1v-6H3v4z"/></symbol>
+        <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+        <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M7.5 7.5h.01"/></symbol>
+        <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7l10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></symbol>
+        <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 8h3a2 2 0 1 0 4 0h3v3a2 2 0 1 1 0 4v3h-3a2 2 0 1 0-4 0H4v-3a2 2 0 1 0 0-4V8z"/></symbol>
+        <symbol id="i-ear" viewBox="0 0 24 24"><path d="M6 8.5a6 6 0 1 1 12 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"/><path d="M15 8.5a3 3 0 1 0-6 0"/></symbol>
+        <symbol id="i-blocks" viewBox="0 0 24 24"><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="8.5" y="3" width="7" height="7" rx="1"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+        <symbol id="i-run" viewBox="0 0 24 24"><path d="M13 4a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0"/><path d="m7 21 3-6 3 2v5M5 12l3-4h5l3 4 3 1M10 15l-2-3"/></symbol>
+        <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8V4z"/></symbol>
+        <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></symbol>
+        <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+        <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 22a10 10 0 1 1 10-10c0 2.8-2.2 4-4 4h-2a2 2 0 0 0-1.5 3.3c.4.5.5 1 .5 1.4 0 .7-.6 1.3-3 1.3z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7" r="1"/><circle cx="16.5" cy="10.5" r="1"/></symbol>
+        <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></symbol>
+        <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"/></symbol>
+        <symbol id="i-select" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/></symbol>
+    </defs>
+</svg>
+
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="#today" data-action="go" data-view="today" aria-label="Norsk — на главную">
+            <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="var(--accent)"/><path d="M10 7v18M10 13h14M14 7v18" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/></svg></span>
+            <span class="brand-name">Norsk</span>
+        </a>
+        <nav class="tabs" aria-label="Разделы">
+            <button class="tab" data-action="go" data-view="today"><svg class="ic"><use href="#i-today"/></svg>Сегодня</button>
+            <button class="tab" data-action="go" data-view="words"><svg class="ic"><use href="#i-book"/></svg>Слова</button>
+            <button class="tab" data-action="go" data-view="progress"><svg class="ic"><use href="#i-chart"/></svg>Прогресс</button>
+        </nav>
+        <div class="topbar-actions">
+            <button class="btn btn-primary btn-sm topbar-add" data-action="open-add"><svg class="ic"><use href="#i-plus"/></svg><span>Добавить</span></button>
+            <button id="mute-btn" class="icon-btn" data-action="toggle-mute" title="Звук вкл/выкл" aria-label="Звук"><svg class="ic"><use id="mute-icon" href="#i-volume"/></svg></button>
+            <button class="icon-btn" data-action="open-settings" title="Настройки" aria-label="Настройки"><svg class="ic"><use href="#i-gear"/></svg></button>
+        </div>
     </div>
 </header>
 
 <main id="main-content">
-    <h1 id="main-title">Лёгкий Словарь <span class="accent">· Norsk</span></h1>
-    <div class="subtitle">норвежский (bokmål) → русский · интервальное повторение</div>
 
-    <div class="progress-wrapper">
-        <div class="progress-info">
-            <span>Прогресс <span id="progress-percent">0%</span></span>
-            <span id="progress-stat"></span>
+    <!-- ── СЕГОДНЯ ─────────────────────────────────────────────── -->
+    <section id="view-today" class="view" data-view="today" aria-label="Сегодня">
+        <div class="today-grid">
+            <div class="hero card-surface">
+                <div class="hero-top">
+                    <div>
+                        <div class="eyebrow" id="hero-date"></div>
+                        <h1 class="hero-title" id="hero-title">Пора повторить</h1>
+                    </div>
+                    <div id="streak-container" class="goal-ring" title="Цель дня">
+                        <div class="goal-ring-inner">
+                            <b id="daily-count">0</b><span>из <span id="daily-goal">10</span></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-meta">
+                    <span class="pill pill-flame"><svg class="ic"><use href="#i-flame"/></svg><b id="streak-count">0</b>&nbsp;<span id="streak-label">дн. подряд</span></span>
+                    <span class="pill" id="hero-due"></span>
+                    <span class="pill" id="hero-new"></span>
+                </div>
+                <button id="start-training-btn" class="btn btn-primary btn-xl" data-action="start-training">Начать тренировку</button>
+                <div id="start-hint" class="hint"></div>
+                <button class="link-btn marathon-link" data-action="start-marathon" title="Основная тренировка без дневного лимита новых слов — двигает расписание"><svg class="ic"><use href="#i-run"/></svg>Марафон — без лимита новых слов</button>
+            </div>
+
+            <div class="add-card card-surface">
+                <div class="section-head">
+                    <h2>Новые слова</h2>
+                    <span class="muted">перевод, род и пример — сами</span>
+                </div>
+                <div class="add-actions">
+                    <button class="add-tile" data-action="open-add">
+                        <span class="add-tile-ic"><svg class="ic"><use href="#i-keyboard"/></svg></span>
+                        <span><b>Ввести слово</b><small>напиши по-норвежски — остальное подскажу</small></span>
+                    </button>
+                    <label class="add-tile" for="shot-upload">
+                        <span class="add-tile-ic"><svg class="ic"><use href="#i-camera"/></svg></span>
+                        <span><b>Со скриншота</b><small>Lingu, учебник, любой экран со словами</small></span>
+                    </label>
+                </div>
+                <button class="link-btn" data-action="open-import">Колоды A1 / A2 и импорт списком</button>
+            </div>
         </div>
-        <div class="progress-container"><div id="progress-bar"></div></div>
-    </div>
 
-    <div id="level-stats" class="stats-grid"></div>
-    <div class="levels-hint"><button class="link-btn" data-action="open-help">что такое уровни и когда слово считается выученным?</button></div>
-
-    <div class="workspace-grid">
-        <section class="workspace-left">
-
-            <div class="panel start-block">
-                <div id="streak-container" class="streak-wrapper">
-                    🔥 <b id="streak-count">0</b>&nbsp;дн. подряд · сегодня <b id="daily-count">0</b>/<span id="daily-goal">10</span>
-                </div>
-                <button id="start-training-btn" data-action="start-training">Начать тренировку</button>
-                <div id="start-hint"></div>
-                <button class="link-btn marathon-link" data-action="start-marathon" title="Основная тренировка без дневного лимита новых слов — двигает расписание">🏃 Марафон: то же, но без лимита новых слов</button>
-                <details id="practice-details" class="practice-details">
-                <summary>🧘 Практика <span class="practice-caption">— 9 режимов, доступна всегда, расписание не меняет</span></summary>
-                <div class="mode-btns-row">
-                    <button class="mode-btn" data-action="start-write" title="Направление переключается кнопкой режима внутри тренировки">✍️ Письмо</button>
-                    <button class="mode-btn" data-action="start-dictation" title="Слово звучит — пишешь его по-норвежски">🎧 Диктант</button>
-                    <button class="mode-btn" data-action="start-quiz">🎯 Угадай из 4</button>
-                    <button class="mode-btn" data-action="start-gender">🏷 Род en/ei/et</button>
-                    <button class="mode-btn" data-action="start-forms">🔤 Формы</button>
-                    <button class="mode-btn" data-action="start-cloze" title="Вставь слово в нужной форме в предложение">🧩 Пропуски</button>
-                    <button class="mode-btn" data-action="start-listen" title="Звучит предложение — выбери перевод">👂 На слух</button>
-                    <button class="mode-btn" data-action="start-order" title="Расставь слова предложения по порядку">🧱 Собери предложение</button>
-                    <button class="mode-btn" data-action="start-hard">⚠️ Трудные</button>
-                </div>
-                </details>
+        <details id="practice-details" class="practice-box card-surface" open>
+            <summary>
+                <span><h2>Практика</h2><span class="muted">доступна всегда, расписание не меняет</span></span>
+                <svg class="ic chev"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="mode-grid">
+                <button class="mode-tile" data-action="start-write" title="Направление переключается кнопкой режима внутри тренировки"><span class="mode-ic c1"><svg class="ic"><use href="#i-pencil"/></svg></span><b>Письмо</b><small>RU ↔ NO</small></button>
+                <button class="mode-tile" data-action="start-dictation" title="Слово звучит — пишешь его по-норвежски"><span class="mode-ic c2"><svg class="ic"><use href="#i-headphones"/></svg></span><b>Диктант</b><small>слушай и пиши</small></button>
+                <button class="mode-tile" data-action="start-quiz"><span class="mode-ic c3"><svg class="ic"><use href="#i-target"/></svg></span><b>Угадай из 4</b><small>выбор перевода</small></button>
+                <button class="mode-tile" data-action="start-gender"><span class="mode-ic c4"><svg class="ic"><use href="#i-tag"/></svg></span><b>Род</b><small>en · ei · et</small></button>
+                <button class="mode-tile" data-action="start-forms"><span class="mode-ic c5"><svg class="ic"><use href="#i-layers"/></svg></span><b>Формы</b><small>huset · husene</small></button>
+                <button class="mode-tile" data-action="start-cloze" title="Вставь слово в нужной форме в предложение"><span class="mode-ic c6"><svg class="ic"><use href="#i-puzzle"/></svg></span><b>Пропуски</b><small>слово в предложении</small></button>
+                <button class="mode-tile" data-action="start-listen" title="Звучит предложение — выбери перевод"><span class="mode-ic c7"><svg class="ic"><use href="#i-ear"/></svg></span><b>На слух</b><small>понимание фраз</small></button>
+                <button class="mode-tile" data-action="start-order" title="Расставь слова предложения по порядку"><span class="mode-ic c8"><svg class="ic"><use href="#i-blocks"/></svg></span><b>Собери</b><small>порядок слов</small></button>
+                <button class="mode-tile" data-action="start-hard"><span class="mode-ic c9"><svg class="ic"><use href="#i-alert"/></svg></span><b>Трудные</b><small>частые ошибки</small></button>
             </div>
+        </details>
+    </section>
 
-            <div class="panel">
-                <div class="panel-title">
-                    Новое слово
-                    <button id="tatoeba-fetch-btn" class="outline-btn small" data-action="tatoeba-add" hidden>📖 Примеры с Tatoeba</button>
-                </div>
-                <div id="add-form"></div>
-                <button class="action-btn wide" data-action="add-word" style="margin-top:10px">+ Добавить слово</button>
+    <!-- ── СЛОВА ───────────────────────────────────────────────── -->
+    <section id="view-words" class="view" data-view="words" aria-label="Слова" hidden>
+        <div class="words-head">
+            <h1 class="page-title">Слова <span id="words-count" class="count"></span></h1>
+            <div class="words-head-actions">
+                <button id="bulk-select-btn" class="btn btn-ghost btn-sm" data-action="bulk-toggle"><svg class="ic"><use href="#i-select"/></svg>Выбрать</button>
+                <button class="btn btn-primary btn-sm" data-action="open-add"><svg class="ic"><use href="#i-plus"/></svg>Добавить</button>
             </div>
+        </div>
 
-            <div class="list-toolbar">
-                <input type="text" id="search-input" placeholder="Найти слово или перевод…" aria-label="Поиск">
-                <div id="tag-filter-bar" hidden>
-                    <span class="form-label">Теги:</span>
-                    <span id="tag-chips" style="display:contents"></span>
-                </div>
-                <div class="sort-bar">
-                    Порядок:
-                    <button class="sort-btn" data-action="sort" data-sort="default">как добавлены</button>
-                    <button class="sort-btn" data-action="sort" data-sort="newest">новые сверху</button>
-                    <button class="sort-btn" data-action="sort" data-sort="alpha">A–Å</button>
-                    <button class="sort-btn" data-action="sort" data-sort="level-asc">ур. ↑</button>
-                    <button class="sort-btn" data-action="sort" data-sort="level-desc">ур. ↓</button>
-                    <button class="sort-btn" data-action="sort" data-sort="review">повтор</button>
-                </div>
-                <div class="buttons-row">
-                    <button id="bulk-select-btn" class="outline-btn" data-action="bulk-toggle">☑ Выбрать</button>
-                    <button class="outline-btn warning" data-action="reset-progress">Сбросить прогресс</button>
-                    <button class="outline-btn danger" data-action="clear-all">Очистить всё</button>
-                </div>
-                <div id="bulk-actions-panel" hidden>
-                    <span id="bulk-count">Выбери слова</span>
-                    <button class="outline-btn small" data-action="bulk-select-all">Все</button>
-                    <button class="outline-btn small" data-action="bulk-clear">Снять</button>
-                    <button class="outline-btn small" data-action="bulk-tag">+ Тег</button>
-                    <button class="outline-btn small" data-action="bulk-reset">Сбросить прогресс</button>
-                    <button class="outline-btn small danger" data-action="bulk-delete">Удалить</button>
+        <div class="list-toolbar">
+            <label class="search">
+                <svg class="ic"><use href="#i-search"/></svg>
+                <input type="search" id="search-input" placeholder="Найти слово или перевод" aria-label="Поиск" autocomplete="off">
+            </label>
+            <div id="level-stats" class="segmented" role="group" aria-label="Уровень"></div>
+            <div class="toolbar-row">
+                <div id="tag-filter-bar" class="chips" hidden><span id="tag-chips" style="display:contents"></span></div>
+                <div class="sort-wrap">
+                    <label class="toggle-mini"><input type="checkbox" id="hide-trans"> <span>скрыть переводы</span></label>
+                    <select id="sort-select" aria-label="Порядок">
+                        <option value="newest">новые сверху</option>
+                        <option value="default">как добавлены</option>
+                        <option value="alpha">A–Å</option>
+                        <option value="level-asc">уровень ↑</option>
+                        <option value="level-desc">уровень ↓</option>
+                        <option value="review">по повторению</option>
+                    </select>
                 </div>
             </div>
+            <div id="bulk-actions-panel" hidden>
+                <span id="bulk-count">Выбери слова</span>
+                <button class="btn btn-ghost btn-sm" data-action="bulk-select-all">Все</button>
+                <button class="btn btn-ghost btn-sm" data-action="bulk-clear">Снять</button>
+                <button class="btn btn-ghost btn-sm" data-action="bulk-tag">+ Тег</button>
+                <button class="btn btn-ghost btn-sm" data-action="bulk-reset">Сбросить прогресс</button>
+                <button class="btn btn-danger btn-sm" data-action="bulk-delete">Удалить</button>
+            </div>
+        </div>
 
-            <div id="cards-container"></div>
-            <button id="show-more" class="outline-btn" data-action="show-more" hidden></button>
-        </section>
+        <div id="cards-container" class="word-list"></div>
+        <button id="show-more" class="btn btn-ghost" data-action="show-more" hidden></button>
+    </section>
 
-        <aside class="workspace-right">
-            <div class="panel">
-                <div class="panel-title">Прогноз повторений</div>
+    <!-- ── ПРОГРЕСС ────────────────────────────────────────────── -->
+    <section id="view-progress" class="view" data-view="progress" aria-label="Прогресс" hidden>
+        <div class="words-head">
+            <h1 class="page-title">Прогресс</h1>
+            <button class="btn btn-ghost btn-sm" data-action="open-stats"><svg class="ic"><use href="#i-chart"/></svg>Подробнее</button>
+        </div>
+        <div class="kpi-row">
+            <div class="kpi card-surface"><span class="kpi-label">Слов в словаре</span><b id="kpi-total">0</b></div>
+            <div class="kpi card-surface"><span class="kpi-label">Выучено</span><b id="kpi-learned">0</b><span class="kpi-sub" id="progress-stat"></span></div>
+            <div class="kpi card-surface"><span class="kpi-label">Освоено</span><b id="progress-percent">0%</b><div class="progress-container"><div id="progress-bar"></div></div></div>
+        </div>
+        <div class="progress-grid">
+            <div class="card-surface panel">
+                <div class="panel-title">Повторения на неделю</div>
                 <div id="forecast-chart"></div>
             </div>
-            <div class="panel">
-                <div class="viz-card">
-                    <div class="panel-title">Уровни</div>
-                    <div id="learning-curve" class="level-bars"></div>
-                </div>
-                <div class="viz-card">
-                    <div class="panel-title">Активность · 12 недель</div>
-                    <div id="activity-heatmap" class="heatmap-grid"></div>
-                </div>
-                <div class="viz-card">
-                    <div class="panel-title">Ответов за 7 дней</div>
-                    <canvas id="weekly-progress-chart" class="weekly-canvas" width="600" height="180"></canvas>
-                </div>
+            <div class="card-surface panel">
+                <div class="panel-title">Уровни <button class="link-btn" data-action="open-help">что это?</button></div>
+                <div id="learning-curve" class="level-bars"></div>
             </div>
-        </aside>
-    </div>
+            <div class="card-surface panel">
+                <div class="panel-title">Активность · 12 недель</div>
+                <div id="activity-heatmap" class="heatmap-grid"></div>
+            </div>
+            <div class="card-surface panel">
+                <div class="panel-title">Ответов за 7 дней</div>
+                <canvas id="weekly-progress-chart" class="weekly-canvas" width="600" height="200"></canvas>
+            </div>
+        </div>
+    </section>
 </main>
+
+<nav class="bottom-nav" aria-label="Разделы">
+    <button class="bn-item" data-action="go" data-view="today"><svg class="ic"><use href="#i-today"/></svg><span>Сегодня</span></button>
+    <button class="bn-item" data-action="go" data-view="words"><svg class="ic"><use href="#i-book"/></svg><span>Слова</span></button>
+    <button class="bn-add" data-action="open-add" aria-label="Добавить слово"><svg class="ic"><use href="#i-plus"/></svg></button>
+    <button class="bn-item" data-action="go" data-view="progress"><svg class="ic"><use href="#i-chart"/></svg><span>Прогресс</span></button>
+    <button class="bn-item" data-action="open-settings"><svg class="ic"><use href="#i-gear"/></svg><span>Ещё</span></button>
+</nav>
 
 <!-- ── ТРЕНИРОВКА ─────────────────────────────────────────── -->
 <section id="training-section" hidden aria-label="Тренировка">
+    <div class="tr-header">
+        <button class="icon-btn" data-action="stop-training" title="Завершить (Esc)" aria-label="Завершить"><svg class="ic"><use href="#i-x"/></svg></button>
+        <div class="tr-progress" aria-hidden="true"><div id="tr-progress-fill"></div></div>
+        <div id="training-stats">
+            <span class="ok"><svg class="ic"><use href="#i-check"/></svg><span id="tr-correct">0</span></span>
+            <span class="bad"><svg class="ic"><use href="#i-x"/></svg><span id="tr-wrong">0</span></span>
+            <span class="left" title="Осталось"><b id="tr-left">0</b></span>
+        </div>
+    </div>
     <div class="tr-top">
-        <button id="tr-mode" class="mode-badge" data-action="tr-mode" title="Переключить режим">🎴 Карточки</button>
+        <button id="tr-mode" class="mode-badge" data-action="tr-mode" title="Переключить режим">Карточки</button>
         <span id="tr-source" class="source-badge" hidden></span>
     </div>
-    <div id="training-stats">
-        Осталось: <b id="tr-left">0</b> · <span class="ok">✓ <span id="tr-correct">0</span></span> <span class="bad">✗ <span id="tr-wrong">0</span></span>
-    </div>
 
-    <div id="flashcard-wrap">
-        <div class="flashcard" id="flashcard" data-action="flip">
-            <div class="flashcard-front">
-                <div id="card-front"></div>
-                <div id="card-hint"></div>
-            </div>
-            <div class="flashcard-back">
-                <div id="card-back-text"></div>
-                <div id="card-forms" lang="nb"></div>
-                <div id="card-example-block">
-                    <div class="example-row">
-                        <span id="card-example" lang="nb"></span>
-                        <button class="icon-btn" data-action="tr-speak-example" title="Прослушать пример" aria-label="Прослушать пример">🔊</button>
+    <div class="tr-stage">
+        <div id="flashcard-wrap">
+            <div class="flashcard" id="flashcard" data-action="flip">
+                <div class="flashcard-front">
+                    <div id="card-front"></div>
+                    <div id="card-hint"></div>
+                </div>
+                <div class="flashcard-back">
+                    <div id="card-back-text"></div>
+                    <div id="card-forms" lang="nb"></div>
+                    <div id="card-example-block">
+                        <div class="example-row">
+                            <span id="card-example" lang="nb"></span>
+                            <button class="icon-btn sm" data-action="tr-speak-example" title="Прослушать пример" aria-label="Прослушать пример"><svg class="ic"><use href="#i-volume"/></svg></button>
+                        </div>
+                        <div id="card-example-translate"></div>
                     </div>
-                    <div id="card-example-translate"></div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div id="tr-prompt" hidden></div>
+        <div id="tr-prompt" hidden></div>
 
-    <div id="tr-links">
-        <button class="link-chip" data-action="tr-speak">🔊 Прослушать</button>
-        <a id="tr-forvo" class="link-chip" target="_blank" rel="noopener noreferrer" title="Живое произношение">🗣 Forvo</a>
-        <a id="tr-ordbok" class="link-chip" target="_blank" rel="noopener noreferrer" title="Род и формы">📘 Ordbøkene</a>
-    </div>
-
-    <div id="tr-write" hidden>
-        <div class="no-row">
-            <input type="text" id="tr-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Ответ">
-            <span class="no-letters" id="tr-letters">
-                <button type="button" class="no-letter-btn" data-action="insert-char" data-char="æ" tabindex="-1">æ</button>
-                <button type="button" class="no-letter-btn" data-action="insert-char" data-char="ø" tabindex="-1">ø</button>
-                <button type="button" class="no-letter-btn" data-action="insert-char" data-char="å" tabindex="-1">å</button>
-            </span>
+        <div id="tr-links">
+            <button class="link-chip" data-action="tr-speak"><svg class="ic"><use href="#i-volume"/></svg>Прослушать</button>
+            <a id="tr-forvo" class="link-chip" target="_blank" rel="noopener noreferrer" title="Живое произношение">Forvo<svg class="ic"><use href="#i-external"/></svg></a>
+            <a id="tr-ordbok" class="link-chip" target="_blank" rel="noopener noreferrer" title="Род и формы">Ordbøkene<svg class="ic"><use href="#i-external"/></svg></a>
         </div>
+
+        <div id="tr-write" hidden>
+            <div class="no-row">
+                <input type="text" id="tr-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Ответ">
+                <span class="no-letters" id="tr-letters">
+                    <button type="button" class="no-letter-btn" data-action="insert-char" data-char="æ" tabindex="-1">æ</button>
+                    <button type="button" class="no-letter-btn" data-action="insert-char" data-char="ø" tabindex="-1">ø</button>
+                    <button type="button" class="no-letter-btn" data-action="insert-char" data-char="å" tabindex="-1">å</button>
+                </span>
+            </div>
+        </div>
+
+        <div id="tr-options" class="tr-options" hidden></div>
+        <div id="tr-feedback" class="tr-feedback" aria-live="polite"></div>
     </div>
 
-    <div id="tr-options" class="tr-options" hidden></div>
-    <div id="tr-feedback" class="tr-feedback" aria-live="polite"></div>
-
-    <div id="tr-grades" class="training-buttons">
-        <button class="grade-btn sm2-again" data-action="grade" data-grade="0">Не помню<small>1 или ← · вернётся сегодня</small></button>
-        <button class="grade-btn sm2-good"  data-action="grade" data-grade="2">Помню<small>2 или → · интервал растёт</small></button>
+    <div class="tr-footer">
+        <div id="tr-grades" class="training-buttons">
+            <button class="grade-btn sm2-again" data-action="grade" data-grade="0"><span>Не помню</span><small>1 · ← · вернётся сегодня</small></button>
+            <button class="grade-btn sm2-good"  data-action="grade" data-grade="2"><span>Помню</span><small>2 · → · интервал растёт</small></button>
+        </div>
+        <div id="tr-write-btns" class="training-buttons" hidden>
+            <button class="sec-btn" data-action="tr-reveal">Не знаю</button>
+            <button class="sm2-good" data-action="tr-check">Проверить</button>
+        </div>
+        <div class="tr-bottom">
+            <button id="tr-back-btn" class="exit-btn" data-action="tr-undo" hidden title="Backspace"><svg class="ic"><use href="#i-undo"/></svg>Отменить ответ</button>
+            <button id="tr-next-btn" class="exit-btn primary" data-action="tr-next" hidden>Дальше ⏎</button>
+        </div>
+        <div class="kbd-hint">Пробел — перевернуть · 1 / ← — не помню · 2 / → — помню · 1–4 — вариант · Backspace — отмена · Esc — выход</div>
     </div>
-    <div id="tr-write-btns" class="training-buttons" hidden>
-        <button class="sec-btn" data-action="tr-reveal">👁 Не знаю</button>
-        <button class="sm2-good" data-action="tr-check">Проверить ⏎</button>
-    </div>
-
-    <div class="tr-bottom">
-        <button id="tr-back-btn" class="exit-btn" data-action="tr-undo" hidden title="Backspace">↶ Отменить ответ</button>
-        <button id="tr-next-btn" class="exit-btn" data-action="tr-next" hidden>Дальше ⏎</button>
-        <button class="exit-btn" data-action="stop-training">Завершить (Esc)</button>
-    </div>
-    <div class="kbd-hint">Пробел — перевернуть · 1 / ← — не помню · 2 / → — помню · 1–4 — вариант ответа · Backspace — отмена · в диктанте Tab — ещё раз</div>
 </section>
 
 <!-- ── ОКНА ───────────────────────────────────────────────── -->
+<div id="add-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Новое слово">
+    <div class="modal-inner wide sheet">
+        <div class="modal-title">Новое слово <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <div id="add-form"></div>
+        <div id="add-status" class="add-status" aria-live="polite"></div>
+        <button class="btn btn-primary btn-lg wide" data-action="add-word"><svg class="ic"><use href="#i-plus"/></svg>Добавить в словарь</button>
+        <div class="or-sep"><span>или</span></div>
+        <div class="add-alt">
+            <label class="btn btn-ghost" for="shot-upload"><svg class="ic"><use href="#i-camera"/></svg>Со скриншота</label>
+            <button class="btn btn-ghost" data-action="open-import"><svg class="ic"><use href="#i-download"/></svg>Колоды и список</button>
+        </div>
+        <button id="tatoeba-fetch-btn" class="link-btn" data-action="tatoeba-add" hidden>Другие примеры — Tatoeba</button>
+    </div>
+</div>
+
+<div id="word-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Слово">
+    <div class="modal-inner sheet">
+        <div class="modal-title"><span id="wd-title" lang="nb"></span><button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <div id="wd-body"></div>
+    </div>
+</div>
+
 <div id="import-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Импорт">
-    <div class="modal-inner wide">
-        <div class="modal-title">Импорт слов <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
+    <div class="modal-inner wide sheet">
+        <div class="modal-title">Добавить много слов <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
         <div class="deck-card">
-            <div class="deck-text"><b>📷 Скриншот со словами</b><br>Например, из Lingu. Новые слова добавятся с переводом, родом и формами — перед добавлением покажу список. На компьютере можно просто нажать Ctrl+V со скриншотом в буфере.</div>
-            <label for="shot-upload" class="action-btn">Выбрать</label>
+            <span class="add-tile-ic"><svg class="ic"><use href="#i-camera"/></svg></span>
+            <div class="deck-text"><b>Скриншот со словами</b><br>Например, из Lingu. Слова добавятся с переводом, родом и формами — перед добавлением покажу список. На компьютере можно нажать Ctrl+V со скриншотом в буфере.</div>
+            <label for="shot-upload" class="btn btn-primary btn-sm">Выбрать</label>
         </div>
         <input type="file" id="shot-upload" accept="image/png,image/jpeg,image/webp" hidden>
         <div class="deck-card">
+            <span class="add-tile-ic">A1</span>
             <div class="deck-text"><b>Колода Norsk A1</b> — 275 слов<br>Частотные слова начального уровня с родом, формами, примерами и переводом.</div>
-            <button class="action-btn" data-action="import-a1">Добавить</button>
+            <button class="btn btn-ghost btn-sm" data-action="import-a1">Добавить</button>
         </div>
         <div class="deck-card">
-            <div class="deck-text"><b>Колода Norsk A2</b><br>Следующий уровень: работа, жильё, здоровье, учёба, чувства, неправильные глаголы.</div>
-            <button class="action-btn" data-action="import-a2">Добавить</button>
+            <span class="add-tile-ic">A2</span>
+            <div class="deck-text"><b>Колода Norsk A2</b><br>Работа, жильё, здоровье, учёба, чувства, неправильные глаголы.</div>
+            <button class="btn btn-ghost btn-sm" data-action="import-a2">Добавить</button>
         </div>
         <div class="modal-note">Слова колод открываются по дневному лимиту новых слов. Повторная загрузка колоды дополнит грамматику и примеры у уже добавленных слов, не трогая прогресс.</div>
-        <label for="file-upload" class="import-file-label">📂 Выбрать .txt файл</label>
-        <input type="file" id="file-upload" accept=".txt,.csv,text/plain" hidden>
-        <div id="file-name" class="import-file-name"></div>
-        <textarea id="import-area" lang="nb" placeholder="hus|дом|Huset er stort.|Дом большой.|A1|et|huset,hus,husene&#10;å reise|путешествовать||||v|reiser,reiste,har reist&#10;eple|яблоко"></textarea>
-        <div class="modal-note">Формат строки: <code>слово|перевод|пример|перевод примера|теги|род|формы</code>. Обязательны два первых поля. Род: <code>en</code> / <code>ei</code> / <code>et</code>, для глагола — <code>v</code>, для прилагательного — <code>a</code>. Формы через запятую: для существительного «опр. ед., неопр. мн., опр. мн.», для глагола «presens, preteritum, perfektum», для прилагательного «ср. род, мн. ч.» (<code>stort,store</code>).</div>
-        <button class="action-btn wide" data-action="import-text">Загрузить в словарь</button>
+        <details class="more">
+            <summary>Импорт списком (текст или .txt)</summary>
+            <label for="file-upload" class="import-file-label"><svg class="ic"><use href="#i-upload"/></svg> Выбрать .txt файл</label>
+            <input type="file" id="file-upload" accept=".txt,.csv,text/plain" hidden>
+            <div id="file-name" class="import-file-name"></div>
+            <textarea id="import-area" lang="nb" placeholder="hus|дом|Huset er stort.|Дом большой.|A1|et|huset,hus,husene&#10;å reise|путешествовать||||v|reiser,reiste,har reist&#10;eple|яблоко"></textarea>
+            <div class="modal-note">Формат строки: <code>слово|перевод|пример|перевод примера|теги|род|формы</code>. Обязательны два первых поля. Род: <code>en</code> / <code>ei</code> / <code>et</code>, для глагола — <code>v</code>, для прилагательного — <code>a</code>. Формы через запятую: для существительного «опр. ед., неопр. мн., опр. мн.», для глагола «presens, preteritum, perfektum», для прилагательного «ср. род, мн. ч.» (<code>stort,store</code>).</div>
+            <button class="btn btn-primary wide" data-action="import-text">Загрузить в словарь</button>
+        </details>
     </div>
 </div>
 
 <div id="shot-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Слова со скриншота">
-    <div class="modal-inner wide">
-        <div class="modal-title">Слова со скриншота <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
+    <div class="modal-inner wide sheet">
+        <div class="modal-title">Слова со скриншота <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
         <div id="shot-status" class="modal-note" aria-live="polite"></div>
         <div id="shot-list" class="shot-list"></div>
-        <button id="shot-add" class="action-btn wide" data-action="shot-add" hidden>Добавить</button>
+        <button id="shot-add" class="btn btn-primary btn-lg wide" data-action="shot-add" hidden>Добавить</button>
     </div>
 </div>
 
 <div id="export-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Экспорт">
-    <div class="modal-inner">
-        <div class="modal-title">Экспорт и бэкап <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
-        <button class="export-option" data-action="backup"><span class="export-option-icon">💾</span><span><span class="export-option-title">JSON-бэкап</span><span class="export-option-desc">Всё, включая прогресс и историю</span></span></button>
-        <button class="export-option" data-action="restore"><span class="export-option-icon">📂</span><span><span class="export-option-title">Восстановить из бэкапа</span><span class="export-option-desc">Заменит текущий словарь</span></span></button>
-        <button class="export-option" data-action="export-txt"><span class="export-option-icon">📝</span><span><span class="export-option-title">TXT</span><span class="export-option-desc">Формат импорта: слово|перевод|…|род|формы</span></span></button>
-        <button class="export-option" data-action="export-csv"><span class="export-option-icon">📊</span><span><span class="export-option-title">CSV</span><span class="export-option-desc">Excel, Google Sheets</span></span></button>
-        <button class="export-option" data-action="export-anki"><span class="export-option-icon">🎴</span><span><span class="export-option-title">Anki</span><span class="export-option-desc">Файл для File → Import</span></span></button>
+    <div class="modal-inner sheet">
+        <div class="modal-title">Экспорт и бэкап <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <button class="export-option" data-action="backup"><span class="export-option-icon"><svg class="ic"><use href="#i-download"/></svg></span><span><span class="export-option-title">JSON-бэкап</span><span class="export-option-desc">Всё, включая прогресс и историю</span></span></button>
+        <button class="export-option" data-action="restore"><span class="export-option-icon"><svg class="ic"><use href="#i-upload"/></svg></span><span><span class="export-option-title">Восстановить из бэкапа</span><span class="export-option-desc">Заменит текущий словарь</span></span></button>
+        <button class="export-option" data-action="export-txt"><span class="export-option-icon">TXT</span><span><span class="export-option-title">TXT</span><span class="export-option-desc">Формат импорта: слово|перевод|…|род|формы</span></span></button>
+        <button class="export-option" data-action="export-csv"><span class="export-option-icon">CSV</span><span><span class="export-option-title">CSV</span><span class="export-option-desc">Excel, Google Sheets</span></span></button>
+        <button class="export-option" data-action="export-anki"><span class="export-option-icon">Anki</span><span><span class="export-option-title">Anki</span><span class="export-option-desc">Файл для File → Import</span></span></button>
         <input type="file" id="restore-input" accept=".json,application/json" hidden>
     </div>
 </div>
 
 <div id="settings-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Настройки">
-    <div class="modal-inner">
-        <div class="modal-title">Настройки <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
-        <label class="settings-row"><span>Новых слов в день<small>Повторения не ограничены. Как в Anki.</small></span><input type="number" id="set-new" min="0" max="200"></label>
-        <label class="settings-row"><span>Пауза новых слов<small>Если к повторению столько слов и больше, новые не даются. 0 — без паузы</small></span><input type="number" id="set-pause" min="0" max="2000"></label>
-        <label class="settings-row"><span>Цель дня (ответов)<small>Для стрика 🔥</small></span><input type="number" id="set-goal" min="1" max="500"></label>
-        <label class="settings-row"><span>Произносить слово автоматически<small>При показе карточки</small></span><input type="checkbox" id="set-autospeak"></label>
-        <div class="settings-row">
-            <span>Скорость речи<small id="set-rate-label">×1</small></span>
-            <span class="rate-control">
-                <input type="range" id="set-rate" min="0.6" max="1.4" step="0.05" aria-label="Скорость речи">
-                <button type="button" class="outline-btn small" data-action="test-rate" title="Прослушать с этой скоростью">▶</button>
-            </span>
+    <div class="modal-inner wide sheet">
+        <div class="modal-title">Настройки <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
+
+        <div class="settings-group">
+            <div class="settings-group-title">Тренировка</div>
+            <label class="settings-row"><span>Новых слов в день<small>Повторения не ограничены. Как в Anki.</small></span><input type="number" id="set-new" min="0" max="200" inputmode="numeric"></label>
+            <label class="settings-row"><span>Пауза новых слов<small>Если к повторению столько слов и больше, новые не даются. 0 — без паузы</small></span><input type="number" id="set-pause" min="0" max="2000" inputmode="numeric"></label>
+            <label class="settings-row"><span>Цель дня (ответов)<small>Для серии дней</small></span><input type="number" id="set-goal" min="1" max="500" inputmode="numeric"></label>
+            <label class="settings-row"><span>Карточки: сторона вопроса<small>Направление RU → NO тренирует письмо</small></span>
+                <select id="set-cards-dir">
+                    <option value="no-ru">норвежское → перевод</option>
+                    <option value="ru-no">перевод → норвежское</option>
+                    <option value="mixed">вперемешку</option>
+                </select>
+            </label>
         </div>
-        <label class="settings-row"><span>Карточки: сторона вопроса<small>Направление RU → NO тренирует письмо</small></span>
-            <select id="set-cards-dir">
-                <option value="no-ru">норвежское слово → перевод</option>
-                <option value="ru-no">перевод → норвежское слово</option>
-                <option value="mixed">вперемешку</option>
-            </select>
-        </label>
-        <label class="settings-row"><span>Автоперевод при добавлении<small>MyMemory; для norsk → русский часто ошибается</small></span><input type="checkbox" id="set-autotranslate"></label>
-        <button class="action-btn wide" data-action="save-settings">Сохранить</button>
+
+        <div class="settings-group">
+            <div class="settings-group-title">Звук</div>
+            <label class="settings-row"><span>Произносить слово автоматически<small>При показе карточки</small></span><input type="checkbox" class="switch" id="set-autospeak"></label>
+            <div class="settings-row">
+                <span>Скорость речи<small id="set-rate-label">×1</small></span>
+                <span class="rate-control">
+                    <input type="range" id="set-rate" min="0.6" max="1.4" step="0.05" aria-label="Скорость речи">
+                    <button type="button" class="icon-btn" data-action="test-rate" title="Прослушать с этой скоростью" aria-label="Прослушать"><svg class="ic"><use href="#i-play"/></svg></button>
+                </span>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <div class="settings-group-title">Добавление слов</div>
+            <label class="settings-row"><span>Подсказка перевода и примера<small>ИИ на сервере + словарь Ordbøkene. Без сети — простой переводчик.</small></span><input type="checkbox" class="switch" id="set-autotranslate"></label>
+        </div>
+
+        <div class="settings-group">
+            <div class="settings-group-title">Оформление</div>
+            <div id="theme-grid" class="theme-grid"></div>
+        </div>
+
+        <button class="btn btn-primary btn-lg wide" data-action="save-settings">Сохранить</button>
+
+        <div class="settings-links">
+            <button class="settings-link" data-action="open-import"><svg class="ic"><use href="#i-download"/></svg>Импорт и колоды<svg class="ic chev"><use href="#i-chevron"/></svg></button>
+            <button class="settings-link" data-action="open-export"><svg class="ic"><use href="#i-upload"/></svg>Экспорт и бэкап<svg class="ic chev"><use href="#i-chevron"/></svg></button>
+            <button class="settings-link" data-action="open-stats"><svg class="ic"><use href="#i-chart"/></svg>Подробная статистика<svg class="ic chev"><use href="#i-chevron"/></svg></button>
+            <button class="settings-link" data-action="open-help"><svg class="ic"><use href="#i-help"/></svg>Как это работает<svg class="ic chev"><use href="#i-chevron"/></svg></button>
+        </div>
+
+        <div class="settings-group danger-zone">
+            <div class="settings-group-title">Опасная зона</div>
+            <div class="buttons-row">
+                <button class="btn btn-ghost btn-sm warning" data-action="reset-progress">Сбросить прогресс</button>
+                <button class="btn btn-ghost btn-sm danger" data-action="clear-all">Удалить все слова</button>
+            </div>
+        </div>
     </div>
 </div>
 
 <div id="theme-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Тема">
-    <div class="modal-inner">
-        <div class="modal-title">Тема <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
-        <div id="theme-grid" class="theme-grid"></div>
+    <div class="modal-inner sheet">
+        <div class="modal-title">Тема <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <div class="modal-note">Тема выбирается в настройках.</div>
     </div>
 </div>
 
 <div id="edit-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Редактирование слова">
-    <div class="modal-inner wide">
-        <div class="modal-title">Редактировать слово <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
+    <div class="modal-inner wide sheet">
+        <div class="modal-title">Редактировать слово <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
         <div id="edit-form"></div>
         <div class="buttons-row">
-            <button class="outline-btn" data-action="tatoeba-edit">📖 Пример с Tatoeba</button>
-            <button class="action-btn" data-action="save-edit" style="margin-left:auto">Сохранить</button>
+            <button class="btn btn-ghost" data-action="tatoeba-edit">Пример с Tatoeba</button>
+            <button class="btn btn-primary" data-action="save-edit" style="margin-left:auto">Сохранить</button>
         </div>
     </div>
 </div>
 
 <div id="tatoeba-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Примеры Tatoeba">
-    <div class="modal-inner">
-        <div class="modal-title"><span>Примеры: <span id="tatoeba-word-title" lang="nb" style="color:var(--accent-2)"></span></span><button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
+    <div class="modal-inner sheet">
+        <div class="modal-title"><span>Примеры: <span id="tatoeba-word-title" lang="nb" class="accent-text"></span></span><button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
         <div id="tatoeba-results"></div>
     </div>
 </div>
 
 <div id="bulk-tag-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Тег">
-    <div class="modal-inner">
-        <div class="modal-title">Добавить тег <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
+    <div class="modal-inner sheet">
+        <div class="modal-title">Добавить тег <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
         <input type="text" id="bulk-tag-input" placeholder="Название тега" maxlength="50">
-        <button class="action-btn wide" data-action="bulk-tag-apply">Применить</button>
+        <button class="btn btn-primary wide" data-action="bulk-tag-apply">Применить</button>
     </div>
 </div>
 
 <div id="word-history-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="История слова">
-    <div class="modal-inner">
-        <div class="modal-title"><span>📈 <span id="wh-title" lang="nb"></span> <span id="wh-translate" class="fst-trans"></span></span><button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
+    <div class="modal-inner sheet">
+        <div class="modal-title"><span><span id="wh-title" lang="nb"></span> <span id="wh-translate" class="fst-trans"></span></span><button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
         <div id="wh-content"></div>
     </div>
 </div>
 
 <div id="help-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Как это работает">
-    <div class="modal-inner wide help">
-        <div class="modal-title">Как это работает <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
+    <div class="modal-inner wide help sheet">
+        <div class="modal-title">Как это работает <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
+
+        <h4>Как добавлять слова</h4>
+        <ul>
+            <li><b>Ввести слово</b> — напиши его по-норвежски (можно с артиклем: <i>et land</i>, или с <i>å</i>: <i>å bo</i>). Перевод, род, формы и пример подставятся сами — проверь и нажми «Добавить».</li>
+            <li><b>Со скриншота</b> — сфотографируй экран Lingu или страницу учебника. Покажу найденные слова с переводом, лишнее сними галочкой.</li>
+        </ul>
 
         <h4>Уровни слов</h4>
         <p>Уровень показывает, на сколько дней вперёд назначено следующее повторение слова. Чем дольше слово держится в памяти, тем реже оно попадается.</p>
@@ -358,37 +522,37 @@
 
         <h4>Основная тренировка и практика</h4>
         <ul>
-            <li><b>«Начать тренировку»</b> — только слова, которые пора повторять, плюс новые в пределах дневного лимита (⚙️ Настройки). <b>Только она двигает расписание.</b></li>
+            <li><b>«Начать тренировку»</b> — только слова, которые пора повторять, плюс новые в пределах дневного лимита (Настройки). <b>Только она двигает расписание.</b></li>
             <li><b>Марафон</b> — то же, но без лимита новых слов.</li>
             <li><b>Практика</b> (письмо, диктант, «угадай», род, формы, пропуски, на слух, собери предложение, трудные) — доступна всегда, 20 слов: сначала те, что пора повторять, потом самые трудные. Расписание не меняет — можно тренироваться сколько угодно.</li>
         </ul>
         <p>Лимит новых слов нужен, чтобы через неделю не случился завал: каждое новое слово в ближайшие дни вернётся ещё несколько раз.</p>
 
         <h4>Сторона карточки</h4>
-        <p>По умолчанию карточка показывает норвежское слово, а вспоминаешь перевод. Обратное направление — вспомнить слово с русского — тренирует письмо RU → NO. В ⚙️ Настройках можно выбрать и другое направление или вперемешку.</p>
+        <p>По умолчанию карточка показывает норвежское слово, а вспоминаешь перевод. Обратное направление — вспомнить слово с русского — тренирует письмо RU → NO. В настройках можно выбрать и другое направление или вперемешку.</p>
     </div>
 </div>
 
 <div id="forgetting-stats-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Статистика">
-    <div class="modal-inner">
-        <div class="modal-title">Статистика <button class="modal-close" data-action="close-modal" aria-label="Закрыть">✕</button></div>
+    <div class="modal-inner sheet">
+        <div class="modal-title">Статистика <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
         <div id="forgetting-stats-content"></div>
     </div>
 </div>
 
 <div id="results-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Итоги">
-    <div class="modal-inner">
+    <div class="modal-inner sheet">
         <div id="results-emoji">🎉</div>
-        <div class="modal-title" style="justify-content:center">Итоги тренировки</div>
+        <div class="modal-title center">Итоги тренировки</div>
         <div class="results-grid" id="results-grid"></div>
         <div id="results-note" class="modal-note" hidden></div>
         <div id="results-hardest" hidden></div>
-        <button class="action-btn wide" data-action="close-results">Готово</button>
+        <button class="btn btn-primary btn-lg wide" data-action="close-results">Готово</button>
     </div>
 </div>
 
 <div id="undo-toast" class="bar-toast" hidden><span id="undo-text"></span><button data-action="undo-delete">Отменить</button></div>
-<div id="update-toast" class="bar-toast" hidden><span>🔄 Доступно обновление</span><button data-action="reload">Обновить</button></div>
+<div id="update-toast" class="bar-toast" hidden><span>Доступно обновление</span><button data-action="reload">Обновить</button></div>
 <div id="pwa-install-banner" class="bar-toast" hidden><span>Установить как приложение?</span><button data-action="install-pwa">Установить</button><button data-action="hide-install" aria-label="Скрыть">✕</button></div>
 
 <script type="module" src="/js/main.js"></script>

@@ -13,7 +13,8 @@ export const DEFAULT_SETTINGS = {
     muted: false,
     speechRate: 1,         // скорость речи Piper/браузера: 0.6…1.4
     cardsDir: 'no-ru',     // направление карточек: no-ru | ru-no | mixed
-    autoTranslate: false,  // подсказка перевода от MyMemory при добавлении слова
+    autoTranslate: false,  // устарело: была подсказка MyMemory, заменена smartAdd
+    smartAdd: true,        // подсказка перевода, примера и грамматики при добавлении (ИИ + Ordbøkene)
 };
 
 export const state = {

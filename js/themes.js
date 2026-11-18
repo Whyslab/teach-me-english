@@ -5,18 +5,19 @@ import { $ } from './ui.js';
 
 export const THEMES = [
     { id: 'auto', name: 'Системная', desc: 'Как в настройках ОС' },
-    { id: 'dark', name: 'Тёмная', desc: 'По умолчанию',
-      accent:'#7c6af7', accent2:'#a78bfa', glow:'rgba(124,106,247,0.25)', dim:'rgba(124,106,247,0.1)',
-      bg:'#080810', bg1:'#0e0e18', bg2:'#14141f', bg3:'#1c1c2a', bg4:'#242436',
-      text:'#eeeef5', text2:'#8888aa', text3:'#5c5c78', border:'rgba(255,255,255,0.06)', borderHi:'rgba(255,255,255,0.12)' },
+    // bg — фон страницы, bg1 — карточки, bg2 — поля ввода, bg3/bg4 — наведение и дорожки.
+    { id: 'dark', name: 'Тёмная', desc: 'Ночной фьорд',
+      accent:'#5b7cfa', accent2:'#8fa3ff', glow:'rgba(91,124,250,0.35)', dim:'rgba(91,124,250,0.14)',
+      bg:'#0b0d12', bg1:'#14171e', bg2:'#1b1f28', bg3:'#232835', bg4:'#2d3342',
+      text:'#eef0f5', text2:'#a7adbb', text3:'#6f7686', border:'rgba(255,255,255,0.07)', borderHi:'rgba(255,255,255,0.14)' },
     { id: 'light', name: 'Светлая', desc: 'Чистый белый',
-      accent:'#6366f1', accent2:'#4f46e5', glow:'rgba(99,102,241,0.2)', dim:'rgba(99,102,241,0.08)',
-      bg:'#fafbff', bg1:'#f2f4fc', bg2:'#e8ecf8', bg3:'#dde2f4', bg4:'#d2d8ef',
-      text:'#1a1c2e', text2:'#4a4d8a', text3:'#6b70a8', border:'rgba(0,0,0,0.08)', borderHi:'rgba(0,0,0,0.16)' },
+      accent:'#3f5ef0', accent2:'#3350d6', glow:'rgba(63,94,240,0.28)', dim:'rgba(63,94,240,0.09)',
+      bg:'#f4f5f8', bg1:'#ffffff', bg2:'#f1f3f7', bg3:'#e7eaf0', bg4:'#d9dde6',
+      text:'#11141b', text2:'#4a5163', text3:'#868d9c', border:'rgba(16,24,40,0.08)', borderHi:'rgba(16,24,40,0.16)' },
     { id: 'nord', name: 'Норд', desc: 'Светлая скандинавская',
-      accent:'#5e81ac', accent2:'#4c6f99', glow:'rgba(94,129,172,0.2)', dim:'rgba(94,129,172,0.1)',
-      bg:'#eceff4', bg1:'#e5e9f0', bg2:'#d8dee9', bg3:'#ccd3e0', bg4:'#bcc6d8',
-      text:'#2e3440', text2:'#4c566a', text3:'#616e88', border:'rgba(0,0,0,0.08)', borderHi:'rgba(0,0,0,0.16)' },
+      accent:'#5e81ac', accent2:'#4c6f99', glow:'rgba(94,129,172,0.28)', dim:'rgba(94,129,172,0.12)',
+      bg:'#e5e9f0', bg1:'#eceff4', bg2:'#e2e7ef', bg3:'#d8dee9', bg4:'#c8d0dd',
+      text:'#2e3440', text2:'#4c566a', text3:'#7b869c', border:'rgba(46,52,64,0.1)', borderHi:'rgba(46,52,64,0.18)' },
 ];
 
 // Старые id тем (их было 16) сводим к новым, чтобы выбор пользователя не пропал.
