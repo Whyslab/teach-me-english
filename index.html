@@ -261,6 +261,7 @@
     <div class="tr-header">
         <button class="icon-btn" data-action="stop-training" title="Завершить (Esc)" aria-label="Завершить"><svg class="ic"><use href="#i-x"/></svg></button>
         <div class="tr-progress" aria-hidden="true"><div id="tr-progress-fill"></div></div>
+        <span id="tr-combo" class="tr-combo" title="Верно подряд" hidden>🔥 <b id="tr-combo-n">0</b></span>
         <div id="training-stats">
             <span class="ok"><svg class="ic"><use href="#i-check"/></svg><span id="tr-correct">0</span></span>
             <span class="bad"><svg class="ic"><use href="#i-x"/></svg><span id="tr-wrong">0</span></span>
@@ -281,6 +282,7 @@
         </ul>
     </div>
     <div class="tr-top">
+        <h2 id="tr-question" class="tr-question"></h2>
         <button id="tr-mode" class="mode-badge" data-action="tr-mode" title="Переключить режим">Карточки</button>
         <span id="tr-source" class="source-badge" hidden></span>
     </div>
@@ -310,8 +312,10 @@
 
         <div id="tr-links">
             <button class="tr-speak" data-action="tr-speak" title="Прослушать" aria-label="Прослушать"><svg class="ic"><use href="#i-volume"/></svg></button>
-            <a id="tr-forvo" class="tr-link" target="_blank" rel="noopener noreferrer" title="Живое произношение">Forvo</a>
-            <a id="tr-ordbok" class="tr-link" target="_blank" rel="noopener noreferrer" title="Род и формы">Ordbøkene</a>
+            <span class="tr-dict">
+                <a id="tr-forvo" class="tr-link" target="_blank" rel="noopener noreferrer" title="Живое произношение">Forvo</a>
+                <a id="tr-ordbok" class="tr-link" target="_blank" rel="noopener noreferrer" title="Род и формы">Ordbøkene</a>
+            </span>
         </div>
 
         <div id="tr-write" hidden>

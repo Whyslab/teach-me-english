@@ -43,7 +43,7 @@ const PUBLIC_FILES = new Set([
 ]);
 // Модули фронтенда, стили и колоды. Имя — только латиница, цифры и дефис,
 // без подкаталогов и точек: путь не может выйти за пределы этих папок.
-const PUBLIC_PATTERN = /^(?:js\/[a-z0-9-]+\.js|css\/[a-z0-9-]+\.css|decks\/[a-z0-9-]+\.txt)$/;
+const PUBLIC_PATTERN = /^(?:js\/[a-z0-9-]+\.js|css\/[a-z0-9-]+\.css|decks\/[a-z0-9-]+\.txt|fonts\/[a-z0-9-]+\.woff2)$/;
 
 app.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
@@ -52,6 +52,7 @@ app.use((req, res, next) => {
     const headers = {};
     if (name === 'manifest.json') headers['Cache-Control'] = 'max-age=86400';
     else if (/^icon-\d+\.png$/.test(name)) headers['Cache-Control'] = 'max-age=604800, immutable';
+    else if (name.startsWith('fonts/')) headers['Cache-Control'] = 'max-age=2592000';
     if (name.startsWith('decks/')) headers['Content-Type'] = 'text/plain; charset=utf-8';
     res.sendFile(path.join(__dirname, name), { headers, dotfiles: 'deny' }, (err) => {
         if (err && !res.headersSent) next();
@@ -174,7 +175,7 @@ app.use(['/api/words', '/api/sync', '/api/state'], (req, res, next) => {
 // версия — хеш содержимого всех файлов фронтенда, список — что лежит на диске.
 function precacheList() {
     const list = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
-    for (const [dir, ext] of [['css', '.css'], ['js', '.js'], ['decks', '.txt']]) {
+    for (const [dir, ext] of [['css', '.css'], ['js', '.js'], ['decks', '.txt'], ['fonts', '.woff2']]) {
         const files = fs.readdirSync(path.join(__dirname, dir))
             .filter(f => f.endsWith(ext) && PUBLIC_PATTERN.test(`${dir}/${f}`))
             .sort();

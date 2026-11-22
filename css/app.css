@@ -873,3 +873,193 @@ details.more > :not(summary) + :not(summary) { margin-top: 10px; }
 
 /* Формы на знакомстве со словом — цветом форм, как на карточке. */
 .prompt-label.intro-forms { font-size: .95rem; color: var(--accent-2); }
+
+/* ══ УРОК В СТИЛЕ DUOLINGO (22.11.2026) ═══════════════════════
+   Пользователь выбрал «как Duolingo»: вопрос крупно сверху, слово без
+   коробки со звуком слева, варианты списком с цифрой в квадратике,
+   объёмные яркие кнопки, круглый шрифт. Свои цвета — только внутри урока. */
+@font-face { font-family: "Nunito"; font-weight: 500 900; font-display: swap; src: url("/fonts/nunito-cyrillic.woff2") format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "Nunito"; font-weight: 500 900; font-display: swap; src: url("/fonts/nunito-latin-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Nunito"; font-weight: 500 900; font-display: swap; src: url("/fonts/nunito-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+#training-section {
+    --d-bg: #131f24; --d-raised: #202f36; --d-line: #37464f; --d-text: #f1f7fb; --d-muted: #8b9ca6;
+    --d-green: #58cc02; --d-green-sh: #58a700; --d-green-text: #79d634; --d-green-bg: #1f3a24;
+    --d-red: #ff4b4b; --d-red-sh: #ea2b2b; --d-red-text: #ff7878; --d-red-bg: #3d2328;
+    --d-amber: #ffc800; --d-amber-sh: #e5a400; --d-amber-text: #ffd84d; --d-amber-bg: #3d3519;
+    --d-blue: #1cb0f6; --d-blue-sh: #1899d6; --d-on: #fff;
+    background: var(--d-bg); color: var(--d-text);
+    font-family: "Nunito", var(--font); font-weight: 700;
+}
+:root[data-scheme="light"] #training-section {
+    --d-bg: #fff; --d-raised: #f7f7f7; --d-line: #e5e5e5; --d-text: #3c3c3c; --d-muted: #777;
+    --d-green-text: #58a700; --d-green-bg: #d7ffb8; --d-red-text: #ea2b2b; --d-red-bg: #ffdfe0;
+    --d-amber-text: #b07d00; --d-amber-bg: #fff4c2;
+}
+#training-section :is(button, input) { font-family: inherit; }
+
+/* Шапка: толстая зелёная полоса с бликом, огонёк серии. */
+#training-section .tr-progress { height: 16px; border-radius: 99px; background: var(--d-line); }
+#training-section #tr-progress-fill { background: var(--d-green); border-radius: 99px; position: relative; min-width: 16px; }
+#training-section #tr-progress-fill::after { content: ""; position: absolute; left: 8px; right: 8px; top: 4px; height: 4px; border-radius: 99px; background: rgb(255 255 255 / 0.3); }
+#training-section #training-stats { font-weight: 800; }
+#training-section #training-stats .left { color: var(--d-muted); border-left-color: var(--d-line); }
+.tr-combo { color: #ff9600; font-weight: 900; font-size: 1.05rem; white-space: nowrap; }
+@media (prefers-reduced-motion: no-preference) {
+    .tr-combo:not([hidden]) { animation: trPop .25s ease-out both; }
+}
+#training-section .icon-btn { color: var(--d-muted); }
+
+/* Вопрос — крупно, слева. Кнопка режима — только где её можно переключать (практика). */
+#training-section .tr-top { width: 100%; max-width: 600px; padding: 0 16px; justify-content: flex-start; margin-top: clamp(4px, 3vh, 28px); }
+.tr-question { font-size: clamp(1.4rem, 1rem + 1.6vw, 1.9rem); font-weight: 800; letter-spacing: -0.01em; color: var(--d-text); margin-right: auto; text-wrap: balance; }
+#training-section #tr-mode:disabled { display: none; }
+#training-section #tr-mode { color: var(--d-muted); border-color: var(--d-line); }
+
+/* Задание: звук слева от слова, словари строкой ниже, ответ под ними. */
+#training-section .tr-stage {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: start; align-items: center;
+    grid-template-areas: "speak prompt" "dict dict" "answer answer";
+    column-gap: 18px; row-gap: 18px; max-width: 600px; padding: clamp(8px, 3vh, 28px) 16px 20px;
+}
+#training-section #flashcard-wrap, #training-section #tr-prompt { grid-area: prompt; max-width: none; }
+#training-section #tr-write, #training-section #tr-options { grid-area: answer; max-width: none; }
+#training-section #tr-links { display: contents; }
+#training-section #tr-links[data-conceal="all"] > * { visibility: hidden; }
+#training-section #tr-links[data-conceal="links"] .tr-dict { visibility: hidden; }
+#training-section .tr-speak { grid-area: speak; align-self: center; }
+#training-section .tr-dict { grid-area: dict; display: flex; gap: 18px; margin-top: -6px; }
+/* Карточки и знакомство: большая карточка во всю ширину, звук и словари строкой под ней. */
+#training-section:is([data-mode="cards"], [data-mode="intro"], [data-mode="cloze"], [data-mode="order"], [data-mode="listen"]) .tr-stage {
+    grid-template-areas: "prompt prompt" "speak dict" "answer answer";
+}
+#training-section:is([data-mode="cards"], [data-mode="intro"], [data-mode="cloze"], [data-mode="order"], [data-mode="listen"]) .tr-dict { margin-top: 0; }
+
+/* Звук — голубая объёмная кнопка. */
+#training-section .tr-speak {
+    width: 56px; height: 56px; border-radius: 16px; border: none; background: var(--d-blue); color: var(--d-on);
+    box-shadow: 0 4px 0 var(--d-blue-sh); transition: translate .08s, box-shadow .08s, filter .15s;
+}
+#training-section .tr-speak .ic { width: 28px; height: 28px; stroke-width: 2.4; }
+#training-section .tr-speak:hover { filter: brightness(1.08); background: var(--d-blue); }
+#training-section .tr-speak:active { translate: 0 4px; box-shadow: none; scale: 1; }
+#training-section .tr-link { color: var(--d-muted); text-decoration-color: var(--d-line); font-weight: 700; }
+
+/* Слово без коробки. */
+#training-section #tr-prompt { background: none; border: none; box-shadow: none; padding: 0; text-align: start; }
+#training-section .prompt-main { font-size: clamp(2rem, 1.4rem + 2.4vw, 2.75rem); font-weight: 800; color: var(--d-text); text-decoration: underline dashed var(--d-line); text-decoration-thickness: 3px; text-underline-offset: 12px; overflow-wrap: anywhere; }
+#training-section .prompt-sub, #training-section .prompt-label { color: var(--d-muted); }
+#training-section .prompt-sentence { color: var(--d-text); }
+/* Письмо: слово (а после ответа — перевод с примером) тоже без коробки. */
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) .flashcard { height: auto; min-height: 0; }
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) .flashcard-front,
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) .flashcard-back {
+    position: static; background: none; border: none; box-shadow: none; padding: 0; align-items: flex-start; text-align: start; transform: none; backface-visibility: visible;
+}
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) .flashcard { transform: none; transition: none; }
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) .flashcard:not(.is-flipped) .flashcard-back,
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) .flashcard.is-flipped .flashcard-front { display: none; }
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) #card-front { font-size: clamp(2rem, 1.4rem + 2.4vw, 2.75rem); font-weight: 800; text-decoration: underline dashed var(--d-line); text-decoration-thickness: 3px; text-underline-offset: 12px; }
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) .example-row { justify-content: flex-start; }
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) #card-hint { position: static; }
+/* Карточка (режим «Карточки», знакомство, предложения) — объёмная рамка. */
+#training-section .flashcard-front, #training-section .flashcard-back,
+#training-section:is([data-mode="intro"], [data-mode="cloze"], [data-mode="order"], [data-mode="listen"]) #tr-prompt {
+    background: var(--d-bg); border: 2px solid var(--d-line); border-bottom-width: 5px; box-shadow: none; border-radius: 20px;
+}
+#training-section:is([data-mode="intro"], [data-mode="cloze"], [data-mode="order"], [data-mode="listen"]) #tr-prompt { padding: 24px 20px; text-align: center; }
+#training-section:is([data-mode="intro"], [data-mode="cloze"], [data-mode="order"], [data-mode="listen"]) .prompt-main { text-decoration: none; }
+#training-section #card-front, #training-section #card-back-text { font-family: inherit; font-weight: 800; color: var(--d-text); }
+#training-section #card-example { color: var(--d-text); }
+#training-section #card-example-translate, #training-section #card-hint { color: var(--d-muted); }
+
+/* Варианты: список, цифра в квадратике, объёмная рамка. */
+#training-section .tr-options.grid-2 { grid-template-columns: 1fr; }
+#training-section .quiz-option {
+    display: flex; align-items: center; gap: 16px; text-align: start; padding: 14px 16px; min-height: 60px;
+    background: var(--d-bg); color: var(--d-text); border: 2px solid var(--d-line); border-bottom-width: 4px; border-radius: 16px;
+    box-shadow: none; font-size: 1.1rem; font-weight: 700; transition: background-color .12s, border-color .12s, translate .08s;
+}
+#training-section .tr-options.grid-3 .quiz-option { justify-content: center; font-size: 1.4rem; font-weight: 800; }
+#training-section .quiz-option:hover:not(:disabled) { background: var(--d-raised); border-color: var(--d-line); }
+#training-section .quiz-option:active:not(:disabled) { translate: 0 2px; border-bottom-width: 2px; }
+#training-section .opt-key {
+    position: static; flex: none; width: 32px; height: 32px; display: grid; place-items: center;
+    border: 2px solid var(--d-line); border-radius: 9px; font-size: .9rem; font-weight: 800; color: var(--d-muted);
+}
+#training-section .quiz-option.correct { background: var(--d-green-bg); border-color: var(--d-green); color: var(--d-green-text); }
+#training-section .quiz-option.correct .opt-key { border-color: var(--d-green); color: var(--d-green-text); }
+#training-section .quiz-option.wrong { background: var(--d-red-bg); border-color: var(--d-red); color: var(--d-red-text); }
+#training-section .quiz-option.wrong .opt-key { border-color: var(--d-red); color: var(--d-red-text); }
+#training-section .quiz-option:disabled { opacity: 1; cursor: default; }
+
+/* Поле ответа — как в Duolingo: светлая подложка, объёмная рамка. */
+#training-section #tr-write .no-row input {
+    background: var(--d-raised); color: var(--d-text); border: 2px solid var(--d-line); border-radius: 16px;
+    min-height: 64px; font-size: 1.3rem; font-weight: 700; text-align: start; padding: 0 18px; box-shadow: none;
+}
+#training-section #tr-write .no-row input:focus { border-color: var(--d-blue); outline: none; }
+#training-section #tr-write .no-row input:focus-visible { outline: 3px solid var(--d-blue); outline-offset: 2px; }
+#training-section #tr-write .no-row input::placeholder { color: var(--d-muted); }
+#training-section .no-letter-btn { width: 48px; height: 48px; border-radius: 14px; background: var(--d-bg); color: var(--d-text); border: 2px solid var(--d-line); border-bottom-width: 4px; font-weight: 800; font-family: inherit; }
+#training-section .no-letter-btn:active { translate: 0 2px; border-bottom-width: 2px; }
+
+/* Панель снизу: объёмные кнопки, ответ с кружком-значком. */
+#training-section .tr-footer { background: var(--d-bg); border-top: 2px solid var(--d-line); padding-block: 18px calc(18px + env(safe-area-inset-bottom)); }
+#training-section .tr-footer:has(.tr-feedback.ok) { background: var(--d-green-bg); border-top-color: transparent; }
+#training-section .tr-footer:has(.tr-feedback.bad) { background: var(--d-red-bg); border-top-color: transparent; }
+#training-section .tr-footer:has(.tr-feedback.almost) { background: var(--d-amber-bg); border-top-color: transparent; }
+#training-section .tr-bar { max-width: 600px; min-height: 72px; }
+#training-section .tr-result { display: grid; grid-template-columns: auto 1fr; column-gap: 16px; row-gap: 4px; align-items: center; }
+#training-section .tr-result > * { grid-column: 2; }
+#training-section .tr-result:has(.tr-feedback:not(:empty))::before {
+    grid-column: 1; grid-row: 1 / span 2; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--d-on); font-size: 2rem; font-weight: 900; line-height: 1;
+}
+#training-section .tr-result:has(.tr-feedback.ok)::before { content: "✓"; color: var(--d-green-sh); }
+#training-section .tr-result:has(.tr-feedback.bad)::before { content: "✕"; color: var(--d-red-sh); }
+#training-section .tr-result:has(.tr-feedback.almost)::before { content: "≈"; color: var(--d-amber-sh); }
+:root[data-scheme="light"] #training-section .tr-result:has(.tr-feedback:not(:empty))::before { background: #fff; }
+#training-section .tr-feedback { font-size: 1.35rem; font-weight: 800; }
+#training-section .tr-feedback.ok { color: var(--d-green-text); }
+#training-section .tr-feedback.bad { color: var(--d-red-text); }
+#training-section .tr-feedback.almost { color: var(--d-amber-text); }
+#training-section .tr-hint { color: inherit; opacity: .9; font-weight: 600; }
+#training-section .tr-doubt { color: inherit; opacity: .85; font-weight: 800; text-decoration-color: currentColor; }
+#training-section .tr-footer:not(:has(.tr-feedback:not(:empty))) .tr-doubt { color: var(--d-muted); }
+#training-section :is(.training-buttons button, .tr-next) {
+    border-radius: 16px; min-height: 54px; text-transform: uppercase; letter-spacing: .04em; font-weight: 800; font-size: 1rem;
+    transition: translate .08s, box-shadow .08s, filter .15s;
+}
+#training-section .sm2-good, #training-section .tr-next { background: var(--d-green); color: var(--d-on); box-shadow: 0 4px 0 var(--d-green-sh); }
+#training-section .sm2-again { background: var(--d-red); color: var(--d-on); box-shadow: 0 4px 0 var(--d-red-sh); }
+#training-section .tr-footer:has(.tr-feedback.bad) .tr-next { background: var(--d-red); box-shadow: 0 4px 0 var(--d-red-sh); }
+#training-section .tr-footer:has(.tr-feedback.almost) .tr-next { background: var(--d-amber); color: #4a3700; box-shadow: 0 4px 0 var(--d-amber-sh); }
+#training-section .sec-btn { background: transparent !important; color: var(--d-muted) !important; border: 2px solid var(--d-line) !important; box-shadow: 0 4px 0 var(--d-line) !important; }
+#training-section :is(.training-buttons button, .tr-next):active { translate: 0 4px; box-shadow: none !important; }
+#training-section .grade-btn small { text-transform: none; letter-spacing: 0; }
+@container (width < 34rem) {
+    #training-section .tr-result:has(.tr-feedback:not(:empty))::before { width: 44px; height: 44px; font-size: 1.5rem; }
+}
+/* Шрифт урока — везде, где прежние правила ставили системный. */
+#training-section :is(.tr-question, .prompt-main, .prompt-sentence, #card-front, #card-back-text, .tr-feedback) { font-family: inherit; }
+#training-section .tr-result { justify-items: start; }
+#training-section[data-mode="dictation"] #card-front { text-decoration: none; }
+/* Письмо: место под перевод с примером отведено заранее — поле ввода не съезжает после ответа. */
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) .flashcard-front { min-height: 7.5rem; justify-content: center; }
+/* Ссылки на словари — справа в строке со словом, не отдельной строкой. */
+#training-section .tr-stage { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "speak prompt dict" "answer answer answer"; }
+#training-section .tr-dict { margin-top: 0; flex-direction: column; gap: 4px; align-items: flex-end; align-self: center; }
+#training-section:is([data-mode="cards"], [data-mode="intro"], [data-mode="cloze"], [data-mode="order"], [data-mode="listen"]) .tr-stage {
+    grid-template-areas: "prompt prompt prompt" "speak dict dict" "answer answer answer";
+}
+#training-section:is([data-mode="cards"], [data-mode="intro"], [data-mode="cloze"], [data-mode="order"], [data-mode="listen"]) .tr-dict { flex-direction: row; gap: 18px; justify-self: start; }
+/* Невысокое широкое окно (ноутбук при 150 %): варианты 2×2 и всё компактнее, чтобы влезло без прокрутки. */
+@media (max-height: 760px) and (min-width: 600px) {
+    #training-section .tr-options.grid-2 { grid-template-columns: 1fr 1fr; }
+    #training-section .tr-stage { row-gap: 14px; padding-top: 6px; }
+    #training-section .tr-top { margin-top: 4px; }
+    #training-section .tr-footer { padding-block: 12px calc(12px + env(safe-area-inset-bottom)); }
+    #training-section .tr-bar { min-height: 64px; }
+    #training-section .flashcard { height: min(300px, 40vh); }
+}

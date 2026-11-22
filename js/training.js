@@ -81,7 +81,7 @@ export function startTraining({ mode = 'cards', source = 'due' } = {}) {
     clearTimeout(t.autoNext);
     Object.assign(t, {
         active: true, mode, source, practice, lesson, quizOk: canQuiz(state.words), queue, current: null,
-        correct: 0, wrong: 0, mistakes: new Map(), startedAt: Date.now(), undo: [],
+        correct: 0, wrong: 0, combo: 0, mistakes: new Map(), startedAt: Date.now(), undo: [],
     });
     document.body.classList.add('training-mode');
     $('training-section').classList.toggle('practice', practice);
@@ -143,11 +143,29 @@ $('tr-keys')?.addEventListener('toggle', (e) => {
     if (e.newState === 'closed' && t.active && !input.disabled && input.offsetParent) input.focus();
 });
 
+// Вопрос над заданием, как в Duolingo: что от тебя ждут.
+const QUESTION = {
+    'intro': 'Новое слово',
+    'cards': 'Вспомни перевод',
+    'write-no-ru': 'Напиши по-русски',
+    'write-ru-no': 'Напиши по-норвежски',
+    'dictation': 'Напиши, что услышишь',
+    'quiz': 'Как переводится?',
+    'gender': 'Какой род?',
+    'forms': 'Напиши форму',
+    'cloze': 'Вставь пропущенное слово',
+    'listen': 'Что ты услышал?',
+    'order': 'Собери предложение',
+};
+
 // «Почти»: верно без æ ø å или с одной опечаткой.
 const almost = () => t.checked === 'letters' || t.checked === 'typo';
 
 // Счётчики ✓ ✗ и «осталось» — сразу после ответа, а не со следующим заданием.
 function renderStats() {
+    // Огонёк — сколько подряд верно; появляется с трёх.
+    $('tr-combo').hidden = (t.combo || 0) < 3;
+    $('tr-combo-n').textContent = t.combo || 0;
     $('tr-left').textContent = t.queue.length;
     $('tr-correct').textContent = t.correct;
     $('tr-wrong').textContent = t.wrong;
@@ -162,6 +180,7 @@ function render() {
     const noGrades = checksWithoutGrades();
 
     $('tr-mode').textContent = MODE_LABEL[t.mode];
+    $('tr-question').textContent = QUESTION[t.mode] || MODE_LABEL[t.mode];
     $('tr-mode').disabled = !isCard || t.lesson;
     $('tr-source').textContent = SOURCE_LABEL[t.source] || '';
     $('tr-source').hidden = !SOURCE_LABEL[t.source];
@@ -287,16 +306,16 @@ export function checkWritten() {
     const shown = DRILL_MODES.includes(t.mode) ? expected : toNorwegian ? displayWord(w) : expected;
     const fb = $('tr-feedback');
     if (t.checked === 'correct') {
-        fb.textContent = '✓ Верно!';
+        fb.textContent = 'Верно!';
         fb.className = 'tr-feedback ok';
     } else if (t.checked === 'letters') {
-        fb.textContent = `≈ Почти — проверь æ ø å: ${shown}`;
+        fb.textContent = `Почти — проверь æ ø å: ${shown}`;
         fb.className = 'tr-feedback almost';
     } else if (t.checked === 'typo') {
-        fb.textContent = `≈ Опечатка — правильно: ${shown}`;
+        fb.textContent = `Опечатка — правильно: ${shown}`;
         fb.className = 'tr-feedback almost';
     } else {
-        fb.textContent = `✗ Правильно: ${shown}`;
+        fb.textContent = `Правильно: ${shown}`;
         fb.className = 'tr-feedback bad';
         if (t.mode === 'forms') grammarMistake(w, 'forms', t.current.key, input.value, expected);
     }
@@ -414,7 +433,7 @@ function checkOrder() {
     if (ok) t.queue.shift(); else requeue(t.current);
     renderOrder();
     const fb = $('tr-feedback');
-    fb.textContent = ok ? '✓ Верно!' : '✗ Порядок другой — правильно так:';
+    fb.textContent = ok ? 'Верно!' : 'Порядок другой — правильно так:';
     fb.className = `tr-feedback ${ok ? 'ok' : 'bad'}`;
     speak(w.example);
     show('tr-next-btn', true);

@@ -108,6 +108,7 @@ export function requeue(item) {
 }
 
 export function tally(correct, w) {
+    t.combo = correct ? (t.combo || 0) + 1 : 0;
     if (correct) t.correct++;
     else {
         t.wrong++;

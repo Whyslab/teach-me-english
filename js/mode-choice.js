@@ -27,7 +27,6 @@ export function renderQuiz(w) {
 
 export function renderGender(w) {
     $('tr-prompt').innerHTML = `
-        <div class="prompt-label">Какой род?</div>
         <div class="prompt-main" lang="nb">___ ${escapeHtml(w.original)}</div>
         <div class="prompt-sub">${escapeHtml(w.translate)}</div>`;
     t.options = ['m', 'f', 'n'];
@@ -42,7 +41,7 @@ export function evaluateChoice(w, index) {
         return {
             ok,
             isRight: (i) => t.options[i] === w.exampleTranslate,
-            feedback: ok ? '✓ Верно!' : `✗ Правильно: ${w.exampleTranslate}`,
+            feedback: ok ? 'Верно!' : `Правильно: ${w.exampleTranslate}`,
         };
     }
     if (t.mode === 'quiz') {
@@ -50,7 +49,7 @@ export function evaluateChoice(w, index) {
         return {
             ok,
             isRight: (i) => t.options[i] === w.translate,
-            feedback: ok ? '✓ Верно!' : `✗ Правильно: ${w.translate}`,
+            feedback: ok ? 'Верно!' : `Правильно: ${w.translate}`,
         };
     }
     const result = checkGender(t.options[index], w.gender);
@@ -58,8 +57,8 @@ export function evaluateChoice(w, index) {
     return {
         ok: result !== 'wrong',
         isRight: (i) => t.options[i] === w.gender,
-        feedback: result === 'correct' ? `✓ ${g.article} ${w.original} — ${g.ru} род`
-            : result === 'also' ? `✓ Можно и так: в букмоле женский род допускает en. Словарная форма — ei ${w.original}`
-            : `✗ ${g.article} ${w.original} — ${g.ru} род`,
+        feedback: result === 'correct' ? `${g.article} ${w.original} — ${g.ru} род`
+            : result === 'also' ? `Можно и так: в букмоле женский род допускает en. Словарная форма — ei ${w.original}`
+            : `${g.article} ${w.original} — ${g.ru} род`,
     };
 }
