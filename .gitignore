@@ -34,3 +34,6 @@ graphify-out/
 
 # Python bytecode (tts_worker.py)
 __pycache__/
+
+# Служебные файлы oh-my-claudecode в любой папке
+.omc/
