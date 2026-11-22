@@ -84,5 +84,5 @@ export function renderLinks(w) {
     $('tr-links').dataset.conceal = conceal;
     // «Сомневаюсь» показывает перевод — только после ответа (или на знакомстве).
     const answered = t.checked !== null || t.answered || t.flipped || t.mode === 'intro';
-    $('tr-links').dataset.check = answered ? 'show' : 'hide';
+    $('training-section').dataset.check = answered ? 'show' : 'hide';
 }

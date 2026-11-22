@@ -266,6 +266,19 @@
             <span class="bad"><svg class="ic"><use href="#i-x"/></svg><span id="tr-wrong">0</span></span>
             <span class="left" title="Осталось"><b id="tr-left">0</b></span>
         </div>
+        <button id="tr-back-btn" class="icon-btn" data-action="tr-undo" hidden title="Отменить прошлый ответ (Backspace)" aria-label="Отменить прошлый ответ"><svg class="ic"><use href="#i-undo"/></svg></button>
+        <button class="icon-btn tr-keys-btn" popovertarget="tr-keys" title="Клавиши" aria-label="Клавиши">?</button>
+    </div>
+    <div id="tr-keys" popover class="tr-keys">
+        <b>Клавиши</b>
+        <ul>
+            <li><kbd>Enter</kbd> проверить · дальше</li>
+            <li><kbd>1</kbd>–<kbd>4</kbd> выбрать вариант</li>
+            <li><kbd>Пробел</kbd> перевернуть карточку</li>
+            <li><kbd>←</kbd> не помню · <kbd>→</kbd> помню</li>
+            <li><kbd>Backspace</kbd> отменить прошлый ответ</li>
+            <li><kbd>Esc</kbd> выйти из урока</li>
+        </ul>
     </div>
     <div class="tr-top">
         <button id="tr-mode" class="mode-badge" data-action="tr-mode" title="Переключить режим">Карточки</button>
@@ -296,10 +309,9 @@
         <div id="tr-prompt" hidden></div>
 
         <div id="tr-links">
-            <button class="link-chip" data-action="tr-speak"><svg class="ic"><use href="#i-volume"/></svg>Прослушать</button>
-            <a id="tr-forvo" class="link-chip" target="_blank" rel="noopener noreferrer" title="Живое произношение">Forvo<svg class="ic"><use href="#i-external"/></svg></a>
-            <button class="link-chip" data-action="check-word-current" title="Перевод или пример кажутся неточными — перепроверить">🚩 Сомневаюсь</button>
-            <a id="tr-ordbok" class="link-chip" target="_blank" rel="noopener noreferrer" title="Род и формы">Ordbøkene<svg class="ic"><use href="#i-external"/></svg></a>
+            <button class="tr-speak" data-action="tr-speak" title="Прослушать" aria-label="Прослушать"><svg class="ic"><use href="#i-volume"/></svg></button>
+            <a id="tr-forvo" class="tr-link" target="_blank" rel="noopener noreferrer" title="Живое произношение">Forvo</a>
+            <a id="tr-ordbok" class="tr-link" target="_blank" rel="noopener noreferrer" title="Род и формы">Ordbøkene</a>
         </div>
 
         <div id="tr-write" hidden>
@@ -314,23 +326,26 @@
         </div>
 
         <div id="tr-options" class="tr-options" hidden></div>
-        <div id="tr-feedback" class="tr-feedback" aria-live="polite"></div>
     </div>
 
     <div class="tr-footer">
-        <div id="tr-grades" class="training-buttons">
-            <button class="grade-btn sm2-again" data-action="grade" data-grade="0"><span>Не помню</span><small>1 · ← · вернётся сегодня</small></button>
-            <button class="grade-btn sm2-good"  data-action="grade" data-grade="2"><span>Помню</span><small>2 · → · интервал растёт</small></button>
+        <div class="tr-bar">
+            <div class="tr-result">
+                <div id="tr-feedback" class="tr-feedback" aria-live="polite"></div>
+                <button id="tr-doubt" class="tr-doubt" data-action="check-word-current" title="Перевод или пример кажутся неточными — перепроверить">🚩 Сомневаюсь</button>
+            </div>
+            <div class="tr-actions">
+                <div id="tr-grades" class="training-buttons">
+                    <button class="grade-btn sm2-again" data-action="grade" data-grade="0"><span>Не помню</span><small>вернётся сегодня</small></button>
+                    <button class="grade-btn sm2-good"  data-action="grade" data-grade="2"><span>Помню</span><small>интервал растёт</small></button>
+                </div>
+                <div id="tr-write-btns" class="training-buttons" hidden>
+                    <button class="sec-btn" data-action="tr-reveal">Не знаю</button>
+                    <button class="sm2-good" data-action="tr-check">Проверить</button>
+                </div>
+                <button id="tr-next-btn" class="tr-next" data-action="tr-next" hidden>Дальше</button>
+            </div>
         </div>
-        <div id="tr-write-btns" class="training-buttons" hidden>
-            <button class="sec-btn" data-action="tr-reveal">Не знаю</button>
-            <button class="sm2-good" data-action="tr-check">Проверить</button>
-        </div>
-        <div class="tr-bottom">
-            <button id="tr-back-btn" class="exit-btn" data-action="tr-undo" hidden title="Backspace"><svg class="ic"><use href="#i-undo"/></svg>Отменить ответ</button>
-            <button id="tr-next-btn" class="exit-btn primary" data-action="tr-next" hidden>Дальше ⏎</button>
-        </div>
-        <div class="kbd-hint">Пробел — перевернуть · 1 / ← — не помню · 2 / → — помню · 1–4 — вариант · Backspace — отмена · Esc — выход</div>
     </div>
 </section>
 

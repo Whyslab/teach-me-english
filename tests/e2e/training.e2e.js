@@ -537,3 +537,34 @@ test('«Сомневаюсь»: the check shows the fix, and «Применит�
         await own.cleanup();
     }
 });
+
+test('lesson screen: «?» opens the keys help; Esc closes it without quitting; the bar keeps its place', async () => {
+    const own = await createServer();
+    const upserts = [1, 2, 3, 4, 5].map(i => ({ id: 9400 + i, original: `ord${i}`, translate: `слово${i}`, level: 3, nextReview: 0, tags: [], history: [{ t: 1, q: 2 }], addedAt: 1 }));
+    assert.ok((await fetch(`${own.url}/api/words/batch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ upserts }) })).ok);
+    const { page, context, errors } = await openApp(browser, own, { practiceOpen: false });
+    try {
+        await page.click('#lesson-btn');
+        await page.waitForSelector('#training-section:not([hidden])');
+        await page.focus('.tr-keys-btn');
+        await page.keyboard.press('Enter');
+        assert.ok(await page.evaluate(() => document.getElementById('tr-keys').matches(':popover-open')), 'Enter on «?» opens the help');
+        await page.keyboard.press('Escape');
+        assert.equal(await page.evaluate(() => document.getElementById('tr-keys').matches(':popover-open')), false);
+        assert.ok(await page.isVisible('#training-section'), 'Esc closed only the help');
+
+        const barTop = async () => page.evaluate(() => document.querySelector('.tr-footer').getBoundingClientRect().top);
+        const cardTop = async () => page.evaluate(() => document.querySelector('#flashcard-wrap:not([hidden]), #tr-prompt:not([hidden])').getBoundingClientRect().top);
+        if (await page.isVisible('#tr-options')) {
+            const [b0, c0] = [await barTop(), await cardTop()];
+            await page.click('#tr-options .quiz-option >> nth=0');
+            assert.equal(await cardTop(), c0, 'the task does not move after answering');
+            assert.ok(Math.abs(await barTop() - b0) < 1, 'the bar keeps its place');
+            assert.ok(await page.isVisible('#tr-next-btn'));
+        }
+        assert.deepStrictEqual(errors, []);
+    } finally {
+        await context.close();
+        await own.cleanup();
+    }
+});

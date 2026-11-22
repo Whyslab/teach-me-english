@@ -397,12 +397,29 @@ main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 64px; }
 .game-actions { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
 
 /* ══ TRAINING ═════════════════════════════════════════════════ */
+/* Экран урока — как в Duolingo: шапка, задание и постоянная панель снизу.
+   Панель всегда на месте и одной высоты: ответ и «Дальше» появляются в ней,
+   а задание над ней не двигается (Modern Web Guidance: «Don't move content
+   while the user reads»). Не влезает задание — прокручивается только оно. */
 #training-section {
     position: fixed; inset: 0; z-index: 500; background: var(--bg);
-    display: flex; flex-direction: column; align-items: center;
-    padding: calc(12px + env(safe-area-inset-top)) 20px calc(16px + env(safe-area-inset-bottom)); gap: 10px; overflow-y: auto;
+    display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; justify-items: center;
+    padding-top: calc(12px + env(safe-area-inset-top)); row-gap: 8px;
 }
-.tr-header { width: 100%; max-width: 640px; display: flex; align-items: center; gap: 14px; }
+#training-section[hidden] { display: none; }
+.tr-header { width: 100%; max-width: 592px; display: flex; align-items: center; gap: 10px; padding: 0 16px; }
+.tr-keys-btn { font-size: 1.05rem; font-weight: 700; }
+.tr-keys {
+    margin: auto; border: 1px solid var(--border); border-radius: 18px; background: var(--bg-1); color: var(--text);
+    padding: 18px 22px; box-shadow: var(--shadow); max-width: min(92vw, 26rem);
+}
+.tr-keys::backdrop { background: rgb(0 0 0 / 0.35); }
+.tr-keys ul { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; color: var(--text-2); }
+.tr-keys kbd { font: inherit; font-size: .85em; font-weight: 700; padding: 1px 7px; border: 1px solid var(--border-hi); border-bottom-width: 2px; border-radius: 6px; color: var(--text); }
+@media (prefers-reduced-motion: no-preference) {
+    .tr-keys:popover-open { animation: trPop .16s ease-out both; }
+}
+@keyframes trPop { from { opacity: 0; scale: .96; } }
 .tr-progress { flex: 1; height: 8px; background: var(--bg-3); border-radius: 4px; overflow: hidden; }
 #tr-progress-fill { height: 100%; width: 0; background: var(--green); border-radius: 4px; transition: width .35s ease; }
 #training-stats { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -411,20 +428,23 @@ main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 64px; }
 #training-stats .ok { color: var(--green); } #training-stats .bad { color: var(--red); }
 #training-stats .left { color: var(--text-3); padding-left: 8px; border-left: 1px solid var(--border-hi); }
 .tr-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+/* Название задания — тихая подпись, а не кнопка: в уроке его не переключают. */
 .mode-badge {
-    border: 1px solid var(--border); background: var(--bg-1); padding: 6px 14px;
-    border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--text-2);
+    border: 1px solid transparent; background: none; padding: 4px 12px;
+    border-radius: 999px; font-size: .875rem; font-weight: 600; color: var(--text-3);
 }
+#training-section .mode-badge:not(:disabled) { border-color: var(--border); }
 .mode-badge:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
 .mode-badge:disabled { cursor: default; }
 .source-badge { padding: 5px 12px; background: var(--green-dim); border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--green); }
-.tr-stage { flex: 1 0 auto; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
-/* Сжиматься середине нельзя: в невысоком окне (ноутбук при 150 %) поле ввода
-   и «Верно!» уезжали под кнопки, а метка режима — на карточку. Не влезает —
-   прокручивается весь экран. */
-.tr-header, .tr-top, .tr-footer { flex-shrink: 0; }
-/* В письменных заданиях на карточке одно слово — большая пустая карточка
-   сталкивала поле ввода вниз. */
+.tr-stage {
+    width: 100%; overflow-y: auto; padding: 8px 16px 16px;
+    display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 16px;
+}
+/* На телефоне панель после ответа выше (ответ + кнопка в столбик): задание
+   прижато к верху, чтобы не съезжать вверх, когда панель растёт. */
+@media (max-width: 720px) { .tr-stage { justify-content: flex-start; padding-top: 16px; } }
+/* В письменных заданиях на карточке одно слово — не нужна высокая карточка. */
 #training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) .flashcard {
     height: min(250px, 34vh); min-height: 200px;
 }
@@ -456,7 +476,7 @@ main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 64px; }
 .prompt-sentence { font-size: clamp(20px, 4.5vw, 26px); font-weight: 500; line-height: 1.5; margin-bottom: 6px; }
 .prompt-sentence .gap { display: inline-block; min-width: 3.5em; border-bottom: 2px solid var(--accent); color: var(--accent-2); font-weight: 700; }
 .prompt-sentence .gap.filled { border-bottom-color: var(--green); color: var(--green); }
-.prompt-label { color: var(--text-3); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; margin: 4px 0; font-weight: 600; }
+.prompt-label { color: var(--text-3); font-size: .85rem; margin: 4px 0; font-weight: 600; }
 .prompt-label em { font-style: normal; text-transform: none; }
 .listen-btn { border: none; background: var(--accent-dim); cursor: pointer; font-size: 2.2rem; padding: 14px 24px; border-radius: 20px; }
 .listen-btn:hover { background: var(--accent); }
@@ -475,18 +495,26 @@ main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 64px; }
 .order-token .opt-key { top: 2px; left: 5px; font-size: 9px; }
 .order-answer { margin-top: 12px; color: var(--green); }
 
-#tr-links { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; transition: opacity .2s; }
+/* Под карточкой — только звук и две тихие ссылки на словари. */
+#tr-links { display: flex; gap: 18px; justify-content: center; align-items: center; transition: opacity .2s; }
 #tr-links[data-conceal="all"] { opacity: 0; pointer-events: none; }
 #tr-links[data-conceal="links"] a { visibility: hidden; }
-#tr-links[data-check="hide"] [data-action="check-word-current"] { display: none; }
-.link-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--border); background: var(--bg-1); border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--text-2); text-decoration: none; }
-.link-chip .ic { width: 15px; height: 15px; }
-.link-chip:hover { border-color: var(--accent); color: var(--text); }
+.tr-speak {
+    width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid var(--border); background: var(--bg-1); color: var(--accent-2);
+    transition: background .15s, border-color .15s, scale .15s;
+}
+.tr-speak .ic { width: 22px; height: 22px; }
+.tr-speak:hover { border-color: var(--accent); background: var(--accent-dim); }
+.tr-speak:active { scale: .94; }
+.tr-link { font-size: .875rem; font-weight: 600; color: var(--text-3); text-decoration: underline; text-decoration-color: var(--border-hi); text-underline-offset: 4px; }
+.tr-link:hover { color: var(--text-2); text-decoration-color: currentColor; }
 
 #tr-write { width: 100%; max-width: 560px; }
 #tr-write .no-row input { text-align: center; font-size: 20px; font-weight: 600; min-height: 56px; border-radius: 18px; }
-.tr-feedback { text-align: center; font-size: 15px; font-weight: 700; min-height: 22px; }
-.tr-hint { display: block; margin-top: 6px; font-size: 14px; font-weight: 500; color: var(--text-2); max-width: 560px; }
+.tr-feedback { font-size: 1.05rem; font-weight: 750; overflow-wrap: anywhere; }
+.tr-feedback:empty { display: none; }
+.tr-hint { display: block; margin-top: 4px; font-size: .9rem; font-weight: 500; color: var(--text-2); }
 .tr-feedback.ok { color: var(--green); } .tr-feedback.bad { color: var(--red); } .tr-feedback.almost { color: var(--amber); }
 
 .tr-options { display: grid; gap: 10px; width: 100%; max-width: 560px; }
@@ -502,25 +530,53 @@ main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 64px; }
 .quiz-option.wrong { background: var(--red-dim); border-color: var(--red); color: var(--red); }
 .opt-key { position: absolute; top: 6px; left: 10px; font-size: 11px; color: var(--text-3); }
 
-.tr-footer { width: 100%; max-width: 640px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.training-buttons { display: flex; gap: 10px; justify-content: center; width: 100%; }
-.training-buttons button {
-    flex: 1; min-height: 60px; padding: 8px; border: none; border-radius: 18px; font-weight: 700; font-size: 17px;
-    color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    transition: transform .1s, filter .15s;
+/* ── Панель снизу ── */
+.tr-footer {
+    width: 100%; border-top: 1px solid var(--border); background: var(--bg-1);
+    padding: 14px calc(16px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    container-type: inline-size; transition: background-color .2s, border-color .2s;
 }
-.training-buttons button:hover { filter: brightness(1.08); }
-.training-buttons button:active { transform: scale(0.98); }
-.grade-btn small { font-size: 11px; font-weight: 500; opacity: .85; }
+.tr-footer:has(.tr-feedback.ok) { background: var(--green-dim); border-top-color: var(--green); }
+.tr-footer:has(.tr-feedback.bad) { background: var(--red-dim); border-top-color: var(--red); }
+.tr-footer:has(.tr-feedback.almost) { background: var(--amber-dim); border-top-color: var(--amber); }
+/* Высота постоянная: и до ответа, и после — задание над панелью не прыгает. */
+.tr-bar { max-width: 560px; margin: 0 auto; min-height: 64px; display: flex; align-items: center; gap: 16px; }
+.tr-result { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.tr-result:not(:has(.tr-feedback:not(:empty))) .tr-feedback { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+    .tr-feedback:not(:empty) { animation: trRise .18s ease-out both; }
+}
+@keyframes trRise { from { opacity: 0; translate: 0 6px; } }
+.tr-doubt { border: none; background: none; padding: 2px 0; font-size: .875rem; font-weight: 600; color: var(--text-2); text-decoration: underline; text-decoration-color: var(--border-hi); text-underline-offset: 4px; }
+.tr-doubt:hover { color: var(--text); text-decoration-color: currentColor; }
+#training-section[data-check="hide"] #tr-doubt { display: none; }
+.tr-actions { display: flex; gap: 10px; flex: 0 0 auto; }
+.tr-actions:has(#tr-grades:not([hidden])) { flex: 1; }
+.training-buttons { display: flex; gap: 10px; justify-content: center; width: 100%; }
+.training-buttons button, .tr-next {
+    min-height: 56px; min-width: min(9.5rem, 100%); padding: 8px 22px; border: none; border-radius: 16px; font-weight: 750; font-size: 1.05rem;
+    color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    box-shadow: 0 3px 0 rgb(0 0 0 / 0.25); transition: translate .1s, box-shadow .1s, filter .15s;
+}
+.training-buttons button { flex: 1; }
+.training-buttons button:hover, .tr-next:hover { filter: brightness(1.08); }
+.training-buttons button:active, .tr-next:active { translate: 0 3px; box-shadow: none; }
+.tr-next { background: var(--accent); color: var(--on-accent); }
+.tr-footer:has(.tr-feedback.ok) .tr-next { background: var(--green); color: #fff; }
+.tr-footer:has(.tr-feedback.bad) .tr-next { background: var(--red); color: #fff; }
+.tr-footer:has(.tr-feedback.almost) .tr-next { background: var(--amber); color: #1b1300; }
+.grade-btn small { font-size: .7rem; font-weight: 500; opacity: .85; }
 .grade-btn.suggested { outline: 3px solid var(--text); outline-offset: 3px; }
 .sm2-again { background: var(--red); } .sm2-good { background: var(--green); }
-.sec-btn { background: var(--bg-3) !important; color: var(--text) !important; }
-.tr-bottom { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
-.tr-bottom:not(:has(> :not([hidden]))) { display: none; }
-.exit-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--bg-1); padding: 10px 18px; border-radius: 12px; color: var(--text-2); font-size: 14px; font-weight: 600; }
-.exit-btn .ic { width: 16px; height: 16px; }
-.exit-btn:hover { color: var(--text); border-color: var(--border-hi); }
-.exit-btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; min-width: 160px; justify-content: center; }
+.sec-btn { background: var(--bg-3) !important; color: var(--text) !important; box-shadow: 0 3px 0 rgb(0 0 0 / 0.2) !important; }
+:where(.training-buttons button, .tr-next, .tr-speak, .tr-doubt):focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
+/* Узкая панель (телефон): ответ сверху, кнопки во всю ширину. */
+@container (width < 34rem) {
+    .tr-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .tr-actions, .tr-next { width: 100%; }
+    .training-buttons button { min-width: 0; padding-inline: 12px; }
+    #training-section[data-check="hide"] .tr-result:not(:has(.tr-feedback:not(:empty))) { display: none; }
+}
 .kbd-hint { font-size: 12px; color: var(--text-3); text-align: center; }
 
 /* ══ WORD FORM ════════════════════════════════════════════════ */
@@ -788,7 +844,6 @@ details.more > :not(summary) + :not(summary) { margin-top: 10px; }
     .settings-row select { max-width: 160px; }
     .wd-stats { grid-template-columns: repeat(3, 1fr); }
 
-    #training-section { padding-left: 16px; padding-right: 16px; }
     .flashcard { height: min(320px, 42vh); }
 }
 @media (max-width: 380px) {
@@ -815,3 +870,6 @@ details.more > :not(summary) + :not(summary) { margin-top: 10px; }
 .check-field { color: var(--text-2); font-size: 13px; }
 .check-old { text-decoration: line-through; color: var(--text-3); }
 .check-new { color: var(--green); font-weight: 600; }
+
+/* Формы на знакомстве со словом — цветом форм, как на карточке. */
+.prompt-label.intro-forms { font-size: .95rem; color: var(--accent-2); }

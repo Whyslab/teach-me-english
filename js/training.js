@@ -131,6 +131,18 @@ function next() {
     }
 }
 
+// Открыта ли подсказка клавиш. Без поддержки :popover-open (Firefox < 125)
+// matches бросает исключение — тогда подсказки нет и не мешает.
+function keysOpen() {
+    try { return $('tr-keys').matches(':popover-open'); } catch { return false; }
+}
+
+// После подсказки — обратно в поле ввода, чтобы набор не терялся.
+$('tr-keys')?.addEventListener('toggle', (e) => {
+    const input = $('tr-input');
+    if (e.newState === 'closed' && t.active && !input.disabled && input.offsetParent) input.focus();
+});
+
 // «Почти»: верно без æ ø å или с одной опечаткой.
 const almost = () => t.checked === 'letters' || t.checked === 'typo';
 
@@ -275,16 +287,16 @@ export function checkWritten() {
     const shown = DRILL_MODES.includes(t.mode) ? expected : toNorwegian ? displayWord(w) : expected;
     const fb = $('tr-feedback');
     if (t.checked === 'correct') {
-        fb.textContent = 'Верно!';
+        fb.textContent = '✓ Верно!';
         fb.className = 'tr-feedback ok';
     } else if (t.checked === 'letters') {
-        fb.textContent = `Почти — проверь æ ø å: ${shown}`;
+        fb.textContent = `≈ Почти — проверь æ ø å: ${shown}`;
         fb.className = 'tr-feedback almost';
     } else if (t.checked === 'typo') {
-        fb.textContent = `Опечатка — правильно: ${shown}`;
+        fb.textContent = `≈ Опечатка — правильно: ${shown}`;
         fb.className = 'tr-feedback almost';
     } else {
-        fb.textContent = `Правильно: ${shown}`;
+        fb.textContent = `✗ Правильно: ${shown}`;
         fb.className = 'tr-feedback bad';
         if (t.mode === 'forms') grammarMistake(w, 'forms', t.current.key, input.value, expected);
     }
@@ -402,7 +414,7 @@ function checkOrder() {
     if (ok) t.queue.shift(); else requeue(t.current);
     renderOrder();
     const fb = $('tr-feedback');
-    fb.textContent = ok ? 'Верно!' : 'Порядок другой — правильно так:';
+    fb.textContent = ok ? '✓ Верно!' : '✗ Порядок другой — правильно так:';
     fb.className = `tr-feedback ${ok ? 'ok' : 'bad'}`;
     speak(w.example);
     show('tr-next-btn', true);
@@ -480,6 +492,11 @@ function speakCurrent() {
 export function handleTrainingKey(e) {
     if (!t.active) return false;
     const inInput = e.target.matches?.('input, textarea');
+    // Пока открыта подсказка клавиш, клавиши — ей (Esc закрывает её), а не
+    // уроку позади: Backspace откатил бы ответ. Enter/Пробел на самой «?»
+    // открывают подсказку, а не переворачивают карточку.
+    if (keysOpen()) return false;
+    if (e.target.matches?.('.tr-keys-btn') && (e.key === 'Enter' || e.code === 'Space')) return false;
     if (e.key === 'Escape') { stopTraining(); return true; }
     if (inInput) return false;
 
