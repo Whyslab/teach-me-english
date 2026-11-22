@@ -131,6 +131,16 @@ function next() {
     }
 }
 
+// «Почти»: верно без æ ø å или с одной опечаткой.
+const almost = () => t.checked === 'letters' || t.checked === 'typo';
+
+// Счётчики ✓ ✗ и «осталось» — сразу после ответа, а не со следующим заданием.
+function renderStats() {
+    $('tr-left').textContent = t.queue.length;
+    $('tr-correct').textContent = t.correct;
+    $('tr-wrong').textContent = t.wrong;
+}
+
 function render() {
     const w = word();
     if (!w) return;
@@ -143,9 +153,8 @@ function render() {
     $('tr-mode').disabled = !isCard || t.lesson;
     $('tr-source').textContent = SOURCE_LABEL[t.source] || '';
     $('tr-source').hidden = !SOURCE_LABEL[t.source];
-    $('tr-left').textContent = t.queue.length;
-    $('tr-correct').textContent = t.correct;
-    $('tr-wrong').textContent = t.wrong;
+    renderStats();
+    $('training-section').dataset.mode = t.mode;
     // Полоса: сколько из очереди уже снято верным ответом. Ошибка возвращает
     // слово в очередь — полоса на месте, как в Duolingo.
     const fill = $('tr-progress-fill');
@@ -209,7 +218,7 @@ export function grade(quality) {
     if (!w) return;
     // В письме «верно, но без æ ø å» — это «помню, но с ошибкой»: и Enter,
     // и кнопка «Помню» дают одно и то же (интервал вдвое короче).
-    if (quality === 2 && t.checked === 'letters') quality = 1;
+    if (quality === 2 && almost()) quality = 1;
     t.busy = true;
     pushUndo();
 
@@ -253,13 +262,14 @@ export function checkWritten() {
         // Оценка берётся из проверки: раньше здесь всегда нажималось «Хорошо»,
         // даже после неверного ответа.
         if (checksWithoutGrades()) return advance();
-        return grade(t.checked === 'correct' ? 2 : t.checked === 'letters' ? 1 : 0);
+        return grade(t.checked === 'correct' ? 2 : almost() ? 1 : 0);
     }
     const w = word();
     const input = $('tr-input');
     const toNorwegian = t.mode !== 'write-no-ru';
     const expected = expectedAnswer(w);
-    t.checked = checkAnswer(input.value, expected, { norwegian: toNorwegian });
+    // Опечатку прощаем везде, кроме форм: там одна буква и есть ошибка (huset/husen).
+    t.checked = checkAnswer(input.value, expected, { norwegian: toNorwegian, typos: !DRILL_MODES.includes(t.mode) });
     input.disabled = true;
 
     const shown = DRILL_MODES.includes(t.mode) ? expected : toNorwegian ? displayWord(w) : expected;
@@ -270,6 +280,9 @@ export function checkWritten() {
     } else if (t.checked === 'letters') {
         fb.textContent = `Почти — проверь æ ø å: ${shown}`;
         fb.className = 'tr-feedback almost';
+    } else if (t.checked === 'typo') {
+        fb.textContent = `Опечатка — правильно: ${shown}`;
+        fb.className = 'tr-feedback almost';
     } else {
         fb.textContent = `Правильно: ${shown}`;
         fb.className = 'tr-feedback bad';
@@ -279,13 +292,14 @@ export function checkWritten() {
     if (checksWithoutGrades()) {
         pushUndo();
         if (t.lesson && scheduled()) {
-            sm2(w, t.checked === 'correct' ? 2 : t.checked === 'letters' ? 1 : 0);
+            sm2(w, t.checked === 'correct' ? 2 : almost() ? 1 : 0);
             saveWords();
         }
         // В уроке «верно, но без æ ø å» засчитано и в расписание (интервал вдвое
         // короче), поэтому и здесь это верный ответ, а не повтор.
-        const ok = t.checked === 'correct' || (t.lesson && t.checked === 'letters');
+        const ok = t.checked === 'correct' || (t.lesson && almost());
         tally(ok, w);
+        renderStats();
         playSound(ok ? 'correct' : 'wrong');
         const item = t.current;
         if (ok) t.queue.shift(); else requeue(item);
@@ -347,6 +361,7 @@ function choose(index) {
         saveWords();
     }
     tally(ok, w);
+    renderStats();
     playSound(ok ? 'correct' : 'wrong');
     const item = t.current;
     if (ok) t.queue.shift(); else requeue(item);
@@ -360,7 +375,8 @@ function choose(index) {
         return;
     }
     speak(displayWord(w));
-    t.autoNext = setTimeout(advance, ok ? 1100 : 2600);
+    // Дальше — по «Дальше»/Enter, как в письменных заданиях: прежний автопереход
+    // через секунду только мелькал ответом и не давал нажать «Сомневаюсь».
 }
 
 // «Собери предложение»: выбор слова, отмена, проверка.
@@ -381,6 +397,7 @@ function checkOrder() {
     t.checked = ok ? 'correct' : 'wrong';
     pushUndo();
     tally(ok, w);
+    renderStats();
     playSound(ok ? 'correct' : 'wrong');
     if (ok) t.queue.shift(); else requeue(t.current);
     renderOrder();

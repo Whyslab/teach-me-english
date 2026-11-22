@@ -757,3 +757,15 @@ test('a correct game answer moves only a word that is due; a mistake always coun
     assert.equal(schedulesGameAnswer({ nextReview: now + 10 * DAY }, true, now), false, 'not due yet — no reward');
     assert.equal(schedulesGameAnswer({ nextReview: now + 10 * DAY }, false, now), true, 'a mistake brings it back');
 });
+
+test('checkAnswer forgives one typo only when asked, and not in short words', async () => {
+    const { checkAnswer } = await load('norsk.js');
+    assert.equal(checkAnswer('нравится', 'нравиться'), 'wrong', 'strict by default');
+    assert.equal(checkAnswer('нравится', 'нравиться', { typos: true }), 'typo');
+    assert.equal(checkAnswer('нарвиться', 'нравиться', { typos: true }), 'typo', 'swapped letters');
+    assert.equal(checkAnswer('нрвтся', 'нравиться', { typos: true }), 'wrong', 'two letters off');
+    assert.equal(checkAnswer('кит', 'кот', { typos: true }), 'wrong', 'short word');
+    assert.equal(checkAnswer('hos', 'hus', { norwegian: true, typos: true }), 'wrong');
+    assert.equal(checkAnswer('å snakek', 'å snakke', { norwegian: true, typos: true }), 'typo');
+    assert.equal(checkAnswer('удачи', 'удачи', { typos: true }), 'correct');
+});

@@ -170,10 +170,29 @@ function variants(expected) {
     return [...new Set([whole, ...parts].filter(Boolean))];
 }
 
-// Результат: 'correct' | 'letters' (верно, если не считать æ ø å) | 'wrong'.
+// Одна правка: лишняя, пропущенная, заменённая буква или две соседние местами.
+function oneEdit(a, b) {
+    if (a === b) return false;
+    if (Math.abs(a.length - b.length) > 1) return false;
+    if (a.length === b.length) {
+        const diff = [];
+        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diff.push(i);
+        if (diff.length === 1) return true;
+        return diff.length === 2 && diff[1] === diff[0] + 1 && a[diff[0]] === b[diff[1]] && a[diff[1]] === b[diff[0]];
+    }
+    const [s, l] = a.length < b.length ? [a, b] : [b, a];
+    let i = 0;
+    while (i < s.length && s[i] === l[i]) i++;
+    return s.slice(i) === l.slice(i + 1);
+}
+
+// Результат: 'correct' | 'letters' (верно, если не считать æ ø å)
+// | 'typo' (одна опечатка; только с typos: true) | 'wrong'.
+// Опечатка — в словах от 5 букв (норвежских — от 6): в коротких одна буква
+// меняет слово (hus/hos, кот/кит).
 // Перевод часто перечисляет варианты через запятую — засчитывается любой.
 // Для норвежского ответа артикль и «å» необязательны: «hus» = «et hus».
-export function checkAnswer(input, expected, { norwegian = false } = {}) {
+export function checkAnswer(input, expected, { norwegian = false, typos = false } = {}) {
     const answer = normalizeAnswer(input);
     if (!answer) return 'wrong';
 
@@ -185,6 +204,10 @@ export function checkAnswer(input, expected, { norwegian = false } = {}) {
     if (norwegian) {
         const fa = foldNorwegian(a);
         if (expectedList.some(v => foldNorwegian(strip(v)) === fa)) return 'letters';
+    }
+    if (typos) {
+        const min = norwegian ? 6 : 5;
+        if (expectedList.some(v => strip(v).length >= min && oneEdit(a, strip(v)))) return 'typo';
     }
     return 'wrong';
 }

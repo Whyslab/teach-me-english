@@ -418,7 +418,16 @@ main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 64px; }
 .mode-badge:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
 .mode-badge:disabled { cursor: default; }
 .source-badge { padding: 5px 12px; background: var(--green-dim); border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--green); }
-.tr-stage { flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-height: 0; }
+.tr-stage { flex: 1 0 auto; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+/* Сжиматься середине нельзя: в невысоком окне (ноутбук при 150 %) поле ввода
+   и «Верно!» уезжали под кнопки, а метка режима — на карточку. Не влезает —
+   прокручивается весь экран. */
+.tr-header, .tr-top, .tr-footer { flex-shrink: 0; }
+/* В письменных заданиях на карточке одно слово — большая пустая карточка
+   сталкивала поле ввода вниз. */
+#training-section:is([data-mode="write-no-ru"], [data-mode="write-ru-no"], [data-mode="dictation"]) .flashcard {
+    height: min(250px, 34vh); min-height: 200px;
+}
 
 #flashcard-wrap { width: 100%; max-width: 560px; perspective: 1400px; }
 .flashcard { width: 100%; height: min(340px, 44vh); min-height: 220px; position: relative; transform-style: preserve-3d; transition: transform .5s cubic-bezier(.4,0,.2,1); cursor: pointer; }
