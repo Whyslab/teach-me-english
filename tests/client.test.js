@@ -692,3 +692,68 @@ test('after a correct answer the follow-up is harder; a wrong one gets an easier
     assert.equal(retryItem({ mode: 'write-ru-no', word: bare, primary: true }, { quizOk: false }).mode, 'write-ru-no');
     assert.equal(retryItem({ mode: 'gender', word: noun }).primary, undefined, 'a follow-up stays practice');
 });
+
+// ---------------------------------------------------------------------------
+// Игры (game-logic.js)
+// ---------------------------------------------------------------------------
+const known = (id, translate = `слово${id}`, extra = {}) =>
+    ({ id, original: `ord${id}`, translate, sm2Reps: 1, history: [{ ts: 0, q: 2 }], nextReview: 0, ...extra });
+
+test('games use only known words with distinct translations', async () => {
+    const { gamePool } = await load('game-logic.js');
+    const pool = gamePool([known(1, 'дом'), known(2, 'Дом'), known(3, 'кот'), { id: 4, original: 'ny', translate: 'новое', history: [] }]);
+    assert.equal(pool.length, 2, 'the new word and the duplicate translation are left out');
+    assert.ok(!pool.some(w => w.id === 4));
+});
+
+test('a quiz question has the right answer among 4 different options', async () => {
+    const { quizQuestion, truthQuestion } = await load('game-logic.js');
+    const pool = Array.from({ length: 8 }, (_, i) => known(i + 1));
+    for (let i = 0; i < 30; i++) {
+        const q = quizQuestion(pool, [1, 2]);
+        assert.equal(q.options.length, 4);
+        assert.equal(new Set(q.options).size, 4);
+        assert.ok(q.options.includes(q.word.translate));
+        assert.ok(![1, 2].includes(q.word.id), 'recent words are skipped');
+        const t = truthQuestion(pool);
+        assert.equal(t.truth, t.shown === t.word.translate);
+    }
+});
+
+test('pairs: rounds depend on the pool; both columns hold the same words', async () => {
+    const { pairsRounds, pairsRound } = await load('game-logic.js');
+    const mk = (n) => Array.from({ length: n }, (_, i) => known(i + 1));
+    assert.deepStrictEqual([4, 5, 9, 10, 15, 40].map(n => pairsRounds(mk(n))), [1, 1, 1, 2, 3, 3]);
+    const r = pairsRound(mk(5));
+    assert.deepStrictEqual(r.left.map(x => x.id).sort(), r.right.map(x => x.id).sort());
+});
+
+test('a record: lower time for pairs, higher score for the rest', async () => {
+    const { isRecord, formatGameValue } = await load('game-logic.js');
+    assert.ok(isRecord('pairs', 30000, {}));
+    assert.ok(isRecord('pairs', 30000, { pairs: 40000 }));
+    assert.ok(!isRecord('pairs', 50000, { pairs: 40000 }));
+    assert.ok(isRecord('blitz', 12, { blitz: 10 }));
+    assert.ok(!isRecord('blitz', 0, {}), 'zero is not a record');
+    assert.equal(formatGameValue('pairs', 47321), '47,3 с');
+    assert.equal(formatGameValue('streak', 7), '7');
+});
+
+test('a grammar hint follows the word: gender rules and form endings', async () => {
+    const { grammarHint } = await load('norsk.js');
+    assert.match(grammarHint({ original: 'frihet', pos: 'noun', gender: 'm' }, 'gender'), /-het/);
+    assert.match(grammarHint({ original: 'hus', pos: 'noun', gender: 'n' }, 'gender'), /huset/);
+    assert.match(grammarHint({ original: 'hus', pos: 'noun', gender: 'n' }, 'forms', 'indefPl'), /без окончания/);
+    assert.match(grammarHint({ original: 'bil', pos: 'noun', gender: 'm' }, 'forms', 'defSg'), /-en/);
+    assert.match(grammarHint({ original: 'å lese', pos: 'verb' }, 'forms', 'present'), /\+ -r/);
+    assert.match(grammarHint({ original: 'stor', pos: 'adj' }, 'forms', 'neuter'), /-t/);
+    assert.equal(grammarHint({ original: 'og', pos: 'other' }, 'forms', 'x'), '');
+});
+
+test('a correct game answer moves only a word that is due; a mistake always counts', async () => {
+    const { schedulesGameAnswer } = await load('game-logic.js');
+    const now = 100 * DAY;
+    assert.equal(schedulesGameAnswer({ nextReview: now - 1 }, true, now), true, 'due');
+    assert.equal(schedulesGameAnswer({ nextReview: now + 10 * DAY }, true, now), false, 'not due yet — no reward');
+    assert.equal(schedulesGameAnswer({ nextReview: now + 10 * DAY }, false, now), true, 'a mistake brings it back');
+});

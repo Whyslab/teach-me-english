@@ -15,9 +15,11 @@ import { $, showToast, showConfirm, openModal, closeModal, topModal, initSpeech,
 import { applyTheme, setTheme } from './themes.js';
 import { wordFormHtml, readWordForm, clearWordForm, syncGrammarVisibility, guessForms, insertChar, fillFromDictionary, applySuggestion, clearAutoFilled, renderPreview } from './wordform.js';
 import { dedupeKey } from './format.js';
-import { renderList, listActions, initList, onListRendered } from './list.js';
+import { renderList, listActions, initList, onListRendered, openWord } from './list.js';
 import { renderStats, showForgettingStats, showWordHistory } from './stats.js';
 import { trainingActions, initTraining, handleTrainingKey, onTrainingFinished, isTraining } from './training.js';
+import { gameActions, handleGameKey, onGameFinished, isGame, renderGameRecords } from './games.js';
+import { checkActions, onCheckApplied } from './check-ui.js';
 import { ioActions, initIo } from './io.js';
 import { shotActions, initShot } from './shot.js';
 import { openTatoeba, tatoebaActions } from './tatoeba.js';
@@ -239,6 +241,8 @@ function renderMute() {
 const actions = {
     ...listActions,
     ...trainingActions,
+    ...gameActions,
+    ...checkActions,
     ...ioActions,
     ...shotActions,
     ...tatoebaActions,
@@ -339,6 +343,7 @@ document.addEventListener('keydown', (e) => {
     }
     if (topModal()) return;
     if (isTraining() && handleTrainingKey(e)) e.preventDefault();
+    else if (isGame() && handleGameKey(e)) e.preventDefault();
 });
 
 // ---------------------------------------------------------------------------
@@ -347,6 +352,7 @@ document.addEventListener('keydown', (e) => {
 function renderAll() {
     renderList();   // renderStats вызывается из onListRendered
     renderMute();
+    renderGameRecords();
 }
 
 function initAddForm() {
@@ -429,6 +435,12 @@ async function init() {
     initShot();
     onListRendered(renderStats);
     onTrainingFinished(renderAll);
+    onGameFinished(renderAll);
+    // Правка из проверки: открытая форма редактирования получает новые поля.
+    onCheckApplied((w) => {
+        if ($('word-modal').classList.contains('open')) openWord(w.id);
+        renderAll();
+    });
 
     initPracticeToggle();
     showView(location.hash.slice(1), { push: false });

@@ -3,7 +3,7 @@
 // состояние — в session.js.
 import { state, saveWords, saveSettings, introducedToday } from './store.js';
 import { sm2, selectSession, practiceQueue, isHard } from './srs.js';
-import { displayWord, checkAnswer } from './norsk.js';
+import { displayWord, checkAnswer, grammarHint, GENDERS } from './norsk.js';
 import { $, showToast, playSound, speak, stopSpeech, prefetchSpeech } from './ui.js';
 import {
     t, word, show, requeue, tally, snapshot, restore, checksWithoutGrades, scheduled,
@@ -273,6 +273,7 @@ export function checkWritten() {
     } else {
         fb.textContent = `Правильно: ${shown}`;
         fb.className = 'tr-feedback bad';
+        if (t.mode === 'forms') grammarMistake(w, 'forms', t.current.key, input.value, expected);
     }
 
     if (checksWithoutGrades()) {
@@ -335,6 +336,9 @@ function choose(index) {
     const fb = $('tr-feedback');
     fb.textContent = feedback;
     fb.className = `tr-feedback ${ok ? 'ok' : 'bad'}`;
+    if (t.mode === 'gender' && !ok) {
+        grammarMistake(w, 'gender', '', GENDERS[t.options[index]]?.article || '', GENDERS[w.gender]?.article || '');
+    }
 
     if (t.mode === 'quiz' && scheduled()) {
         // «Угадай из 4» внутри основной тренировки двигает расписание, как карточки.
@@ -386,6 +390,24 @@ function checkOrder() {
     speak(w.example);
     show('tr-next-btn', true);
     renderLinks(w);
+}
+
+// Ошибка в роде или форме: правило в одну строку под ответом и запись
+// на сервер — репетитор видит её в `norsk-ord --list` и знает, что объяснять.
+// Без сети запись теряется: это подсказка, а не прогресс.
+function grammarMistake(w, kind, key, given, expected) {
+    const hint = grammarHint(w, kind, key);
+    if (hint) {
+        const el = document.createElement('span');
+        el.className = 'tr-hint';
+        el.textContent = `💡 ${hint}`;
+        $('tr-feedback').appendChild(el);
+    }
+    fetch('/api/grammar-mistakes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: w.id, original: w.original, kind, key, given: String(given).slice(0, 60), expected: String(expected).slice(0, 60) }),
+    }).catch(() => {});
 }
 
 // Закрепление в уроке: после верного основного ответа то же слово ещё раз,

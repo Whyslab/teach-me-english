@@ -1,0 +1,9 @@
+[Unit]
+Description=Напоминание о тренажёре норвежского (если сегодня не занимался)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/norsk-trener-napominanie.sh
+# Уведомление с кнопкой ждёт ответа до 2 часов.
+TimeoutStartSec=2h30min

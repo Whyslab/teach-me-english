@@ -82,4 +82,7 @@ export function renderLinks(w) {
     else if (t.mode === 'listen' && !t.answered) conceal = 'links';
     else if (t.mode === 'cards' && !t.noFront && !t.flipped) conceal = 'all';
     $('tr-links').dataset.conceal = conceal;
+    // «Сомневаюсь» показывает перевод — только после ответа (или на знакомстве).
+    const answered = t.checked !== null || t.answered || t.flipped || t.mode === 'intro';
+    $('tr-links').dataset.check = answered ? 'show' : 'hide';
 }

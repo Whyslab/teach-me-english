@@ -126,7 +126,7 @@ function whenText(ts) {
     return `через ${days} ${plural(days, ['день', 'дня', 'дней'])}`;
 }
 
-function openWord(id) {
+export function openWord(id) {
     const w = findWord(id);
     if (!w) return;
     const sid = escapeAttr(w.id);
@@ -157,6 +157,7 @@ function openWord(id) {
         <div class="wd-actions">
             <button class="btn btn-ghost" data-action="speak-word" data-id="${sid}"><svg class="ic"><use href="#i-volume"/></svg>Прослушать</button>
             <button class="btn btn-ghost" data-action="edit-word" data-id="${sid}"><svg class="ic"><use href="#i-pencil"/></svg>Изменить</button>
+            <button class="btn btn-ghost" data-action="check-word" data-id="${sid}" title="ИИ проверит перевод и пример, словарь — род и формы">🚩 Сомневаюсь</button>
             <button class="btn btn-ghost" data-action="history-word" data-id="${sid}"><svg class="ic"><use href="#i-clock"/></svg>История</button>
             <button class="btn btn-ghost" data-action="tatoeba-word" data-id="${sid}"><svg class="ic"><use href="#i-book"/></svg>Примеры</button>
             <a class="btn btn-ghost" href="${escapeAttr(urls.ordbok)}" target="_blank" rel="noopener noreferrer"><svg class="ic"><use href="#i-external"/></svg>Ordbøkene</a>
@@ -353,6 +354,7 @@ function openEdit(id) {
     if (!w) return;
     editingId = w.id;
     fillWordForm('edit', w);
+    $('edit-check').dataset.id = w.id;
     openModal('edit-modal');
 }
 

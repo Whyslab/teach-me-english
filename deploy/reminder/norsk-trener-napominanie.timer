@@ -1,0 +1,9 @@
+[Unit]
+Description=Каждый день в 17:00 — напомнить о тренажёре норвежского
+
+[Timer]
+OnCalendar=*-*-* 17:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -433,3 +433,107 @@ test('a pause while typing does not rewrite the word; Enter does; a double tap a
     assert.deepStrictEqual(errors, []);
     await context.close();
 });
+
+test('games: pairs, a streak record, and answers moving the schedule as easy ones', async () => {
+    const own = await createServer();
+    const no = ['hus', 'bil', 'katt', 'hund', 'bok', 'stol', 'bord', 'vann'];
+    const ru = ['дом', 'машина', 'кот', 'собака', 'книга', 'стул', 'стол', 'вода'];
+    const day = 24 * 60 * 60 * 1000;
+    const upserts = no.map((o, i) => ({
+        id: 9100 + i, original: o, translate: ru[i], level: 1, nextReview: Date.now() - 1000, tags: [],
+        sm2Reps: 1, sm2Interval: 1, history: [{ ts: Date.now() - 2 * day, q: 2, ef: 2.5 }], addedAt: i + 1,
+    }));
+    const res = await fetch(`${own.url}/api/words/batch`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ upserts }),
+    });
+    assert.ok(res.ok);
+    const { page, context, errors } = await openApp(browser, own, { practiceOpen: false });
+    const ruOf = Object.fromEntries(no.map((o, i) => [o, ru[i]]));
+    try {
+        // Пары: 8 слов — один раунд из 5. Соединяем всё правильно.
+        await page.click('[data-action="start-game"][data-game="pairs"]');
+        assert.ok(await page.isVisible('#game-section'));
+        for (let k = 0; k < 5; k++) {
+            const left = await page.$$eval('.pairs-col:first-child .pair-tile', bs => bs.map(b => b.disabled ? null : b.lastChild.textContent));
+            const right = await page.$$eval('.pairs-col:last-child .pair-tile', bs => bs.map(b => b.disabled ? null : b.lastChild.textContent));
+            const li = left.findIndex(Boolean);
+            const ri = right.indexOf(ruOf[left[li]]);
+            await page.keyboard.press(String(li + 1));
+            await page.keyboard.press('67890'[ri]);
+            await page.waitForTimeout(120);
+        }
+        await page.waitForSelector('.game-over');
+        assert.match(await page.textContent('.game-over'), /5 пар · без ошибок/);
+        assert.match(await page.textContent('.game-over'), /Для рекорда нужно 15/);
+        const w = await page.evaluate(() => JSON.parse(localStorage.getItem('myWords')).filter(x => x.history.at(-1)?.e === 1).length);
+        assert.equal(w, 5, 'five easy answers in the history');
+        await page.keyboard.press('Escape');
+
+        // Серия: один верный ответ, потом ошибка — рекорд 1.
+        await page.click('[data-action="start-game"][data-game="streak"]');
+        const answerOnce = async (right) => {
+            const truth = await page.isVisible('.truth-shown');
+            if (truth) {
+                const word = await page.textContent('#game-stage .prompt-main');
+                const shown = (await page.textContent('.truth-shown')).replace('= ', '');
+                const isTrue = ruOf[word] === shown;
+                await page.keyboard.press((isTrue === right) ? 'ArrowRight' : 'ArrowLeft');
+            } else {
+                const word = await page.textContent('#game-stage .prompt-main');
+                const opts = await page.$$eval('#game-stage .quiz-option', bs => bs.map(b => b.lastChild.textContent));
+                const idx = right ? opts.indexOf(ruOf[word]) : opts.findIndex(o => o !== ruOf[word]);
+                await page.keyboard.press(String(idx + 1));
+            }
+        };
+        await answerOnce(true);
+        await page.waitForTimeout(400);
+        await answerOnce(false);
+        await page.waitForSelector('.game-over');
+        assert.match(await page.textContent('.game-record'), /Новый рекорд/);
+        const records = await page.evaluate(() => JSON.parse(localStorage.getItem('settings')).records);
+        assert.equal(records.streak, 1);
+        await page.keyboard.press('Escape');
+        assert.match(await page.textContent('#rec-streak'), /рекорд 1/);
+        assert.deepStrictEqual(errors, []);
+    } finally {
+        await context.close();
+        await own.cleanup();
+    }
+});
+
+test('«Сомневаюсь»: the check shows the fix, and «Применить» changes the card', async () => {
+    const own = await createServer();
+    const upserts = [{ id: 9300, original: 'uttale', translate: 'заявление', pos: 'noun', gender: 'm', level: 0, nextReview: 0, tags: [], history: [], addedAt: 1 }];
+    assert.ok((await fetch(`${own.url}/api/words/batch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ upserts }) })).ok);
+    const { page, context, errors } = await openApp(browser, own, { practiceOpen: false });
+    try {
+        // Настоящий ИИ в тестах выключен — ответ проверки подставляем.
+        await page.route('**/api/word/check', (route) => route.fulfill({
+            contentType: 'application/json',
+            body: JSON.stringify({ ok: false, issues: ['Перевод неверен'], fix: { translate: 'произношение' }, checkedBy: { ai: 'test', dictionary: true } }),
+        }));
+        await goView(page, 'words');
+        await page.click('.card >> nth=0');
+        await page.click('#word-modal [data-action="check-word"]');
+        await page.waitForSelector('#check-modal.open .check-new');
+        assert.match(await page.textContent('#check-body'), /заявление[\s\S]*произношение/);
+        await page.click('#check-apply');
+        await page.waitForSelector('#check-modal.open', { state: 'detached' }).catch(() => {});
+        const w = await page.evaluate(() => JSON.parse(localStorage.getItem('myWords'))[0]);
+        assert.equal(w.translate, 'произношение');
+        assert.match(await page.textContent('#word-modal'), /произношение/, 'the open card shows the fix');
+        await page.keyboard.press('Escape');
+
+        // В уроке кнопка спрятана до ответа: на знакомстве она есть.
+        await goView(page, 'today');
+        await page.click('#lesson-btn');
+        assert.ok(await page.isVisible('[data-action="check-word-current"]'), 'visible on the intro');
+        await page.keyboard.press('Enter');
+        assert.equal(await page.isVisible('[data-action="check-word-current"]'), false, 'hidden before the answer');
+        await page.keyboard.press('Escape');
+        assert.deepStrictEqual(errors, []);
+    } finally {
+        await context.close();
+        await own.cleanup();
+    }
+});

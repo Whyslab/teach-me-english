@@ -685,3 +685,37 @@ test('wordKey keeps å apart from the noun and drops the article', () => {
     assert.equal(lingu.wordKey('en  Uttale'), 'uttale');
     assert.equal(lingu.wordKey('å uttale'), 'å uttale');
 });
+
+test('GET /api/today counts what waits today, like the main button', async () => {
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  // Чистый лист: убираем слова прошлых тестов.
+  const existing = (await request(app).get('/api/words')).body.map(w => w.id);
+  await request(app).post('/api/words/batch').send({ upserts: [], deletes: existing }).expect(200);
+  const upserts = [
+    { id: 7001, original: 'hus', translate: 'дом', level: 1, nextReview: now - 1000, sm2Reps: 1, history: [{ ts: now - 2 * day, q: 2 }] },
+    { id: 7002, original: 'bil', translate: 'машина', level: 2, nextReview: now + 3 * day, sm2Reps: 2, history: [{ ts: now - 3 * day, q: 2 }] },
+    ...Array.from({ length: 20 }, (_, i) => ({ id: 7100 + i, original: `ny${i}`, translate: `новое${i}`, level: 0, nextReview: 0, history: [] })),
+  ].map(w => ({ tags: [], ...w }));
+  await request(app).post('/api/words/batch').send({ upserts }).expect(200);
+  await request(app).post('/api/state').send({ settings: { newPerDay: 5, updatedAt: now } }).expect(200);
+
+  const res = await request(app).get('/api/today').expect(200);
+  assert.equal(res.body.reviews, 1, 'only the overdue word');
+  assert.equal(res.body.fresh, 5, 'new words within the daily limit');
+  assert.equal(res.body.due, 6);
+  assert.ok(res.body.minutes >= 1);
+  assert.equal(typeof res.body.answeredToday, 'number');
+});
+
+test('grammar mistakes are stored for the tutor and validated', async () => {
+  await request(app).post('/api/grammar-mistakes')
+    .send({ id: 1, original: 'hus', kind: 'gender', given: 'en', expected: 'et' }).expect(200);
+  await request(app).post('/api/grammar-mistakes')
+    .send({ id: 2, original: 'bil', kind: 'forms', key: 'defSg', given: 'bila', expected: 'bilen' }).expect(200);
+  await request(app).post('/api/grammar-mistakes').send({ id: 'x', original: 'hus', kind: 'gender' }).expect(400);
+  await request(app).post('/api/grammar-mistakes').send({ id: 3, original: 'hus', kind: 'spelling' }).expect(400);
+  const list = (await request(app).get('/api/grammar-mistakes?days=14').expect(200)).body;
+  assert.deepStrictEqual(list.slice(-2).map(m => [m.original, m.kind, m.expected]), [['hus', 'gender', 'et'], ['bil', 'forms', 'bilen']]);
+  assert.ok(list.every(m => typeof m.ts === 'number'));
+});

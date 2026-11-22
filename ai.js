@@ -147,4 +147,4 @@ async function readScreenshot(image, mime) {
     return { model, items };
 }
 
-module.exports = { config, deps, available, extractJson, describeWords, readScreenshot, cleanItem };
+module.exports = { config, deps, available, ask, extractJson, describeWords, readScreenshot, cleanItem };

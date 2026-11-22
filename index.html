@@ -124,6 +124,19 @@
             </div>
         </div>
 
+        <div class="games-box card-surface">
+            <div class="section-head">
+                <h2>Игры</h2>
+                <span class="muted">на скорость, знакомыми словами</span>
+            </div>
+            <div class="mode-grid">
+                <button class="mode-tile" data-action="start-game" data-game="pairs"><span class="mode-ic c1"><svg class="ic"><use href="#i-blocks"/></svg></span><b>Найди пары</b><small id="rec-pairs">слово ↔ перевод на время</small></button>
+                <button class="mode-tile" data-action="start-game" data-game="blitz"><span class="mode-ic c3"><svg class="ic"><use href="#i-clock"/></svg></span><b>Молния 60 с</b><small id="rec-blitz">сколько успеешь за минуту</small></button>
+                <button class="mode-tile" data-action="start-game" data-game="truth"><span class="mode-ic c5"><svg class="ic"><use href="#i-check"/></svg></span><b>Правда или ложь</b><small id="rec-truth">верен ли перевод — 60 с</small></button>
+                <button class="mode-tile" data-action="start-game" data-game="streak"><span class="mode-ic c7"><svg class="ic"><use href="#i-flame"/></svg></span><b>Серия без ошибок</b><small id="rec-streak">до первой ошибки</small></button>
+            </div>
+        </div>
+
         <details id="practice-details" class="practice-box card-surface">
             <summary>
                 <span><h2>Другие режимы</h2><span class="muted">выбрать самому</span></span>
@@ -232,6 +245,17 @@
     <button class="bn-item" data-action="open-settings"><svg class="ic"><use href="#i-gear"/></svg><span>Ещё</span></button>
 </nav>
 
+<!-- ── ИГРА ───────────────────────────────────────────────── -->
+<section id="game-section" hidden aria-label="Игра">
+    <div class="tr-header">
+        <button class="icon-btn" data-action="game-stop" title="Выйти (Esc)" aria-label="Выйти"><svg class="ic"><use href="#i-x"/></svg></button>
+        <div class="game-title" id="game-title"></div>
+        <div class="game-stats"><span id="game-timer"></span><b id="game-score"></b></div>
+    </div>
+    <div class="tr-stage" id="game-stage" aria-live="polite"></div>
+    <div class="kbd-hint" id="game-hint"></div>
+</section>
+
 <!-- ── ТРЕНИРОВКА ─────────────────────────────────────────── -->
 <section id="training-section" hidden aria-label="Тренировка">
     <div class="tr-header">
@@ -274,6 +298,7 @@
         <div id="tr-links">
             <button class="link-chip" data-action="tr-speak"><svg class="ic"><use href="#i-volume"/></svg>Прослушать</button>
             <a id="tr-forvo" class="link-chip" target="_blank" rel="noopener noreferrer" title="Живое произношение">Forvo<svg class="ic"><use href="#i-external"/></svg></a>
+            <button class="link-chip" data-action="check-word-current" title="Перевод или пример кажутся неточными — перепроверить">🚩 Сомневаюсь</button>
             <a id="tr-ordbok" class="link-chip" target="_blank" rel="noopener noreferrer" title="Род и формы">Ordbøkene<svg class="ic"><use href="#i-external"/></svg></a>
         </div>
 
@@ -457,6 +482,7 @@
         <div id="edit-form"></div>
         <div class="buttons-row">
             <button class="btn btn-ghost" data-action="tatoeba-edit">Пример с Tatoeba</button>
+            <button id="edit-check" class="btn btn-ghost" data-action="check-word" title="ИИ проверит перевод и пример, словарь — род и формы">🚩 Проверить</button>
             <button class="btn btn-primary" data-action="save-edit" style="margin-left:auto">Сохранить</button>
         </div>
     </div>
@@ -526,6 +552,9 @@
         <h4>Основная тренировка и практика</h4>
         <ul>
             <li><b>«Продолжить»</b> — урок на 3–5 минут из слов, которые пора повторять, и новых в пределах дневного лимита (Настройки). Задание для каждого слова выбирается само: новое слово — знакомство и «выбери из 4», уверенное — письмо и диктант. После верного ответа то же слово приходит ещё раз заданием потруднее (род, формы, пропуск, собери предложение). Расписание двигает первое задание слова; «выбери из 4» — вдвое меньше, чем «помню»: угадать проще, чем вспомнить. После урока — «Ещё урок» (Enter).</li>
+            <li><b>Игры</b> — пары на время, «Молния» и «Правда или ложь» по 60 секунд, серия до первой ошибки. Только знакомые слова. Ответы идут в расписание как «выбери из 4»: верно — интервал вдвое короче «помню», ошибка — «не помню». Рекорды видны на плитках.</li>
+            <li><b>Ошибся в роде или форме</b> — под ответом короткое правило. Такие ошибки видит репетитор и объясняет тему.</li>
+            <li><b>🚩 Сомневаюсь</b> (после ответа, у слова в разделе «Слова», в редактировании) — ИИ перепроверит перевод и пример, словарь Ordbøkene — род и формы. Покажет «было → станет», применяешь сам.</li>
             <li><b>Другие режимы → Карточки</b> — те же слова, только карточками. Тоже двигают расписание. <b>Марафон</b> — карточки без лимита новых слов.</li>
             <li><b>Другие режимы → остальные</b> (письмо, диктант, «угадай», род, формы, пропуски, на слух, собери предложение, трудные) — доступны всегда, 20 слов: сначала те, что пора повторять, потом самые трудные. Расписание не меняют — можно тренироваться сколько угодно.</li>
         </ul>
@@ -540,6 +569,17 @@
     <div class="modal-inner sheet">
         <div class="modal-title">Статистика <button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
         <div id="forgetting-stats-content"></div>
+    </div>
+</div>
+
+<div id="check-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Проверка карточки">
+    <div class="modal-inner sheet">
+        <div class="modal-title"><span>Проверка: <span id="check-title" lang="nb" class="accent-text"></span></span><button class="modal-close" data-action="close-modal" aria-label="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <div id="check-body"></div>
+        <div class="buttons-row">
+            <button class="btn btn-ghost" data-action="close-modal">Оставить как есть</button>
+            <button id="check-apply" class="btn btn-primary" data-action="check-apply" style="margin-left:auto" hidden>Применить</button>
+        </div>
     </div>
 </div>
 

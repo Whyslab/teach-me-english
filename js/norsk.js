@@ -266,3 +266,46 @@ export function lookupUrls(original) {
         ordbok: `https://ordbokene.no/nob/bm/${w}`,
     };
 }
+
+// ---------------------------------------------------------------------------
+// Подсказка-правило после ошибки в роде или форме — одна-две строки.
+// Грамматика идёт через слова: правило показывается на том слове, где ошибся.
+// kind: 'gender' | 'forms'; key — какая форма (defSg, past, neuter…).
+// ---------------------------------------------------------------------------
+export function grammarHint(word, kind, key = '') {
+    const lemma = stripParticle(word.original || '').toLowerCase();
+    if (kind === 'gender') {
+        if (/(het|sjon|ing|dom|skap)$/.test(lemma) && word.gender !== 'n') {
+            return 'Слова на -het, -sjon, -dom почти всегда en; на -ing — en или ei.';
+        }
+        if (/(um|ment|eri)$/.test(lemma) && word.gender === 'n') return 'Слова на -um, -ment, -eri обычно et.';
+        if (word.gender === 'n') return `et-слово: определённая форма на -et (${lemma}et), учи вместе с артиклем: «et ${lemma}».`;
+        if (word.gender === 'f') return `ei-слово: определённая форма на -a (${lemma.replace(/e$/, '')}a). Можно и как en — это не ошибка.`;
+        if (word.gender === 'm') return `en-слово: определённая форма на -en (${lemma.replace(/e$/, '')}en). Большинство слов — en.`;
+        return '';
+    }
+    if (word.pos === 'noun') {
+        if (key === 'defSg') {
+            return word.gender === 'n' ? 'Определённая форма et-слова: + -et (et hus → huset).'
+                : word.gender === 'f' ? 'Определённая форма ei-слова: + -a (ei jente → jenta).'
+                : 'Определённая форма en-слова: + -en (en bil → bilen).';
+        }
+        if (key === 'indefPl') {
+            return word.gender === 'n' && syllables(lemma) <= 1
+                ? 'Односложное et-слово во мн. ч. без окончания: et hus → hus.'
+                : 'Неопределённое мн. ч.: + -er (en bil → biler). Односложные et-слова — без окончания.';
+        }
+        if (key === 'defPl') return 'Определённое мн. ч.: + -ene (bilene, husene). Исключения: barna, beina.';
+    }
+    if (word.pos === 'verb') {
+        if (key === 'present') return 'Настоящее время: инфинитив + -r (å lese → leser), одна форма для всех лиц.';
+        if (key === 'past' || key === 'perfect') {
+            return 'Прошедшее зависит от группы: -et/-a (snakket), -te (spiste), -de (prøvde), -dde (bodde) или сильный глагол (drakk) — учи вместе с глаголом.';
+        }
+    }
+    if (word.pos === 'adj') {
+        if (key === 'neuter') return 'С et-словом прилагательное получает -t: stor → et stort hus.';
+        if (key === 'plural') return 'Мн. ч. и определённая форма: + -e (store hus, det store huset).';
+    }
+    return '';
+}

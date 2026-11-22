@@ -292,6 +292,7 @@ lingu.deps.knownWords = async () => {
 };
 app.use(lingu.router);
 app.use(require('./suggest').router);
+app.use(require('./check').router);
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
@@ -540,6 +541,86 @@ async function readState() {
     }
     return out;
 }
+
+// Сводка на сегодня — для напоминания на компьютере: сколько слов ждёт и
+// занимался ли уже. Считается тем же модулем, что и кнопка «Продолжить»
+// (лимит новых, пауза при долге), чтобы число совпадало с экраном.
+// Значения по умолчанию — как DEFAULT_SETTINGS в js/store.js.
+const TODAY_DEFAULTS = { newPerDay: 15, pauseNewAt: 100 };
+app.get('/api/today', async (req, res) => {
+    try {
+        const [{ selectSession }, { toDayKey }] = await Promise.all([import('./js/srs.js'), import('./js/util.js')]);
+        const words = (await all('SELECT * FROM words')).map(rowToWord);
+        const st = await readState();
+        const settings = { ...TODAY_DEFAULTS, ...(st.settings || {}) };
+        const today = toDayKey();
+        const introducedToday = words.filter(w => w.history.length && toDayKey(w.history[0].ts) === today).length;
+        const { reviews, fresh, paused } = selectSession(words, {
+            newLimit: Number(settings.newPerDay) || 0,
+            introducedToday,
+            pauseNewAt: Number(settings.pauseNewAt) || 0,
+        });
+        const due = reviews.length + fresh.length;
+        res.json({
+            due, reviews: reviews.length, fresh: fresh.length, paused,
+            answeredToday: Number(st.activity[today]) || 0,
+            // ~8 с на повторение, новое слово — два задания.
+            minutes: due ? Math.max(1, Math.round((reviews.length + fresh.length * 2) * 8 / 60)) : 0,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Ошибки в роде и формах — для репетитора (`norsk-ord --list` на ThinkPad
+// показывает их, чтобы объяснить правило). Последние 300, в app_state.
+const GRAMMAR_KEY = 'grammarMistakes';
+const GRAMMAR_MAX = 300;
+const GRAMMAR_KINDS = new Set(['gender', 'forms']);
+const shortStr = (v, max) => typeof v === 'string' && v.length <= max;
+
+async function readGrammarMistakes() {
+    const rows = await all('SELECT value FROM app_state WHERE key = ?', [GRAMMAR_KEY]);
+    try {
+        const list = rows.length ? JSON.parse(rows[0].value) : [];
+        return Array.isArray(list) ? list : [];
+    } catch { return []; }
+}
+
+app.get('/api/grammar-mistakes', async (req, res) => {
+    try {
+        const days = Number(req.query.days) || 0;
+        const since = days > 0 ? Date.now() - days * 24 * 60 * 60 * 1000 : 0;
+        res.json((await readGrammarMistakes()).filter(m => m.ts >= since));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/grammar-mistakes', async (req, res) => {
+    const { id, original, kind, key = '', given = '', expected = '' } = req.body ?? {};
+    if (!(typeof id === 'number' && Number.isFinite(id)) || !shortStr(original, 100) || !GRAMMAR_KINDS.has(kind)
+        || !shortStr(key, 20) || !shortStr(given, 60) || !shortStr(expected, 60)) {
+        return res.status(400).json({ error: 'Invalid mistake' });
+    }
+    const job = writeQueue.then(async () => {
+        const list = await readGrammarMistakes();
+        // Та же ошибка на том же слове в течение часа — не дубль: трудное
+        // слово, вернувшееся в очередь, иначе вытеснило бы остальные.
+        const now = Date.now();
+        if (list.some(m => m.id === id && m.kind === kind && m.key === key && now - m.ts < 60 * 60 * 1000)) return;
+        list.push({ id, original, kind, key, given, expected, ts: now });
+        await run('INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+            [GRAMMAR_KEY, JSON.stringify(list.slice(-GRAMMAR_MAX))]);
+    });
+    writeQueue = job.catch(() => {});
+    try {
+        await job;
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 app.get('/api/state', async (req, res) => {
     try {
