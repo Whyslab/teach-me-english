@@ -31,8 +31,15 @@ function formOf(paradigm, test) {
     return hit ? hit.word_form : '';
 }
 
+// Все формы с такими пометками — внутри одной парадигмы их бывает несколько.
+function formsOf(paradigm, test) {
+    return (paradigm.inflection || []).filter(i => i.word_form && test(i.tags || [])).map(i => i.word_form);
+}
+
 // Парадигма → формы в том виде, в каком их хранит приложение (см. js/norsk.js).
-function paradigmForms(paradigm) {
+// pick = formsOf — все варианты каждой формы (массивы) вместо первого.
+function paradigmForms(paradigm, pick = formOf) {
+    const formOf = pick;
     const tags = paradigm.tags || [];
     const pos = POS_OF[tags[0]] || '';
     if (pos === 'noun') {
@@ -54,7 +61,7 @@ function paradigmForms(paradigm) {
             forms: {
                 present: formOf(paradigm, t => has(t, 'Pres') && !t.includes('Pass')),
                 past: formOf(paradigm, t => has(t, 'Past') && !t.includes('Pass')),
-                perfect: perf ? `har ${perf}` : '',
+                perfect: Array.isArray(perf) ? perf.map(p => `har ${p}`) : perf ? `har ${perf}` : '',
             },
         };
     }
@@ -106,7 +113,7 @@ function pickParadigm(articles, query) {
                 if (paradigm.to) return;   // устаревшее написание
                 const result = paradigmForms(paradigm);
                 if (query.pos && result.pos !== query.pos) return;
-                candidates.push({ result, lemma: String(lem.lemma), order: ai * 100 + pi });
+                candidates.push({ result, paradigm, lemma: String(lem.lemma), order: ai * 100 + pi });
             });
         }
     });
@@ -125,6 +132,17 @@ function pickParadigm(articles, query) {
     // на «bok», если первым спросили с заглавной.
     const lemmaText = candidates[0].lemma;
     const forms = Object.fromEntries(Object.entries(best.forms).filter(([, v]) => v));
+    // Все допустимые варианты каждой формы по всем подходящим парадигмам:
+    // у «å hete» прошедшее и het, и hetet, у «alfabet» мн. ч. и alfabet,
+    // и alfabeter. Проверка карточки («Сомневаюсь») не должна считать
+    // ошибкой правильный вариант, который словарь просто поставил вторым.
+    const allowed = {};
+    for (const c of candidates) {
+        if (c.result.pos !== best.pos || (best.pos === 'noun' && c.result.gender !== best.gender && !(best.gender === 'm' && c.result.gender === 'f') && !(best.gender === 'f' && c.result.gender === 'm'))) continue;
+        for (const [k, vs] of Object.entries(paradigmForms(c.paradigm, formsOf).forms)) {
+            for (const v of [].concat(vs)) if (v) (allowed[k] ||= new Set()).add(v.toLowerCase());
+        }
+    }
     // Род из запроса важнее словарного, если словарь его допускает:
     // «en bok» тоже правильно, хотя первой идёт «ei bok».
     const gender = best.pos === 'noun' && query.gender &&
@@ -135,6 +153,7 @@ function pickParadigm(articles, query) {
         pos: best.pos,
         gender,
         forms,
+        allowedForms: Object.fromEntries(Object.entries(allowed).map(([k, set]) => [k, [...set]])),
     };
 }
 

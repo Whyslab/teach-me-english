@@ -43,3 +43,16 @@ test('the dictionary is asked with the article', async () => {
     assert.equal(check.queryOf({ original: 'hus', pos: 'noun', gender: 'n' }), 'et hus');
     assert.equal(check.queryOf({ original: 'å bo', pos: 'verb' }), 'å bo');
 });
+
+test('a valid alternative form from the dictionary is not an error', async () => {
+    stub({ dict: { pos: 'verb', gender: '', forms: { past: 'hetet', perfect: 'har hetet' },
+        allowedForms: { past: ['hetet', 'het', 'hette'], perfect: ['har hetet', 'har hett'] } }, ai: null });
+    const r = await check.checkWord({ original: 'å hete', pos: 'verb', translate: 'называться', forms: { past: 'het', perfect: 'har hett' } });
+    assert.equal(r.ok, true, JSON.stringify(r.issues));
+});
+
+test('a vague complaint without a fix is ignored', async () => {
+    stub({ dict: null, ai: { model: 'm', data: { ok: false, issues: ['пример требует уточнения'], fix: {} } } });
+    const r = await check.checkWord(card);
+    assert.equal(r.ok, true);
+});

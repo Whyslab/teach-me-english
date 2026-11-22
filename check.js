@@ -19,6 +19,7 @@ const PROMPT = `Ты — строгий редактор словаря норв
 - example — правильное ли это норвежское предложение (букмол, без ошибок), есть ли в нём это слово, простое ли оно (до 10 слов);
 - exampleTranslate — точно ли переведён пример.
 Род и формы слова НЕ проверяй — их проверяет словарь.
+Отмечай только явные ошибки: неверное значение, грамматическая ошибка в норвежском примере, перевод примера не совпадает по смыслу. НЕ предлагай синонимы и вкусовые правки, не меняй верный перевод на «более точный», не переводи названия (brunost — «бруност» — верно). Сомневаешься — считай, что верно.
 Если всё верно — ok: true и пустые issues. Если нет — коротко опиши каждую ошибку по-русски и дай исправленные поля в fix (только те, что меняются; остальные — пустая строка). Пустой пример — не ошибка, но можешь предложить пример.
 Ответь только JSON без пояснений: {"ok":true,"issues":[],"fix":{"translate":"","example":"","exampleTranslate":""}}
 Карточка: `;
@@ -65,8 +66,9 @@ async function checkWord(input) {
             const v = str(answer.data.fix?.[k], 300);
             if (v && v !== w[k]) fix[k] = v;
         }
-        // «ok: false» без единой правки и замечания — считаем, что всё верно.
-        if (answer.data.ok && !Object.keys(fix).length) issues.length = 0;
+        // Замечание без конкретной правки — шум («пример требует уточнения»):
+        // проверено 22.11.2026 на колоде, такие жалобы были пустыми.
+        if (!Object.keys(fix).length) issues.length = 0;
     }
 
     // Род и формы — по словарю. Существительное в букмоле: ei-слово можно
@@ -79,8 +81,10 @@ async function checkWord(input) {
         }
         const wrongForms = {};
         for (const [k, v] of Object.entries(dict.forms || {})) {
-            const mine = str(w.forms[k], 60);
-            if (v && mine && mine.toLowerCase() !== String(v).toLowerCase()) wrongForms[k] = v;
+            const mine = str(w.forms[k], 60).toLowerCase();
+            // Ошибка — только если такого варианта в словаре нет вовсе.
+            const ok = [String(v).toLowerCase(), ...(dict.allowedForms?.[k] || [])];
+            if (v && mine && !ok.includes(mine)) wrongForms[k] = v;
         }
         if (Object.keys(wrongForms).length) {
             issues.push(`Формы по словарю: ${Object.entries(wrongForms).map(([k, v]) => `${FORM_RU[k] || k} — ${v}`).join(', ')}.`);
