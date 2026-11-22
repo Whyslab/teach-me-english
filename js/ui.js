@@ -99,29 +99,39 @@ document.addEventListener('click', (e) => {
 // ---------------------------------------------------------------------------
 let audioCtx = null;
 
+// Звуки ответа, как в Duolingo: короткий светлый «динь» на верный ответ,
+// мягкий низкий на ошибку, восходящее арпеджио в конце урока.
+// Ноты: [частота, начало в секундах, длительность].
+const SOUNDS = {
+    correct:  { type: 'triangle', gain: 0.16, notes: [[784, 0, 0.12], [1175, 0.09, 0.28]] },
+    wrong:    { type: 'sine',     gain: 0.14, notes: [[220, 0, 0.16], [165, 0.12, 0.26]] },
+    flip:     { type: 'sine',     gain: 0.06, notes: [[800, 0, 0.08]] },
+    complete: { type: 'triangle', gain: 0.14, notes: [[523, 0, 0.16], [659, 0.12, 0.16], [784, 0.24, 0.16], [1047, 0.36, 0.45]] },
+};
+
 export function playSound(type) {
     if (state.settings.muted) return;
+    const p = SOUNDS[type];
+    if (!p) return;
     try {
         audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
         const ctx = audioCtx;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        const t = ctx.currentTime;
-        const presets = {
-            correct: { type: 'sine', f: [[440, 0], [660, 0.08]], g: 0.18, d: 0.35 },
-            wrong:   { type: 'sawtooth', f: [[300, 0], [180, 0.15]], g: 0.12, d: 0.3 },
-            flip:    { type: 'sine', f: [[800, 0]], g: 0.06, d: 0.08 },
-        };
-        const p = presets[type];
-        if (!p) return;
-        osc.type = p.type;
-        p.f.forEach(([freq, at]) => osc.frequency.setValueAtTime(freq, t + at));
-        gain.gain.setValueAtTime(p.g, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + p.d);
-        osc.start(t);
-        osc.stop(t + p.d);
+        // После сна или фона (iOS, Safari) контекст «засыпает» — будим.
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+        for (const [freq, at, dur] of p.notes) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = p.type;
+            osc.frequency.setValueAtTime(freq, t0 + at);
+            gain.gain.setValueAtTime(0.0001, t0 + at);
+            gain.gain.exponentialRampToValueAtTime(p.gain, t0 + at + 0.015);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t0 + at);
+            osc.stop(t0 + at + dur + 0.02);
+        }
     } catch { /* нет Web Audio — не страшно */ }
 }
 

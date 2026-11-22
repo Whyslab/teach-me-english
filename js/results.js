@@ -3,12 +3,14 @@ import { state, streakDays, answersToday, introducedToday } from './store.js';
 import { selectSession } from './srs.js';
 import { escapeHtml, plural } from './util.js';
 import { displayWord } from './norsk.js';
-import { $, openModal } from './ui.js';
+import { $, openModal, playSound } from './ui.js';
 import { t } from './session.js';
 
 export function showResults() {
     const total = t.correct + t.wrong;
     const accuracy = total ? Math.round(t.correct / total * 100) : 0;
+    // Урок пройден — восходящий «тада»; брошенный в начале урок не празднуем.
+    if (t.lesson && t.queue.length === 0 && t.correct > 0) playSound('complete');
     const mins = Math.max(1, Math.round((Date.now() - t.startedAt) / 60000));
     $('results-emoji').textContent = accuracy >= 90 ? '🏆' : accuracy >= 70 ? '🎉' : accuracy >= 50 ? '💪' : '📚';
     const goal = state.settings.dailyGoal;

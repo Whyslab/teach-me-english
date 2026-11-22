@@ -882,21 +882,21 @@ details.more > :not(summary) + :not(summary) { margin-top: 10px; }
 @font-face { font-family: "Nunito"; font-weight: 500 900; font-display: swap; src: url("/fonts/nunito-latin-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 @font-face { font-family: "Nunito"; font-weight: 500 900; font-display: swap; src: url("/fonts/nunito-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 
-#training-section {
+:is(#training-section, #game-section) {
     --d-bg: #131f24; --d-raised: #202f36; --d-line: #37464f; --d-text: #f1f7fb; --d-muted: #8b9ca6;
     --d-green: #58cc02; --d-green-sh: #58a700; --d-green-text: #79d634; --d-green-bg: #1f3a24;
     --d-red: #ff4b4b; --d-red-sh: #ea2b2b; --d-red-text: #ff7878; --d-red-bg: #3d2328;
     --d-amber: #ffc800; --d-amber-sh: #e5a400; --d-amber-text: #ffd84d; --d-amber-bg: #3d3519;
-    --d-blue: #1cb0f6; --d-blue-sh: #1899d6; --d-on: #fff;
+    --d-blue: #1cb0f6; --d-blue-sh: #1899d6; --d-on: #131f24; --d-input-line: #6a7d87;
     background: var(--d-bg); color: var(--d-text);
     font-family: "Nunito", var(--font); font-weight: 700;
 }
-:root[data-scheme="light"] #training-section {
+:root[data-scheme="light"] :is(#training-section, #game-section) {
     --d-bg: #fff; --d-raised: #f7f7f7; --d-line: #e5e5e5; --d-text: #3c3c3c; --d-muted: #777;
     --d-green-text: #58a700; --d-green-bg: #d7ffb8; --d-red-text: #ea2b2b; --d-red-bg: #ffdfe0;
-    --d-amber-text: #b07d00; --d-amber-bg: #fff4c2;
+    --d-amber-text: #8a6200; --d-amber-bg: #fff4c2; --d-input-line: #8f8f8f;
 }
-#training-section :is(button, input) { font-family: inherit; }
+:is(#training-section, #game-section) :is(button, input, .prompt-main, .game-value) { font-family: inherit; }
 
 /* Шапка: толстая зелёная полоса с бликом, огонёк серии. */
 #training-section .tr-progress { height: 16px; border-radius: 99px; background: var(--d-line); }
@@ -974,28 +974,28 @@ details.more > :not(summary) + :not(summary) { margin-top: 10px; }
 #training-section #card-example-translate, #training-section #card-hint { color: var(--d-muted); }
 
 /* Варианты: список, цифра в квадратике, объёмная рамка. */
-#training-section .tr-options.grid-2 { grid-template-columns: 1fr; }
-#training-section .quiz-option {
+:is(#training-section, #game-section) .tr-options.grid-2 { grid-template-columns: 1fr; }
+:is(#training-section, #game-section) .quiz-option {
     display: flex; align-items: center; gap: 16px; text-align: start; padding: 14px 16px; min-height: 60px;
     background: var(--d-bg); color: var(--d-text); border: 2px solid var(--d-line); border-bottom-width: 4px; border-radius: 16px;
     box-shadow: none; font-size: 1.1rem; font-weight: 700; transition: background-color .12s, border-color .12s, translate .08s;
 }
-#training-section .tr-options.grid-3 .quiz-option { justify-content: center; font-size: 1.4rem; font-weight: 800; }
-#training-section .quiz-option:hover:not(:disabled) { background: var(--d-raised); border-color: var(--d-line); }
-#training-section .quiz-option:active:not(:disabled) { translate: 0 2px; border-bottom-width: 2px; }
-#training-section .opt-key {
+:is(#training-section, #game-section) .tr-options.grid-3 .quiz-option { justify-content: center; font-size: 1.4rem; font-weight: 800; }
+:is(#training-section, #game-section) .quiz-option:hover:not(:disabled) { background: var(--d-raised); border-color: var(--d-line); }
+:is(#training-section, #game-section) .quiz-option:active:not(:disabled) { translate: 0 2px; border-bottom-width: 2px; }
+:is(#training-section, #game-section) .opt-key {
     position: static; flex: none; width: 32px; height: 32px; display: grid; place-items: center;
     border: 2px solid var(--d-line); border-radius: 9px; font-size: .9rem; font-weight: 800; color: var(--d-muted);
 }
-#training-section .quiz-option.correct { background: var(--d-green-bg); border-color: var(--d-green); color: var(--d-green-text); }
-#training-section .quiz-option.correct .opt-key { border-color: var(--d-green); color: var(--d-green-text); }
-#training-section .quiz-option.wrong { background: var(--d-red-bg); border-color: var(--d-red); color: var(--d-red-text); }
-#training-section .quiz-option.wrong .opt-key { border-color: var(--d-red); color: var(--d-red-text); }
-#training-section .quiz-option:disabled { opacity: 1; cursor: default; }
+:is(#training-section, #game-section) .quiz-option.correct { background: var(--d-green-bg); border-color: var(--d-green); color: var(--d-green-text); }
+:is(#training-section, #game-section) .quiz-option.correct .opt-key { border-color: var(--d-green); color: var(--d-green-text); }
+:is(#training-section, #game-section) .quiz-option.wrong { background: var(--d-red-bg); border-color: var(--d-red); color: var(--d-red-text); }
+:is(#training-section, #game-section) .quiz-option.wrong .opt-key { border-color: var(--d-red); color: var(--d-red-text); }
+:is(#training-section, #game-section) .quiz-option:disabled { opacity: 1; cursor: default; }
 
 /* Поле ответа — как в Duolingo: светлая подложка, объёмная рамка. */
 #training-section #tr-write .no-row input {
-    background: var(--d-raised); color: var(--d-text); border: 2px solid var(--d-line); border-radius: 16px;
+    background: var(--d-raised); color: var(--d-text); border: 2px solid var(--d-input-line); border-radius: 16px;
     min-height: 64px; font-size: 1.3rem; font-weight: 700; text-align: start; padding: 0 18px; box-shadow: none;
 }
 #training-section #tr-write .no-row input:focus { border-color: var(--d-blue); outline: none; }
@@ -1014,7 +1014,7 @@ details.more > :not(summary) + :not(summary) { margin-top: 10px; }
 #training-section .tr-result > * { grid-column: 2; }
 #training-section .tr-result:has(.tr-feedback:not(:empty))::before {
     grid-column: 1; grid-row: 1 / span 2; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center;
-    background: var(--d-on); font-size: 2rem; font-weight: 900; line-height: 1;
+    background: #fff; font-size: 2rem; font-weight: 900; line-height: 1;
 }
 #training-section .tr-result:has(.tr-feedback.ok)::before { content: "✓"; color: var(--d-green-sh); }
 #training-section .tr-result:has(.tr-feedback.bad)::before { content: "✕"; color: var(--d-red-sh); }
@@ -1056,10 +1056,65 @@ details.more > :not(summary) + :not(summary) { margin-top: 10px; }
 #training-section:is([data-mode="cards"], [data-mode="intro"], [data-mode="cloze"], [data-mode="order"], [data-mode="listen"]) .tr-dict { flex-direction: row; gap: 18px; justify-self: start; }
 /* Невысокое широкое окно (ноутбук при 150 %): варианты 2×2 и всё компактнее, чтобы влезло без прокрутки. */
 @media (max-height: 760px) and (min-width: 600px) {
-    #training-section .tr-options.grid-2 { grid-template-columns: 1fr 1fr; }
+    :is(#training-section, #game-section) .tr-options.grid-2 { grid-template-columns: 1fr 1fr; }
     #training-section .tr-stage { row-gap: 14px; padding-top: 6px; }
     #training-section .tr-top { margin-top: 4px; }
     #training-section .tr-footer { padding-block: 12px calc(12px + env(safe-area-inset-bottom)); }
     #training-section .tr-bar { min-height: 64px; }
     #training-section .flashcard { height: min(300px, 40vh); }
 }
+
+/* ══ ВСЁ ПРИЛОЖЕНИЕ В СТИЛЕ УРОКА (22.11.2026) ═════════════════
+   «В одном стиле Duolingo, только не переборщи»: круглый шрифт, плоские
+   поверхности с рамкой, объёмные главные кнопки. Без маскотов и без
+   заглавных букв вне урока. */
+:root {
+    --font: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-display: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --duo-green: #58cc02; --duo-green-sh: #58a700;
+    /* Текст на ярких кнопках тёмный, как в тёмной теме Duolingo: белый на
+       #58cc02 даёт контраст 2:1, тёмный — около 8:1. */
+    --duo-on: #131f24;
+}
+body { font-weight: 600; }
+.card-surface { border: 2px solid var(--border); box-shadow: none; border-radius: 20px; }
+.hero::before { display: none; }
+.word-list, .tabs, .segmented, .theme-card, .confirm-box { border-width: 2px; box-shadow: none; }
+.tab.active, .stat-item.active { background: var(--accent-dim); color: var(--accent-2); box-shadow: none; }
+.modal-inner { border-width: 2px; }
+
+/* Кнопки: главная — зелёная объёмная, вторичная — с рамкой и «полом». */
+.btn { border-radius: 14px; font-weight: 800; border-width: 2px; }
+.btn-primary { background: var(--duo-green); color: var(--duo-on); box-shadow: 0 4px 0 var(--duo-green-sh); }
+.btn-primary:hover:not(:disabled) { box-shadow: 0 4px 0 var(--duo-green-sh); filter: brightness(1.06); }
+.btn-ghost { background: transparent; border-color: var(--border-hi); box-shadow: 0 3px 0 var(--border-hi); }
+.btn-ghost:hover { background: var(--bg-2); }
+:is(.btn-primary, .btn-ghost):active:not(:disabled) { transform: translateY(3px); box-shadow: none; }
+#lesson-btn:not(.done) { font-size: 1.15rem; }
+#lesson-btn.done { box-shadow: none; }
+.bn-add { background: var(--duo-green); color: var(--duo-on); box-shadow: 0 4px 0 var(--duo-green-sh); }
+:root[data-scheme="light"] #lesson-btn.done { color: #0a6b49; }
+/* Рамки полей ввода заметнее (WCAG: граница поля — от 3:1 к фону). */
+:is(input[type="text"], input[type="search"], input[type="number"], textarea, select):not(#tr-input) { border: 2px solid color-mix(in oklab, var(--text-3) 80%, var(--bg)); }
+
+/* Плитки (игры, режимы, способы добавить слово) — рамка с «полом», нажатие проседает. */
+.mode-tile { border: 2px solid var(--border); border-bottom-width: 4px; box-shadow: none; border-radius: 16px; }
+.mode-tile:hover { border-color: var(--border-hi); }
+.mode-tile:active { transform: translateY(2px); border-bottom-width: 2px; }
+
+/* Полосы прогресса — толстые зелёные. */
+.progress-container { height: 12px; border-radius: 99px; background: var(--bg-4); }
+#progress-bar { background: var(--duo-green); border-radius: 99px; }
+
+/* Игры — пары тем же видом, что варианты урока. */
+#game-section { background: var(--d-bg); color: var(--d-text); font-family: "Nunito", var(--font); }
+.pair-tile { border: 2px solid var(--d-line, var(--border)); border-bottom-width: 4px; box-shadow: none; border-radius: 16px; background: transparent; font-weight: 700; }
+.pair-tile.selected, .pair-tile.selected:hover:not(:disabled) { border-color: var(--d-blue, var(--accent)); background: rgb(28 176 246 / 0.12); box-shadow: none; }
+.pair-tile:active:not(:disabled) { translate: 0 2px; border-bottom-width: 2px; }
+
+/* Верный вариант чуть «подпрыгивает», итоги урока выезжают — мягко и только без «уменьшить движение». */
+@media (prefers-reduced-motion: no-preference) {
+    :is(#training-section, #game-section) .quiz-option.correct { animation: duoBounce .32s cubic-bezier(.3,1.6,.5,1) both; }
+    #results-modal.open #results-emoji { animation: duoBounce .5s cubic-bezier(.3,1.6,.5,1) both; display: inline-block; }
+}
+@keyframes duoBounce { 0% { scale: 1; } 40% { scale: 1.05; } 100% { scale: 1; } }

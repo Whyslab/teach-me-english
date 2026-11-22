@@ -1,5 +1,6 @@
 // Норвежский (букмол): грамматика, проверка ответов, ссылки на словари.
 // Модуль без DOM — его функции тестируются напрямую.
+import { escapeHtml } from './util.js';
 
 export const GENDERS = {
     m: { article: 'en', label: 'hankjønn', ru: 'мужской' },
@@ -331,4 +332,18 @@ export function grammarHint(word, kind, key = '') {
         if (key === 'plural') return 'Мн. ч. и определённая форма: + -e (store hus, det store huset).';
     }
     return '';
+}
+
+// Подсказка к пропуску. Если в пропуске само слово (flink), прежняя подсказка
+// «flink — способный» и была ответом: тогда только перевод и первая буква.
+// Если в пропуске форма (liker от å like), словарное слово не выдаёт ответ:
+// задание — поставить его в нужную форму.
+export function clozeHint(q) {
+    const base = stripParticle(String(q.word.original || '').trim().toLowerCase());
+    const answer = String(q.answer || '').trim().toLowerCase();
+    if (answer && answer === base) {
+        const pattern = [...answer].map((ch, i) => (i === 0 ? ch : ch === ' ' ? ' ' : '·')).join('');
+        return `подсказка: ${escapeHtml(q.word.translate)} · <em lang="nb">${escapeHtml(pattern)}</em>`;
+    }
+    return `подсказка: форма слова <em lang="nb">${escapeHtml(displayWord(q.word))}</em> — ${escapeHtml(q.word.translate)}`;
 }

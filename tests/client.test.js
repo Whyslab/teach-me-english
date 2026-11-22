@@ -769,3 +769,12 @@ test('checkAnswer forgives one typo only when asked, and not in short words', as
     assert.equal(checkAnswer('å snakek', 'å snakke', { norwegian: true, typos: true }), 'typo');
     assert.equal(checkAnswer('удачи', 'удачи', { typos: true }), 'correct');
 });
+
+test('cloze hint does not give away the answer when the gap is the word itself', async () => {
+    const { clozeHint } = await load('norsk.js');
+    const same = clozeHint({ answer: 'flink', word: { original: 'flink', translate: 'способный' } });
+    assert.ok(!/flink/.test(same), same);
+    assert.match(same, /способный · <em lang="nb">f····<\/em>/);
+    const form = clozeHint({ answer: 'liker', word: { original: 'å like', translate: 'нравиться' } });
+    assert.match(form, /форма слова/);
+});

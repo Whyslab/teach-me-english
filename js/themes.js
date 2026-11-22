@@ -6,14 +6,16 @@ import { $ } from './ui.js';
 export const THEMES = [
     { id: 'auto', name: 'Системная', desc: 'Как в настройках ОС' },
     // bg — фон страницы, bg1 — карточки, bg2 — поля ввода, bg3/bg4 — наведение и дорожки.
+    // Тёмная и светлая — в цветах урока (стиль Duolingo, 22.11.2026): плоские
+    // поверхности с заметной рамкой, голубой акцент, зелёные главные кнопки.
     { id: 'dark', name: 'Тёмная', desc: 'Ночной фьорд',
-      accent:'#5b7cfa', accent2:'#8fa3ff', glow:'rgba(91,124,250,0.35)', dim:'rgba(91,124,250,0.14)',
-      bg:'#0b0d12', bg1:'#14171e', bg2:'#1b1f28', bg3:'#232835', bg4:'#2d3342',
-      text:'#eef0f5', text2:'#a7adbb', text3:'#6f7686', border:'rgba(255,255,255,0.07)', borderHi:'rgba(255,255,255,0.14)' },
+      accent:'#1cb0f6', accent2:'#5cc8f9', glow:'rgba(28,176,246,0.3)', dim:'rgba(28,176,246,0.14)',
+      bg:'#131f24', bg1:'#16242a', bg2:'#202f36', bg3:'#2a3b43', bg4:'#37464f',
+      text:'#f1f7fb', text2:'#b3c2ca', text3:'#7f919b', border:'#2c3c44', borderHi:'#37464f' },
     { id: 'light', name: 'Светлая', desc: 'Чистый белый',
-      accent:'#3f5ef0', accent2:'#3350d6', glow:'rgba(63,94,240,0.28)', dim:'rgba(63,94,240,0.09)',
-      bg:'#f4f5f8', bg1:'#ffffff', bg2:'#f1f3f7', bg3:'#e7eaf0', bg4:'#d9dde6',
-      text:'#11141b', text2:'#4a5163', text3:'#868d9c', border:'rgba(16,24,40,0.08)', borderHi:'rgba(16,24,40,0.16)' },
+      accent:'#1483c4', accent2:'#0f6fa8', glow:'rgba(20,131,196,0.25)', dim:'rgba(28,176,246,0.12)',
+      bg:'#ffffff', bg1:'#ffffff', bg2:'#f7f7f7', bg3:'#efefef', bg4:'#e5e5e5',
+      text:'#3c3c3c', text2:'#5f6368', text3:'#6b7075', border:'#e5e5e5', borderHi:'#d5d5d5' },
     { id: 'nord', name: 'Норд', desc: 'Светлая скандинавская',
       accent:'#5e81ac', accent2:'#4c6f99', glow:'rgba(94,129,172,0.28)', dim:'rgba(94,129,172,0.12)',
       bg:'#e5e9f0', bg1:'#eceff4', bg2:'#e2e7ef', bg3:'#d8dee9', bg4:'#c8d0dd',

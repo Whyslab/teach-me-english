@@ -2,7 +2,7 @@
 // «Формы» (напиши bestemt flertall от et hus) и «Пропуск в предложении».
 import { state } from './store.js';
 import { escapeHtml, shuffle } from './util.js';
-import { displayWord, formsFor, makeCloze } from './norsk.js';
+import { displayWord, formsFor, makeCloze, clozeHint } from './norsk.js';
 import { $ } from './ui.js';
 import { t } from './session.js';
 
@@ -40,7 +40,7 @@ export function renderCloze() {
     $('tr-prompt').innerHTML = `
         <div class="prompt-sentence" lang="nb">${escapeHtml(q.before)}<span class="gap">____</span>${escapeHtml(q.after)}</div>
         ${q.word.exampleTranslate ? `<div class="prompt-sub">${escapeHtml(q.word.exampleTranslate)}</div>` : ''}
-        <div class="prompt-label">подсказка: <em lang="nb">${escapeHtml(displayWord(q.word))}</em> — ${escapeHtml(q.word.translate)}</div>`;
+        <div class="prompt-label">${clozeHint(q)}</div>`;
 }
 
 // После проверки показываем предложение целиком, с подсвеченным словом.
