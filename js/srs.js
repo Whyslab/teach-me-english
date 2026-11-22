@@ -34,7 +34,12 @@ export function fuzzInterval(days, random = Math.random) {
     return Math.max(1, days + Math.round((random() * 2 - 1) * spread));
 }
 
-export function sm2(word, quality, now = Date.now(), random = Math.random) {
+// easy — ответ в лёгком задании урока (выбор из 4, пары, правда/ложь).
+// Угадать из вариантов проще, чем вспомнить самому, поэтому верный ответ
+// двигает слово вдвое меньше, чем «помню», и не трогает EF: иначе каждое
+// угаданное слово становилось бы «тяжелее» и попадало в трудные. Ошибка —
+// обычное «не помню». В истории такой ответ помечен e: 1.
+export function sm2(word, quality, now = Date.now(), random = Math.random, { easy = false } = {}) {
     if (!word.sm2Interval) word.sm2Interval = 1;
     if (!word.sm2EF) word.sm2EF = 2.5;
     if (!word.sm2Reps) word.sm2Reps = 0;
@@ -73,15 +78,15 @@ export function sm2(word, quality, now = Date.now(), random = Math.random) {
         word.nextReview = now + AGAIN_DELAY_MS;
         word.forgetStep = (word.forgetStep || 0) + 1;
     } else {
-        const q = quality;
-        word.sm2EF = Math.max(1.3, word.sm2EF + (0.1 - (3 - q) * (0.08 + (3 - q) * 0.02)));
+        const q = easy ? 2 : quality;
+        if (!easy) word.sm2EF = Math.max(1.3, word.sm2EF + (0.1 - (3 - q) * (0.08 + (3 - q) * 0.02)));
 
         if (word.sm2Reps === 0) word.sm2Interval = 1;
         else if (word.sm2Reps === 1) word.sm2Interval = 6;
         else word.sm2Interval = Math.round(word.sm2Interval * word.sm2EF);
 
-        if (quality === 1) word.sm2Interval = Math.max(1, Math.round(word.sm2Interval * 0.5));
-        if (quality === 3) word.sm2Interval = Math.round(word.sm2Interval * 1.3);
+        if (quality === 1 || easy) word.sm2Interval = Math.max(1, Math.round(word.sm2Interval * 0.5));
+        if (quality === 3 && !easy) word.sm2Interval = Math.round(word.sm2Interval * 1.3);
         word.sm2Interval = fuzzInterval(word.sm2Interval, random);
 
         word.sm2Reps++;
@@ -90,7 +95,9 @@ export function sm2(word, quality, now = Date.now(), random = Math.random) {
         word.level = levelFromInterval(word.sm2Interval);
     }
 
-    pushHistory(word, { ts: now, q: quality, ef: Math.round(word.sm2EF * 100) / 100 });
+    const entry = { ts: now, q: quality, ef: Math.round(word.sm2EF * 100) / 100 };
+    if (easy && quality > 0) entry.e = 1;
+    pushHistory(word, entry);
     return word;
 }
 
@@ -117,7 +124,7 @@ export function replayHistory(word, mapQuality = (q) => q) {
         sm2EF: 2.5, sm2Interval: 1, sm2Reps: 0, history: [],
     };
     const entries = [...(word.history || [])].sort((a, b) => a.ts - b.ts);
-    for (const h of entries) sm2(out, mapQuality(h.q), h.ts, () => 0.5);
+    for (const h of entries) sm2(out, mapQuality(h.q), h.ts, () => 0.5, { easy: Boolean(h.e) });
     return out;
 }
 

@@ -6,10 +6,11 @@ import { sm2, selectSession, practiceQueue, isHard } from './srs.js';
 import { displayWord, checkAnswer } from './norsk.js';
 import { $, showToast, playSound, speak, stopSpeech, prefetchSpeech } from './ui.js';
 import {
-    t, word, show, requeue, tally, snapshot, restore, checksWithoutGrades,
+    t, word, show, requeue, tally, snapshot, restore, checksWithoutGrades, scheduled,
     CARD_MODES, CHOICE_MODES, DRILL_MODES, WRITE_MODES, ITEM_MODES, EXERCISE_MODES, MODE_LABEL, SOURCE_LABEL,
 } from './session.js';
-import { renderCard, renderLinks } from './mode-card.js';
+import { renderCard, renderIntro, renderLinks } from './mode-card.js';
+import { buildLesson, followUp, canQuiz, LESSON_MAX, EASY_MODES } from './lesson.js';
 import { genderQueue, renderQuiz, renderGender, evaluateChoice } from './mode-choice.js';
 import { formsQueue, clozeQueue, renderForms, renderCloze, revealCloze } from './mode-drill.js';
 import { showResults } from './results.js';
@@ -37,12 +38,13 @@ const EMPTY_MESSAGE = {
     order: 'Нет примеров длиной 3–10 слов. Загрузи колоду A1 или добавь примеры.',
     hard: 'Трудных слов нет 🎉',
     practice: 'Словарь пуст — добавь слова или загрузи колоду A1.',
-    due: 'На сегодня всё повторено. Новые слова откроются завтра — а практика (кнопки ниже) доступна всегда.',
+    due: 'На сегодня всё повторено. Новые слова откроются завтра — а «Другие режимы» доступны всегда.',
 };
 
 // Основная тренировка (source due/marathon) — по расписанию и с лимитом новых
 // слов. Всё остальное — практика: доступна всегда, SM-2 не трогает.
 function buildQueue(mode, source) {
+    if (source === 'lesson') return buildLesson(sessionWords(), state.words).items;
     if (mode === 'gender') return genderQueue();
     if (mode === 'forms') return formsQueue();
     if (mode === 'cloze') return clozeQueue();
@@ -50,11 +52,15 @@ function buildQueue(mode, source) {
     if (mode === 'order') return orderQueue();
     if (source === 'hard') return practiceQueue(state.words, { only: isHard });
     if (source === 'practice') return practiceQueue(state.words);
+    return sessionWords({ ignoreLimit: source === 'marathon' });
+}
+
+function sessionWords({ ignoreLimit = false } = {}) {
     return selectSession(state.words, {
         newLimit: state.settings.newPerDay,
         introducedToday: introducedToday(),
         pauseNewAt: state.settings.pauseNewAt,
-        ignoreLimit: source === 'marathon',
+        ignoreLimit,
     }).queue;
 }
 
@@ -63,7 +69,8 @@ export function startTraining({ mode = 'cards', source = 'due' } = {}) {
         showToast('Для «Угадай из 4» нужно хотя бы 4 слова в словаре.', 'info');
         return;
     }
-    const practice = !(source === 'due' || source === 'marathon') || EXERCISE_MODES.includes(mode);
+    const lesson = source === 'lesson';
+    const practice = !lesson && (!(source === 'due' || source === 'marathon') || EXERCISE_MODES.includes(mode));
     if (practice && source === 'due') source = 'practice';
     const queue = buildQueue(mode, source);
     if (queue.length === 0) {
@@ -73,7 +80,7 @@ export function startTraining({ mode = 'cards', source = 'due' } = {}) {
 
     clearTimeout(t.autoNext);
     Object.assign(t, {
-        active: true, mode, source, practice, queue, current: null,
+        active: true, mode, source, practice, lesson, quizOk: canQuiz(state.words), queue, current: null,
         correct: 0, wrong: 0, mistakes: new Map(), startedAt: Date.now(), undo: [],
     });
     document.body.classList.add('training-mode');
@@ -109,6 +116,7 @@ function next() {
         return;
     }
     t.current = t.queue[0];
+    if (t.lesson) t.mode = t.current.mode;
     t.flipped = false;
     t.checked = null;
     t.answered = false;
@@ -116,9 +124,10 @@ function next() {
     render();
     // Пока отвечаешь на этот вопрос, сервер синтезирует звук следующих.
     for (const item of t.queue.slice(0, 3)) {
-        const w = ITEM_MODES.includes(t.mode) ? item.word : item;
+        const mode = t.lesson ? item.mode : t.mode;
+        const w = t.lesson || ITEM_MODES.includes(mode) ? item.word : item;
         if (!w) continue;
-        prefetchSpeech(SENTENCE_MODES.includes(t.mode) ? w.example : displayWord(w));
+        prefetchSpeech(SENTENCE_MODES.includes(mode) ? w.example : displayWord(w));
     }
 }
 
@@ -131,7 +140,7 @@ function render() {
     const noGrades = checksWithoutGrades();
 
     $('tr-mode').textContent = MODE_LABEL[t.mode];
-    $('tr-mode').disabled = !isCard;
+    $('tr-mode').disabled = !isCard || t.lesson;
     $('tr-source').textContent = SOURCE_LABEL[t.source] || '';
     $('tr-source').hidden = !SOURCE_LABEL[t.source];
     $('tr-left').textContent = t.queue.length;
@@ -148,13 +157,14 @@ function render() {
     show('tr-options', isChoice);
     show('tr-grades', t.mode === 'cards' || (isWrite && !noGrades && t.checked !== null));
     show('tr-write-btns', isWrite && t.checked === null);
-    show('tr-next-btn', (noGrades && t.checked !== null) || (isChoice && t.answered) || (t.mode === 'order' && t.checked !== null));
+    show('tr-next-btn', (noGrades && t.checked !== null) || (isChoice && t.answered) || (t.mode === 'order' && t.checked !== null) || t.mode === 'intro');
     show('tr-back-btn', t.undo.length > 0);
     $('tr-feedback').textContent = '';
     $('tr-feedback').className = 'tr-feedback';
     document.querySelectorAll('#tr-grades .grade-btn.suggested').forEach(b => b.classList.remove('suggested'));
 
     if (isCard) renderCard(w);
+    else if (t.mode === 'intro') renderIntro(w);
     else if (t.mode === 'quiz') renderQuiz(w);
     else if (t.mode === 'gender') renderGender(w);
     else if (t.mode === 'forms') renderForms();
@@ -178,6 +188,7 @@ function render() {
     // Диктант и «на слух» всегда начинаются со звука — это и есть вопрос.
     if (t.mode === 'dictation') setTimeout(() => speak(displayWord(w)), 150);
     else if (t.mode === 'listen') setTimeout(() => speak(w.example), 150);
+    else if (t.mode === 'intro') setTimeout(() => speak(displayWord(w)), 150);
     else if (state.settings.autoSpeak && !['write-ru-no', 'gender', 'cloze', 'order'].includes(t.mode)) {
         setTimeout(() => speak(displayWord(w)), 150);
     }
@@ -202,15 +213,17 @@ export function grade(quality) {
     t.busy = true;
     pushUndo();
 
-    if (!t.practice) {
+    if (scheduled()) {
         sm2(w, quality);
         saveWords();
     }
     tally(quality >= 2, w);
     playSound(quality >= 2 ? 'correct' : 'wrong');
 
+    const item = t.current;
     if (quality >= 2) t.queue.shift();
-    else requeue(w);
+    else requeue(item);
+    addFollowUp(item, quality >= 2);
 
     $('flashcard').classList.add(quality >= 2 ? 'flash-correct' : 'flash-wrong');
     setTimeout(() => { t.busy = false; next(); }, 260);
@@ -264,9 +277,18 @@ export function checkWritten() {
 
     if (checksWithoutGrades()) {
         pushUndo();
-        tally(t.checked === 'correct', w);
-        playSound(t.checked === 'correct' ? 'correct' : 'wrong');
-        if (t.checked === 'correct') t.queue.shift(); else requeue(t.current);
+        if (t.lesson && scheduled()) {
+            sm2(w, t.checked === 'correct' ? 2 : t.checked === 'letters' ? 1 : 0);
+            saveWords();
+        }
+        // В уроке «верно, но без æ ø å» засчитано и в расписание (интервал вдвое
+        // короче), поэтому и здесь это верный ответ, а не повтор.
+        const ok = t.checked === 'correct' || (t.lesson && t.checked === 'letters');
+        tally(ok, w);
+        playSound(ok ? 'correct' : 'wrong');
+        const item = t.current;
+        if (ok) t.queue.shift(); else requeue(item);
+        addFollowUp(item, ok);
         if (t.mode === 'cloze') {
             revealCloze();
             speak(w.example);
@@ -314,14 +336,17 @@ function choose(index) {
     fb.textContent = feedback;
     fb.className = `tr-feedback ${ok ? 'ok' : 'bad'}`;
 
-    if (t.mode === 'quiz' && !t.practice) {
+    if (t.mode === 'quiz' && scheduled()) {
         // «Угадай из 4» внутри основной тренировки двигает расписание, как карточки.
-        sm2(w, ok ? 2 : 0);
+        // В уроке — как лёгкое задание: вдвое меньше (sm2 easy).
+        sm2(w, ok ? 2 : 0, undefined, undefined, { easy: t.lesson && EASY_MODES.includes(t.mode) });
         saveWords();
     }
     tally(ok, w);
     playSound(ok ? 'correct' : 'wrong');
-    if (ok) t.queue.shift(); else requeue(w);
+    const item = t.current;
+    if (ok) t.queue.shift(); else requeue(item);
+    addFollowUp(item, ok);
     show('tr-next-btn', true);
     renderLinks(w);
     if (t.mode === 'listen') {
@@ -363,9 +388,23 @@ function checkOrder() {
     renderLinks(w);
 }
 
+// Закрепление в уроке: после верного основного ответа то же слово ещё раз,
+// но заданием потруднее — через пару заданий.
+function addFollowUp(item, ok) {
+    if (!t.lesson || !ok || !item?.primary || item.retry) return;
+    if (t.correct + t.wrong + t.queue.length >= LESSON_MAX) return;
+    const extra = followUp(item);
+    if (!extra) return;
+    const pos = Math.min(t.queue.length, 2 + Math.floor(Math.random() * 2));
+    t.queue.splice(pos, 0, extra);
+}
+
 function advance() {
     clearTimeout(t.autoNext);
-    if (t.active) next();
+    if (!t.active) return;
+    // Знакомство с новым словом ответа не ждёт: «Дальше» просто снимает его.
+    if (t.mode === 'intro' && t.queue[0] === t.current) t.queue.shift();
+    next();
 }
 
 export function undoLast() {
@@ -378,7 +417,7 @@ export function undoLast() {
 }
 
 function cycleMode() {
-    if (!CARD_MODES.includes(t.mode)) return;
+    if (!CARD_MODES.includes(t.mode) || t.lesson) return;
     t.mode = CARD_MODES[(CARD_MODES.indexOf(t.mode) + 1) % CARD_MODES.length];
     if (t.mode === 'write-no-ru' || t.mode === 'write-ru-no') {
         state.settings.spellingDir = t.mode === 'write-ru-no' ? 'ru-no' : 'no-ru';
@@ -407,6 +446,8 @@ export function handleTrainingKey(e) {
 
     const writing = WRITE_MODES.includes(t.mode) && !checksWithoutGrades();
     if ((e.code === 'Space' || e.key === 'Enter') && t.mode === 'cards') { flip(); return true; }
+    // Зажатый Enter не должен пролистать знакомства, не дав прочитать слово.
+    if ((e.code === 'Space' || e.key === 'Enter') && t.mode === 'intro') { if (!e.repeat) advance(); return true; }
     if (e.key === 'Enter' && CHOICE_MODES.includes(t.mode) && t.answered) { advance(); return true; }
     if (t.mode === 'order') {
         if (e.key === 'Enter' && t.checked !== null) { advance(); return true; }
@@ -463,6 +504,7 @@ function initSwipe() {
 }
 
 export const trainingActions = {
+    'start-lesson'() { startTraining({ source: 'lesson' }); },
     'start-training'() { startTraining({ mode: 'cards', source: 'due' }); },
     'start-write'() { startTraining({ mode: state.settings.spellingDir === 'ru-no' ? 'write-ru-no' : 'write-no-ru', source: 'practice' }); },
     'start-dictation'() { startTraining({ mode: 'dictation', source: 'practice' }); },

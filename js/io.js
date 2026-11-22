@@ -138,7 +138,8 @@ async function restore(file) {
 }
 
 export const ioActions = {
-    'open-import'() { openModal('import-modal'); },
+    // Из настроек: окно настроек стоит в разметке позже и закрывало бы импорт.
+    'open-import'() { closeModal('settings-modal'); openModal('import-modal'); },
     'import-text'() {
         const area = $('import-area');
         if (importText(area.value) > 0) {

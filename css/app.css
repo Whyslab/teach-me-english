@@ -181,9 +181,14 @@ main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 64px; }
 .pill b { color: var(--text); }
 .pill .ic { width: 16px; height: 16px; }
 .pill-flame .ic { color: #ff8a3d; }
-#start-training-btn { position: relative; }
-#start-training-btn.done { background: var(--green-dim); color: var(--green); box-shadow: none; }
+#lesson-btn { position: relative; }
+#lesson-btn.done { background: var(--green-dim); color: var(--green); box-shadow: none; }
+#start-training-btn.done { color: var(--green); }
 .marathon-link { align-self: center; }
+.more-main { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 4px 0 8px; }
+.more-note { font-size: .85rem; margin-bottom: 10px; }
+.intro-forms { margin-top: 6px; }
+.intro-example { margin-top: 14px; }
 
 .goal-ring {
     --goal-pct: 0%;

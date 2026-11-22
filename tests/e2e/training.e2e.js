@@ -1,7 +1,7 @@
 // Режимы тренировки в браузере.
 const test = require('node:test');
 const assert = require('node:assert');
-const { createServer, launch, openApp, importA1, waitSynced, goView, openAdd } = require('./helpers');
+const { createServer, launch, openApp, importA1, waitSynced, goView, openAdd, openImport } = require('./helpers');
 
 let server, browser;
 test.before(async () => { server = await createServer(); browser = await launch(); });
@@ -161,15 +161,74 @@ test('the help explains levels and opens from the settings', async () => {
     await context.close();
 });
 
-test('practice modes are shown, can be folded away, and the choice is remembered', async () => {
+test('separate modes are folded under «Другие режимы», can be opened, and the choice is remembered', async () => {
     const { page, context } = await openApp(browser, server, { practiceOpen: false });
-    assert.ok(await page.isVisible('[data-action="start-quiz"]'), 'open by default');
+    assert.ok(await page.isVisible('#lesson-btn'), 'one main button');
+    assert.equal(await page.isVisible('[data-action="start-quiz"]'), false, 'folded by default');
     await page.click('#practice-details summary');
-    assert.equal(await page.isVisible('[data-action="start-quiz"]'), false);
+    assert.ok(await page.isVisible('[data-action="start-quiz"]'));
+    assert.ok(await page.isVisible('#start-training-btn'), 'cards live under «Другие режимы»');
     await page.reload();
     await page.waitForTimeout(500);
-    assert.equal(await page.isVisible('[data-action="start-quiz"]'), false, 'stays folded after a reload');
+    assert.ok(await page.isVisible('[data-action="start-quiz"]'), 'stays open after a reload');
+    await page.click('#practice-details summary');
     await context.close();
+});
+
+test('a lesson: a new word is introduced, then asked; the answer moves the schedule as an easy one', async () => {
+    // Свой сервер с 6 новыми словами, чтобы урок начался со знакомства.
+    const own = await createServer();
+    const upserts = Array.from({ length: 6 }, (_, i) => ({
+        id: 9000 + i, original: ['hus', 'bil', 'katt', 'hund', 'bok', 'stol'][i], translate: ['дом', 'машина', 'кот', 'собака', 'книга', 'стул'][i],
+        level: 0, nextReview: 0, tags: [], history: [], addedAt: i + 1,
+    }));
+    const res = await fetch(`${own.url}/api/words/batch`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ upserts }),
+    });
+    assert.ok(res.ok, `seed: ${res.status}`);
+    const { page, context, errors } = await openApp(browser, own, { practiceOpen: false });
+    try {
+    await page.waitForFunction(() => /Продолжить/.test(document.getElementById('lesson-btn')?.textContent));
+    await page.click('#lesson-btn');
+    assert.match(await page.textContent('#tr-prompt'), /дом|машина|кот|собака|книга|стул/, 'the translation is shown right away');
+    assert.match(await page.textContent('#tr-mode'), /Новое слово/);
+    assert.ok(await page.isDisabled('#tr-mode'), 'no mode switching inside a lesson');
+    const first = await page.textContent('#tr-prompt .prompt-main');
+    await page.keyboard.press('Enter');
+
+    // До задания на это слово отвечаем на всё, что встретится (только выбор и знакомства).
+    for (let i = 0; i < 12; i++) {
+        const mode = await page.textContent('#tr-mode');
+        if (/Угадай/.test(mode) && (await page.textContent('#tr-prompt .prompt-main')) === first) break;
+        if (/Угадай/.test(mode)) { await page.keyboard.press('1'); await page.waitForTimeout(200); await page.keyboard.press('Enter'); }
+        else await page.keyboard.press('Enter');
+        await page.waitForTimeout(150);
+    }
+    assert.equal(await page.textContent('#tr-prompt .prompt-main'), first, 'the introduced word is asked');
+    const right = await page.evaluate((w) => {
+        const word = JSON.parse(localStorage.getItem('myWords')).find(x => x.original === w);
+        return [...document.querySelectorAll('#tr-options .quiz-option')].findIndex(b => b.textContent.includes(word.translate));
+    }, first);
+    await page.keyboard.press(String(right + 1));
+    await page.waitForTimeout(300);
+    const w = await page.evaluate((o) => JSON.parse(localStorage.getItem('myWords')).find(x => x.original === o), first);
+    assert.equal(w.history.at(-1).e, 1, 'an easy answer in the history');
+    assert.equal(w.sm2EF, 2.5, 'EF untouched');
+    assert.ok(w.nextReview > Date.now() + 60 * 60 * 1000, 'scheduled for later');
+
+    await page.keyboard.press('Escape');
+    assert.ok(await page.isVisible('#results-modal.open'));
+    assert.ok(await page.isVisible('#results-more'), '«Ещё урок» while words wait');
+    await page.waitForTimeout(700);
+    await page.keyboard.press('Enter');
+    assert.ok(await page.isVisible('#training-section'), 'Enter starts the next lesson');
+    await page.keyboard.press('Escape');
+    await closeResults(page);
+    assert.deepStrictEqual(errors, []);
+    } finally {
+        await context.close();
+        await own.cleanup();
+    }
 });
 
 test('listening: a sentence plays, the translation is chosen, then the sentence is shown', async () => {
@@ -298,7 +357,7 @@ test('a screenshot becomes a checklist; words already in the deck are not added 
         { original: 'hus', translate: 'дом', pos: 'noun', gender: 'n', forms: {}, example: '', exampleTranslate: '', definition: '' },
     ] } }));
     // «hus» уже есть: колода A1 загружена первым тестом.
-    await page.click('[data-action="open-import"]');
+    await openImport(page);
     await page.setInputFiles('#shot-upload', require('node:path').join(__dirname, '..', 'fixtures', 'lingu-sample.png'));
     await page.waitForSelector('#shot-list .shot-row');
     assert.equal(await page.locator('.shot-row').count(), 3);

@@ -1,6 +1,7 @@
 // Карточка: обычные карточки, письмо в обе стороны и диктант.
 import { state } from './store.js';
 import { displayWord, formsLine, lookupUrls } from './norsk.js';
+import { escapeHtml } from './util.js';
 import { $ } from './ui.js';
 import { t } from './session.js';
 
@@ -50,6 +51,18 @@ export function renderCard(w) {
         t.mode === 'cards' ? (window.matchMedia?.('(hover: none)').matches ? 'нажми, чтобы перевернуть · свайп ← →' : 'нажми или пробел — перевернуть')
         : t.mode === 'dictation' ? 'слушай и пиши по-норвежски · Tab — ещё раз'
         : '';
+}
+
+// Знакомство с новым словом в уроке: всё сразу — слово, перевод, формы,
+// пример. Ничего не спрашивает, дальше по Enter.
+export function renderIntro(w) {
+    const forms = formsLine(w);
+    $('tr-prompt').innerHTML = `
+        <div class="prompt-main" lang="nb">${escapeHtml(displayWord(w))}</div>
+        <div class="prompt-sub">${escapeHtml(w.translate)}</div>
+        ${forms ? `<div class="prompt-label intro-forms" lang="nb">${escapeHtml(forms)}</div>` : ''}
+        ${w.example ? `<div class="prompt-sentence intro-example" lang="nb">${escapeHtml(w.example)}</div>` : ''}
+        ${w.exampleTranslate ? `<div class="prompt-sub">${escapeHtml(w.exampleTranslate)}</div>` : ''}`;
 }
 
 // Ссылки под карточкой. До ответа они выдали бы слово, поэтому прячутся:

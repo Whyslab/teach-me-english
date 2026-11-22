@@ -102,9 +102,8 @@
                     <span class="pill" id="hero-due"></span>
                     <span class="pill" id="hero-new"></span>
                 </div>
-                <button id="start-training-btn" class="btn btn-primary btn-xl" data-action="start-training">Начать тренировку</button>
+                <button id="lesson-btn" class="btn btn-primary btn-xl" data-action="start-lesson" title="Урок на 3–5 минут: задания выбираются сами (Enter)">Продолжить</button>
                 <div id="start-hint" class="hint"></div>
-                <button class="link-btn marathon-link" data-action="start-marathon" title="Основная тренировка без дневного лимита новых слов — двигает расписание"><svg class="ic"><use href="#i-run"/></svg>Марафон — без лимита новых слов</button>
             </div>
 
             <div class="add-card card-surface">
@@ -122,15 +121,19 @@
                         <span><b>Со скриншота</b><small>Lingu, учебник, любой экран со словами</small></span>
                     </label>
                 </div>
-                <button class="link-btn" data-action="open-import">Колоды A1 / A2 и импорт списком</button>
             </div>
         </div>
 
-        <details id="practice-details" class="practice-box card-surface" open>
+        <details id="practice-details" class="practice-box card-surface">
             <summary>
-                <span><h2>Практика</h2><span class="muted">доступна всегда, расписание не меняет</span></span>
+                <span><h2>Другие режимы</h2><span class="muted">выбрать самому</span></span>
                 <svg class="ic chev"><use href="#i-chevron"/></svg>
             </summary>
+            <div class="more-main">
+                <button id="start-training-btn" class="btn btn-ghost" data-action="start-training" title="Только карточки, по расписанию">Карточки</button>
+                <button class="link-btn marathon-link" data-action="start-marathon" title="Карточки без дневного лимита новых слов — двигают расписание"><svg class="ic"><use href="#i-run"/></svg>Марафон — без лимита новых слов</button>
+            </div>
+            <div class="muted more-note">Режимы ниже — практика: доступны всегда, расписание не меняют.</div>
             <div class="mode-grid">
                 <button class="mode-tile" data-action="start-write" title="Направление переключается кнопкой режима внутри тренировки"><span class="mode-ic c1"><svg class="ic"><use href="#i-pencil"/></svg></span><b>Письмо</b><small>RU ↔ NO</small></button>
                 <button class="mode-tile" data-action="start-dictation" title="Слово звучит — пишешь его по-норвежски"><span class="mode-ic c2"><svg class="ic"><use href="#i-headphones"/></svg></span><b>Диктант</b><small>слушай и пиши</small></button>
@@ -522,9 +525,9 @@
 
         <h4>Основная тренировка и практика</h4>
         <ul>
-            <li><b>«Начать тренировку»</b> — только слова, которые пора повторять, плюс новые в пределах дневного лимита (Настройки). <b>Только она двигает расписание.</b></li>
-            <li><b>Марафон</b> — то же, но без лимита новых слов.</li>
-            <li><b>Практика</b> (письмо, диктант, «угадай», род, формы, пропуски, на слух, собери предложение, трудные) — доступна всегда, 20 слов: сначала те, что пора повторять, потом самые трудные. Расписание не меняет — можно тренироваться сколько угодно.</li>
+            <li><b>«Продолжить»</b> — урок на 3–5 минут из слов, которые пора повторять, и новых в пределах дневного лимита (Настройки). Задание для каждого слова выбирается само: новое слово — знакомство и «выбери из 4», уверенное — письмо и диктант. После верного ответа то же слово приходит ещё раз заданием потруднее (род, формы, пропуск, собери предложение). Расписание двигает первое задание слова; «выбери из 4» — вдвое меньше, чем «помню»: угадать проще, чем вспомнить. После урока — «Ещё урок» (Enter).</li>
+            <li><b>Другие режимы → Карточки</b> — те же слова, только карточками. Тоже двигают расписание. <b>Марафон</b> — карточки без лимита новых слов.</li>
+            <li><b>Другие режимы → остальные</b> (письмо, диктант, «угадай», род, формы, пропуски, на слух, собери предложение, трудные) — доступны всегда, 20 слов: сначала те, что пора повторять, потом самые трудные. Расписание не меняют — можно тренироваться сколько угодно.</li>
         </ul>
         <p>Лимит новых слов нужен, чтобы через неделю не случился завал: каждое новое слово в ближайшие дни вернётся ещё несколько раз.</p>
 
@@ -543,11 +546,12 @@
 <div id="results-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Итоги">
     <div class="modal-inner sheet">
         <div id="results-emoji">🎉</div>
-        <div class="modal-title center">Итоги тренировки</div>
+        <div class="modal-title center" id="results-title">Итоги тренировки</div>
         <div class="results-grid" id="results-grid"></div>
         <div id="results-note" class="modal-note" hidden></div>
         <div id="results-hardest" hidden></div>
-        <button class="btn btn-primary btn-lg wide" data-action="close-results">Готово</button>
+        <button id="results-more" class="btn btn-primary btn-lg wide" data-action="next-lesson" hidden>Ещё урок</button>
+        <button id="results-done" class="btn btn-primary btn-lg wide" data-action="close-results">Готово</button>
     </div>
 </div>
 

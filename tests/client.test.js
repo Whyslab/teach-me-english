@@ -576,3 +576,119 @@ test('refreshFromServer keeps local changes made while the request was in flight
     delete globalThis.fetch;
     delete globalThis.localStorage;
 });
+
+// ---------------------------------------------------------------------------
+// Урок: лёгкие задания в SM-2 и сборка урока (lesson.js)
+// ---------------------------------------------------------------------------
+const fresh = (id, extra = {}) => ({ id, original: `ord${id}`, translate: `слово${id}`, level: 0, nextReview: 0,
+    sm2EF: 2.5, sm2Interval: 1, sm2Reps: 0, history: [], addedAt: id, ...extra });
+
+test('an easy answer moves the word half as far and keeps EF', async () => {
+    const { sm2 } = await load('srs.js');
+    const easy = fresh(1), normal = fresh(2);
+    sm2(easy, 2, 0, NO_FUZZ, { easy: true });
+    sm2(normal, 2, 0, NO_FUZZ);
+    assert.equal(easy.sm2EF, 2.5, 'EF is not touched');
+    assert.equal(easy.history[0].e, 1, 'marked as easy in the history');
+    sm2(easy, 2, DAY, NO_FUZZ, { easy: true });
+    sm2(normal, 2, DAY, NO_FUZZ);
+    assert.equal(normal.sm2Interval, 6);
+    assert.equal(easy.sm2Interval, 3, 'half of 6');
+    assert.equal(easy.sm2EF, 2.5);
+});
+
+test('a wrong easy answer is a plain "do not remember"', async () => {
+    const { sm2 } = await load('srs.js');
+    const a = fresh(1), b = fresh(2);
+    for (const w of [a, b]) { sm2(w, 2, 0, NO_FUZZ); sm2(w, 2, DAY, NO_FUZZ); }
+    sm2(a, 0, 8 * DAY, NO_FUZZ, { easy: true });
+    sm2(b, 0, 8 * DAY, NO_FUZZ);
+    const { history: ha, ...ra } = a; const { history: hb, ...rb } = b;
+    assert.deepStrictEqual({ ...ra, id: 0, original: '', translate: '', addedAt: 0 }, { ...rb, id: 0, original: '', translate: '', addedAt: 0 });
+    assert.equal(ha.at(-1).e, undefined);
+});
+
+test('replaying the history keeps easy answers easy', async () => {
+    const { sm2, replayHistory } = await load('srs.js');
+    const w = fresh(1);
+    sm2(w, 2, 0, NO_FUZZ, { easy: true });
+    sm2(w, 2, DAY, NO_FUZZ, { easy: true });
+    sm2(w, 2, 4 * DAY, NO_FUZZ);
+    const r = replayHistory(w);
+    assert.equal(r.sm2Interval, w.sm2Interval);
+    assert.equal(r.sm2EF, w.sm2EF);
+    assert.equal(r.nextReview, w.nextReview);
+});
+
+test('streak counts the correct answers at the end of the history', async () => {
+    const { streak } = await load('lesson.js');
+    assert.equal(streak(fresh(1)), 0);
+    assert.equal(streak(fresh(1, { history: [{ q: 2 }, { q: 0 }, { q: 2 }, { q: 1 }] })), 2);
+    assert.equal(streak(fresh(1, { history: [{ q: 2 }, { q: 0 }] })), 0);
+});
+
+test('the task gets harder as the streak grows', async () => {
+    const { primaryMode } = await load('lesson.js');
+    const h = (n) => fresh(1, { sm2Reps: n, history: Array.from({ length: n }, () => ({ q: 2 })) });
+    assert.equal(primaryMode(fresh(1)), 'quiz');
+    assert.equal(primaryMode(h(1)), 'quiz');
+    assert.equal(primaryMode(fresh(1), { quizOk: false }), 'cards', 'without 4 translations — a card');
+    for (let i = 0; i < 10; i++) {
+        assert.ok(['cards', 'write-no-ru'].includes(primaryMode(h(2))));
+        assert.ok(['write-ru-no', 'dictation'].includes(primaryMode(h(3))));
+    }
+});
+
+test('a lesson introduces a new word and asks it one task later', async () => {
+    const { buildLesson } = await load('lesson.js');
+    const studied = (id) => fresh(id, { sm2Reps: 2, history: [{ q: 2 }, { q: 2 }] });
+    const all = [studied(1), studied(2), studied(3), fresh(4), fresh(5)];
+    const { items, words } = buildLesson(all, all);
+    assert.equal(words, 5);
+    for (const id of [4, 5]) {
+        const intro = items.findIndex(x => x.mode === 'intro' && x.word.id === id);
+        const ask = items.findIndex(x => x.primary && x.word.id === id);
+        assert.ok(intro >= 0 && ask > intro, `word ${id}: intro before the task`);
+        assert.equal(items[ask].mode, 'quiz');
+    }
+    assert.equal(items.filter(x => x.primary).length, 5, 'one scheduled task per word');
+    assert.ok(!items.some(x => x.mode === 'intro' && x.primary), 'an intro never moves the schedule');
+});
+
+test('a lesson stays within its budget and never starts empty', async () => {
+    const { buildLesson, LESSON_BUDGET } = await load('lesson.js');
+    const many = Array.from({ length: 40 }, (_, i) => fresh(i + 1));
+    const { items, words } = buildLesson(many, many);
+    assert.equal(words, LESSON_BUDGET / 2, 'a new word costs two');
+    assert.equal(items.length, LESSON_BUDGET);
+    assert.equal(buildLesson([], many).items.length, 0);
+    assert.equal(buildLesson(many.slice(0, 1), many, { budget: 1 }).words, 1, 'at least one word even over budget');
+});
+
+test('a lesson avoids the same task twice in a row when it can', async () => {
+    const { spreadModes } = await load('lesson.js');
+    const w = (id) => fresh(id);
+    const items = [
+        { mode: 'quiz', word: w(1), primary: true }, { mode: 'quiz', word: w(2), primary: true },
+        { mode: 'cards', word: w(3), primary: true }, { mode: 'quiz', word: w(4), primary: true },
+        { mode: 'cards', word: w(5), primary: true },
+    ];
+    const out = spreadModes(items);
+    for (let i = 1; i < out.length; i++) assert.notEqual(out[i].mode, out[i - 1].mode, out.map(x => x.mode).join());
+    assert.equal(out.length, items.length);
+});
+
+test('after a correct answer the follow-up is harder; a wrong one gets an easier retry', async () => {
+    const { followUp, retryItem } = await load('lesson.js');
+    const bare = fresh(1);
+    assert.equal(followUp({ mode: 'quiz', word: bare, primary: true }).mode, 'write-no-ru');
+    assert.equal(followUp({ mode: 'cards', word: bare, primary: true }).mode, 'write-ru-no');
+    assert.equal(followUp({ mode: 'write-ru-no', word: bare, primary: true }), null, 'nothing harder without example or forms');
+    const noun = fresh(2, { original: 'hus', pos: 'noun', gender: 'n' });
+    assert.equal(followUp({ mode: 'dictation', word: noun, primary: true }).mode, 'gender');
+
+    const retry = retryItem({ mode: 'write-ru-no', word: bare, primary: true });
+    assert.deepStrictEqual([retry.mode, retry.primary, retry.retry], ['quiz', true, true]);
+    assert.equal(retryItem({ mode: 'write-ru-no', word: bare, primary: true }, { quizOk: false }).mode, 'write-ru-no');
+    assert.equal(retryItem({ mode: 'gender', word: noun }).primary, undefined, 'a follow-up stays practice');
+});

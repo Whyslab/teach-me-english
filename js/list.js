@@ -258,18 +258,23 @@ export function sessionPreview() {
 
 function renderStartButton() {
     const btn = $('start-training-btn');
-    if (!btn) return;
+    const lesson = $('lesson-btn');
+    if (!btn || !lesson) return;
     const { reviews, fresh, paused } = sessionPreview();
     const total = reviews.length + fresh.length;
     const waiting = state.words.filter(isNew).length;
     const title = $('hero-title');
     if (total > 0) {
-        btn.textContent = `Начать тренировку · ${total}`;
+        btn.textContent = `Карточки · ${total}`;
         btn.classList.remove('done');
+        lesson.textContent = `Продолжить · ${total}`;
+        lesson.classList.remove('done');
         if (title) title.textContent = reviews.length ? 'Пора повторить' : 'Новые слова ждут';
     } else {
         btn.textContent = 'На сегодня всё';
         btn.classList.add('done');
+        lesson.textContent = 'На сегодня всё';
+        lesson.classList.add('done');
         if (title) title.textContent = state.words.length ? 'Всё повторено' : 'Добро пожаловать';
     }
     const due = $('hero-due');
@@ -284,7 +289,7 @@ function renderStartButton() {
         hint.textContent = !state.words.length ? 'Добавь слова — и начнём.'
             : paused && waiting ? `Новые на паузе: к повторению ${state.settings.pauseNewAt} и больше — сначала разбери долг.`
             : waiting > fresh.length ? `Ещё ${waiting - fresh.length} ${plural(waiting - fresh.length, ['новое слово ждёт', 'новых слова ждут', 'новых слов ждут'])} · лимит ${state.settings.newPerDay} в день, сегодня осталось ${newLeft}`
-            : total === 0 ? 'Новые слова откроются завтра. Практика ниже доступна всегда.' : '';
+            : total === 0 ? 'Новые слова откроются завтра. «Другие режимы» доступны всегда.' : '';
     }
 }
 

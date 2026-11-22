@@ -1,7 +1,7 @@
 // Синхронизация в настоящем браузере: изменения без сервера не теряются.
 const test = require('node:test');
 const assert = require('node:assert');
-const { createServer, launch, openApp, importA1, waitSynced, goView, openAdd } = require('./helpers');
+const { createServer, launch, openApp, importA1, waitSynced, goView, openAdd, openImport } = require('./helpers');
 
 let server, browser;
 test.before(async () => { server = await createServer(); browser = await launch(); });
@@ -111,7 +111,7 @@ test('re-importing A1 fills missing adjective forms, A2 adds new words', async (
         saveWords();
     });
     await waitSynced(page);
-    await page.click('[data-action="open-import"]');
+    await openImport(page);
     await page.click('#import-modal [data-action="import-a1"]');
     assert.match(await page.textContent('.confirm-box'), /дополнить/i);
     await page.click('.confirm-ok');
@@ -123,7 +123,7 @@ test('re-importing A1 fills missing adjective forms, A2 adds new words', async (
 
     const before = (await server.words()).length;
     await goView(page, 'today');
-    await page.click('[data-action="open-import"]');
+    await openImport(page);
     await page.click('#import-modal [data-action="import-a2"]');
     await page.click('.confirm-ok');
     await waitSynced(page);

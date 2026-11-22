@@ -300,6 +300,7 @@ const actions = {
         renderAll();
     },
     'close-results'() { closeModal('results-modal'); },
+    'next-lesson'() { closeModal('results-modal'); actions['start-lesson'](); },
     'install-pwa'() { installPwa(); },
     'hide-install'() { $('pwa-install-banner').hidden = true; },
     'reload'() { location.reload(); },
@@ -326,6 +327,15 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         const m = topModal();
         if (m) { m.classList.remove('open'); return; }
+    }
+    // В итогах Enter — «Ещё урок», если он есть, иначе «Готово»: на компьютере
+    // урок за уроком идут с клавиатуры. Повтор зажатого Enter не считается.
+    if (e.key === 'Enter' && !e.repeat && topModal()?.id === 'results-modal') {
+        e.preventDefault();
+        // Двойной Enter на последнем задании не должен проскочить итоги.
+        if (Date.now() - Number($('results-modal').dataset.openedAt || 0) < 600) return;
+        actions[$('results-more').hidden ? 'close-results' : 'next-lesson']();
+        return;
     }
     if (topModal()) return;
     if (isTraining() && handleTrainingKey(e)) e.preventDefault();
@@ -382,12 +392,14 @@ function initAddForm() {
     });
 }
 
-// Раскрыта ли «Практика» — помним на этом устройстве.
+// Раскрыты ли «Другие режимы» — помним на этом устройстве. По умолчанию свёрнуто:
+// главное — одна кнопка «Продолжить». Ключ новый (раньше practiceOpen,
+// раскрыто по умолчанию), чтобы старое «раскрыто» не перекрывало новый вид.
 function initPracticeToggle() {
     const box = $('practice-details');
-    try { box.open = localStorage.getItem('practiceOpen') !== '0'; } catch { /* приватный режим */ }
+    try { box.open = localStorage.getItem('moreOpen') === '1'; } catch { /* приватный режим */ }
     box.addEventListener('toggle', () => {
-        try { localStorage.setItem('practiceOpen', box.open ? '1' : '0'); } catch { /* ignore */ }
+        try { localStorage.setItem('moreOpen', box.open ? '1' : '0'); } catch { /* ignore */ }
     });
 }
 
@@ -428,7 +440,7 @@ async function init() {
 
     // Ярлык из манифеста: /?action=train
     const shortcut = new URLSearchParams(location.search).get('action');
-    if (shortcut === 'train') actions['start-training']();
+    if (shortcut === 'train') actions['start-lesson']();
     if (shortcut === 'add') openAdd();
 }
 

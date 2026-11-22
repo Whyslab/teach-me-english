@@ -93,8 +93,8 @@ async function launch() {
 // ушли в браузерный синтез речи.
 async function openApp(browser, server, { context, practiceOpen = true } = {}) {
     const ctx = context || await browser.newContext();
-    // Режимы практики спрятаны под «Практика ▾»; тестам они нужны под рукой.
-    if (practiceOpen) await ctx.addInitScript(() => localStorage.setItem('practiceOpen', '1'));
+    // Отдельные режимы спрятаны под «Другие режимы ▾»; тестам они нужны под рукой.
+    if (practiceOpen) await ctx.addInitScript(() => localStorage.setItem('moreOpen', '1'));
     await ctx.addInitScript(() => {
         window.__played = [];
         window.__browserSpeech = [];
@@ -130,9 +130,17 @@ async function openAdd(page) {
     await page.waitForSelector('#add-modal.open');
 }
 
-async function importA1(page) {
+// Колоды и импорт списком — в настройках (и в окне «Новое слово»), не на главной.
+async function openImport(page) {
     await goView(page, 'today');
-    await page.click('[data-action="open-import"]');
+    await page.click('[data-action="open-settings"] >> visible=true');
+    await page.click('#settings-modal [data-action="open-import"]');
+    await page.waitForSelector('#import-modal.open');
+}
+
+
+async function importA1(page) {
+    await openImport(page);
     await page.click('#import-modal [data-action="import-a1"]');
     await page.click('.confirm-ok');
     await page.waitForSelector('#import-modal:not(.open)', { state: 'hidden' });
@@ -146,4 +154,5 @@ async function waitSynced(page) {
     }, null, { timeout: 10000 });
 }
 
-module.exports = { createServer, launch, openApp, importA1, waitSynced, goView, openAdd, ROOT };
+module.exports = {
+    openImport, createServer, launch, openApp, importA1, waitSynced, goView, openAdd, ROOT };

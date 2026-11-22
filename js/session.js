@@ -3,6 +3,7 @@
 import { state, recordAnswer } from './store.js';
 import { toDayKey } from './util.js';
 import { $ } from './ui.js';
+import { retryItem } from './lesson.js';
 
 // Режимы одной карточной сессии — между ними переключает кнопка режима.
 // Оценка в них идёт по SM-2 и двигает расписание.
@@ -20,6 +21,7 @@ export const ITEM_MODES = [...DRILL_MODES, 'order'];
 export const EXERCISE_MODES = [...DRILL_MODES, 'gender', 'listen', 'order'];
 
 export const MODE_LABEL = {
+    'intro': 'Новое слово',
     'cards': 'Карточки',
     'write-no-ru': 'Письмо: NO → RU',
     'write-ru-no': 'Письмо: RU → NO',
@@ -35,6 +37,7 @@ export const SOURCE_LABEL = {
     due: '',
     marathon: 'Марафон — без лимита новых слов',
     practice: 'Практика — расписание не меняется',
+    lesson: '',
     hard: 'Трудные слова · практика',
 };
 
@@ -45,6 +48,9 @@ export const t = {
     // Практика: всё, кроме основной тренировки и марафона. Доступна всегда,
     // но SM-2 не трогает — иначе обходила бы дневной лимит и сбивала интервалы.
     practice: false,
+    // Урок: задания разных режимов вперемешку, элемент очереди — { mode, word, primary }.
+    lesson: false,
+    quizOk: true,     // в словаре хватает переводов для «выбери из 4»
     queue: [],        // слова (или вопросы для упражнений) в порядке показа
     current: null,
     flipped: false,
@@ -64,13 +70,20 @@ export const t = {
 // Ввод без оценки по SM-2: упражнения, а также письмо и диктант в практике.
 // После проверки — просто «Дальше», без кнопок «Не помню / Помню»,
 // которые в практике ничего бы не значили.
+// В уроке оценку тоже не выбирают: её даёт проверка, как в Duolingo.
 export function checksWithoutGrades() {
-    return DRILL_MODES.includes(t.mode) || (t.practice && WRITE_MODES.includes(t.mode));
+    return DRILL_MODES.includes(t.mode) || ((t.practice || t.lesson) && WRITE_MODES.includes(t.mode));
 }
 
-// В упражнениях с вопросами элемент очереди — { word, … }, в остальных — само слово.
+// Двигает ли текущий ответ расписание. В уроке — только основное задание слова.
+export function scheduled() {
+    return t.lesson ? Boolean(t.current?.primary) : !t.practice;
+}
+
+// В упражнениях с вопросами и в уроке элемент очереди — { word, … },
+// в остальных — само слово.
 export function word() {
-    return ITEM_MODES.includes(t.mode) ? t.current?.word : t.current;
+    return t.lesson || ITEM_MODES.includes(t.mode) ? t.current?.word : t.current;
 }
 
 export function show(id, visible) {
@@ -79,10 +92,19 @@ export function show(id, visible) {
 }
 
 // Возвращает элемент в очередь через несколько карточек, чтобы он успел «остыть».
+// В уроке возвращается задание полегче (retryItem), но не больше двух раз:
+// после третьей ошибки слово уходит из урока (по расписанию оно вернётся
+// через 10 минут — в следующий урок), иначе урок мог идти бесконечно.
+export const LESSON_RETRIES = 2;
 export function requeue(item) {
     t.queue.shift();
+    let again = item;
+    if (t.lesson) {
+        again = { ...retryItem(item, { quizOk: t.quizOk }), tries: (item.tries || 0) + 1 };
+        if (again.tries > LESSON_RETRIES) return;
+    }
     const pos = Math.min(t.queue.length, 3 + Math.floor(Math.random() * 3));
-    t.queue.splice(pos, 0, item);
+    t.queue.splice(pos, 0, again);
 }
 
 export function tally(correct, w) {

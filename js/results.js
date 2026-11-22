@@ -1,5 +1,6 @@
 // Окно «Итоги тренировки».
-import { state, streakDays, answersToday } from './store.js';
+import { state, streakDays, answersToday, introducedToday } from './store.js';
+import { selectSession } from './srs.js';
 import { escapeHtml, plural } from './util.js';
 import { displayWord } from './norsk.js';
 import { $, openModal } from './ui.js';
@@ -32,11 +33,23 @@ export function showResults() {
     const note = $('results-note');
     note.hidden = !t.practice;
     note.textContent = t.practice
-        ? 'Это была практика: расписание повторений не изменилось. Интервалы двигает только «Начать тренировку».'
+        ? 'Это была практика: расписание повторений не изменилось. Интервалы двигают «Продолжить» и «Карточки».'
         : '';
 
     const hardEl = $('results-hardest');
     hardEl.hidden = !hard;
     hardEl.innerHTML = hard ? `<div class="results-hard-title">Ошибки этой сессии</div>${hard}` : '';
+    // После урока — «Ещё урок», если есть что повторять: подходит и на 2 минуты, и на час.
+    const left = t.lesson ? selectSession(state.words, {
+        newLimit: state.settings.newPerDay,
+        introducedToday: introducedToday(),
+        pauseNewAt: state.settings.pauseNewAt,
+    }).queue.length : 0;
+    $('results-more').hidden = !left;
+    $('results-more').textContent = `Ещё урок · ${left}`;
+    $('results-done').classList.toggle('btn-primary', !left);
+    $('results-done').classList.toggle('btn-ghost', Boolean(left));
+    $('results-title').textContent = t.lesson ? 'Урок пройден' : 'Итоги тренировки';
+    $('results-modal').dataset.openedAt = String(Date.now());
     openModal('results-modal');
 }
